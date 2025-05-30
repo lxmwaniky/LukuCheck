@@ -18,8 +18,8 @@ interface LukuBadgeProps {
 }
 
 export function LukuBadge({ lukuPoints, className, size = 'default' }: LukuBadgeProps) {
-  if (lukuPoints === undefined || lukuPoints < 10) {
-    return null; // No badge below 10 points
+  if (lukuPoints === undefined || lukuPoints < 20) {
+    return null; // No badge below 20 points
   }
 
   let badgeColor = "text-yellow-600 dark:text-yellow-700";
@@ -45,7 +45,7 @@ export function LukuBadge({ lukuPoints, className, size = 'default' }: LukuBadge
     BadgeIcon = Star;
     title = "Luku Silver";
   }
-  // Default is Bronze (10-49 points)
+  // Default is Bronze (20-49 points)
 
   const tooltipText = `${title} (${lukuPoints} LukuPoints)`;
 

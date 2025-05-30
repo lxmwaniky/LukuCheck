@@ -62,12 +62,12 @@ export default function HomePage() {
 
       // Leaderboard Viewing Logic: Day D's LB: 3 PM on Day D - 2:55 PM on Day D+1
       let leaderboardDateToView: Date;
-      const endOfPrevDayViewingWindow = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM Today
+      const leaderboardViewingDeadlineToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM Today
 
-      if (isBefore(now, endOfPrevDayViewingWindow)) {
-        leaderboardDateToView = subDays(now, 1); // Consider yesterday's leaderboard
-      } else {
-        leaderboardDateToView = new Date(now); // Consider today's leaderboard
+      if (isBefore(now, leaderboardViewingDeadlineToday)) { // Before 2:55 PM today, we look at YESTERDAY's leaderboard.
+        leaderboardDateToView = subDays(now, 1);
+      } else { // At or after 2:55 PM today, we look at TODAY's leaderboard.
+        leaderboardDateToView = new Date(now);
       }
       
       if (isValid(leaderboardDateToView)) {
@@ -85,18 +85,21 @@ export default function HomePage() {
           setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} release in: ${formatTimeLeft(timeLeftToRelease)} (at 3 PM)`);
         } else if (isReleased && isStillViewable) { 
           const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForDateToView, now);
-          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)}`);
+          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)} (until 2:55 PM next day)`);
         } else { 
-          const nextReleaseDate = isAfter(now, releaseTimeForDateToView) ? addDays(leaderboardDateToView, 1) : leaderboardDateToView;
-          if (isValid(nextReleaseDate)){
-            const nextReleaseTime = set(nextReleaseDate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 });
-            const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
-            setLeaderboardStatusMessage(`Results for ${format(nextReleaseDate, "MMM d")} release in: ${formatTimeLeft(timeLeft)} (at 3 PM)`);
-            setCurrentViewableLeaderboardDate(nextReleaseDate); // Update to show countdown for the correct upcoming date
-             setIsLeaderboardReleasedForViewing(false);
-          } else {
-            setLeaderboardStatusMessage("Leaderboard status unavailable.");
-          }
+            // This means we are past the viewing window for leaderboardDateToView.
+            // We should be looking at the *next* day's leaderboard which isn't released yet.
+            const nextDay = addDays(now, isAfter(now, releaseTimeForDateToView) ? 1 : 0);
+            const nextReleaseTime = set(nextDay, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0});
+
+            if (isValid(nextDay)){
+                const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
+                setLeaderboardStatusMessage(`Results for ${format(nextDay, "MMM d")} release in: ${formatTimeLeft(timeLeft)} (at 3 PM)`);
+                setCurrentViewableLeaderboardDate(nextDay); // Update to show countdown for the correct upcoming date
+                setIsLeaderboardReleasedForViewing(false);
+            } else {
+                setLeaderboardStatusMessage("Leaderboard status unavailable.");
+            }
         }
       } else {
          setLeaderboardStatusMessage("Leaderboard date calculation error.");
@@ -127,24 +130,24 @@ export default function HomePage() {
     },
     {
       question: "How do I earn LukuPoints?",
-      answer: "You earn LukuPoints by: Signing up (5 pts), adding your TikTok (1 pt) or Instagram (1 pt) links (once each), completing your profile ('Profile Pro' badge + 5 pts), your first leaderboard submission ('First Submission' badge + 3 pts), daily leaderboard submissions for your LukuStreak (1 pt/day), hitting LukuStreak milestones (e.g., 3-day streak +2 bonus pts; 7-day streak +5 bonus pts), successfully referring 3 new stylists ('Referral Rockstar' badge + 10 bonus pts - each referral also gets you 2 pts), and for ranking in the Top 3 on the daily leaderboard (Rank 1: 5 pts, Rank 2: 3 pts, Rank 3: 2 pts - awarded on your next submission)."
+      answer: "You earn LukuPoints by: Signing up (5 pts), adding your TikTok (1 pt) or Instagram (1 pt) links (once each), completing your profile ('Profile Pro' badge + 5 pts), your first leaderboard submission ('First Submission' badge + 3 pts), daily leaderboard submissions for your LukuStreak (1 pt/day), hitting LukuStreak milestones (e.g., 3-day streak +2 bonus pts; 7-day streak +5 bonus pts), successfully referring 3 new stylists ('Referral Rockstar' badge + 10 bonus pts - each referral also gets you 2 pts), and for ranking in the Top 3 on the daily leaderboard (Rank 1: 5 pts, Rank 2: 3 pts, Rank 3: 2 pts - awarded on your next submission when perks are checked)."
     },
     {
       question: "What are Badges?",
       answer: (
         <div className="space-y-3">
-          <p>Badges are special achievements! You can earn them for:</p>
+          <p>Badges are special achievements for various milestones! You can earn:</p>
           <ul className="list-disc list-inside space-y-1.5 pl-2">
-            <li><strong>Profile Pro:</strong> Complete your profile with a custom photo and both social links. (<ProfileBadgeIcon className="inline h-4 w-4 text-accent" />)</li>
-            <li><strong>First Submission:</strong> Submit your first outfit to the leaderboard. (<Award className="inline h-4 w-4 text-accent" />)</li>
-            <li><strong>Referral Rockstar:</strong> Successfully refer 3 new stylists. (<GiftIcon className="inline h-4 w-4 text-accent" />)</li>
-            <li><strong>Streak Starter (3 Days):</strong> Submit outfits for 3 consecutive days. (<Flame className="inline h-4 w-4 text-red-500" />)</li>
-            <li><strong>Streak Keeper (7 Days):</strong> Submit outfits for 7 consecutive days. (<Flame className="inline h-4 w-4 text-orange-500" />)</li>
-            <li><strong>Top 3 Finisher:</strong> Achieve a Top 3 rank on the daily leaderboard. (<Trophy className="inline h-4 w-4 text-yellow-500" />)</li>
+            <li className="flex items-center gap-1.5"><ProfileBadgeIcon className="h-4 w-4 text-accent" /><strong>Profile Pro:</strong> Complete your profile with a custom photo and both social links.</li>
+            <li className="flex items-center gap-1.5"><Award className="inline h-4 w-4 text-accent" /><strong>First Submission:</strong> Submit your first outfit to the leaderboard.</li>
+            <li className="flex items-center gap-1.5"><GiftIcon className="inline h-4 w-4 text-accent" /><strong>Referral Rockstar:</strong> Successfully refer 3 new stylists.</li>
+            <li className="flex items-center gap-1.5"><Flame className="inline h-4 w-4 text-red-500" /><strong>Streak Starter (3 Days):</strong> Submit outfits for 3 consecutive days.</li>
+            <li className="flex items-center gap-1.5"><Flame className="inline h-4 w-4 text-orange-500" /><strong>Streak Keeper (7 Days):</strong> Submit outfits for 7 consecutive days.</li>
+            <li className="flex items-center gap-1.5"><Trophy className="inline h-4 w-4 text-yellow-500" /><strong>Top 3 Finisher:</strong> Achieve a Top 3 rank on the daily leaderboard.</li>
           </ul>
-          <p>Additionally, you'll earn tiered Luku Badges displayed next to your name as you accumulate LukuPoints, showcasing your status in the community:</p>
-          <ul className="list-none space-y-1 pl-2">
-            <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-yellow-600 fill-yellow-600" /> <strong>Luku Bronze:</strong> 10-49 LukuPoints</li>
+          <p className="mt-2">Additionally, you'll earn tiered Luku Badges displayed next to your name as you accumulate LukuPoints, showcasing your status (starting from 20 points):</p>
+          <ul className="list-none space-y-1.5 pl-2">
+            <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-yellow-600 fill-yellow-600" /> <strong>Luku Bronze:</strong> 20-49 LukuPoints</li>
             <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-slate-400 fill-slate-400" /> <strong>Luku Silver:</strong> 50-99 LukuPoints</li>
             <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-yellow-400 fill-yellow-400" /> <strong>Luku Gold:</strong> 100-249 LukuPoints</li>
             <li className="flex items-center gap-2"><Award className="h-4 w-4 text-sky-500 fill-sky-500" /> <strong>Luku Legend:</strong> 250+ LukuPoints</li>
@@ -154,7 +157,7 @@ export default function HomePage() {
     },
     {
       question: "How does LukuStreak work?",
-      answer: "Submit an outfit to the leaderboard for consecutive days to build your LukuStreak! You earn 1 LukuPoint for each day's submission in your streak, plus bonus points and badges at milestones like 3 and 7 days. If you miss a day, your streak resets."
+      answer: "Submit an outfit to the leaderboard for consecutive days to build your LukuStreak! You earn 1 LukuPoint for each day's submission in your streak, plus bonus points and badges at milestones like 3 and 7 days. If you miss a day, your streak resets to 0, but if you submit again, it will start from 1."
     },
     {
       question: "When can I submit to the leaderboard?",
@@ -174,8 +177,16 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
       <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-12 md:py-10">
-        <Shirt className="w-20 h-20 sm:w-24 sm:h-24 text-primary mb-6" />
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome to LukuCheck!</h1>
+        <Image
+            src="https://img.freepik.com/free-psd/fashion-store-banner-template-with-photo_23-2148645320.jpg"
+            alt="Fashionable outfit collage"
+            width={800}
+            height={400}
+            className="rounded-lg shadow-xl mb-8 object-cover w-full max-w-4xl aspect-[2/1]"
+            data-ai-hint="fashion collage lifestyle"
+            priority
+        />
+        <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome!</h1>
         <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl">
           Get your outfits rated by AI, receive style suggestions, earn LukuPoints & Badges, and compete on the daily leaderboard.
         </p>
@@ -286,5 +297,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-
