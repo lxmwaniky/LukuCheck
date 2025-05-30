@@ -24,7 +24,7 @@ interface ProcessedOutfitClient extends StyleSuggestionsOutput {
  submittedToLeaderboard?: boolean;
 }
 
-const AI_USAGE_DAILY_LIMIT = 3; 
+const AI_USAGE_DAILY_LIMIT = 5; 
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";

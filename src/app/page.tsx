@@ -65,11 +65,11 @@ export default function HomePage() {
 
       // Leaderboard Viewing Logic (Today's results: 3 PM today - 2 PM tomorrow)
       let dateWhoseLeaderboardIsRelevant: Date;
-      if (isBefore(now, set(now, { hours: 14, minutes:0, seconds:0, milliseconds:0 }))) {
-        // Before 2 PM today, we are interested in YESTERDAY's leaderboard
+      if (isBefore(now, set(now, { hours: 15, minutes:0, seconds:0, milliseconds:0 }))) {
+        // Before 3 PM today, we are interested in YESTERDAY's leaderboard
         dateWhoseLeaderboardIsRelevant = subDays(now, 1);
       } else {
-        // At or after 2 PM today, we are interested in TODAY's leaderboard
+        // At or after 3 PM today, we are interested in TODAY's leaderboard
         dateWhoseLeaderboardIsRelevant = new Date(now);
       }
       const relevantLeaderboardDateStr = toYYYYMMDD(dateWhoseLeaderboardIsRelevant);
@@ -122,7 +122,7 @@ export default function HomePage() {
   const faqs = [
     {
       question: "How often can I submit an outfit for AI rating?",
-      answer: "You can get AI feedback on your outfits up to 3 times per day, as per your daily AI usage limit."
+      answer: "You can get AI feedback on your outfits up to 5 times per day, as per your daily AI usage limit."
     },
     {
       question: "How do I earn LukuPoints?",
@@ -181,7 +181,7 @@ export default function HomePage() {
             </CardHeader>
             <CardContent className="space-y-4">
                <p className="text-sm text-muted-foreground px-2 text-center">
-                Submissions: Daily <strong>6 AM - 2 PM</strong>.
+                Submissions: Daily <strong>6 AM - 3 PM</strong>.
                 Leaderboard: Results released <strong>3 PM daily</strong> (viewable until <strong>2 PM next day</strong>).
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
