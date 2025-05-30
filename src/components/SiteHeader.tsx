@@ -13,6 +13,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle 
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useEffect, useState } from 'react';
 import { LukuBadge } from '@/components/LukuBadge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function SiteHeader() {
   const { user, userProfile, loading } = useAuth();
@@ -73,28 +74,37 @@ export function SiteHeader() {
                   Profile
                 </Button>
               </Link>
-              {/* {userProfile?.isAdmin && (
-                <Link href="/admin" legacyBehavior passHref>
-                  <Button variant="ghost" className="text-sm text-destructive hover:text-destructive hover:bg-destructive/10">
-                    <ShieldCheck className="mr-2 h-4 w-4" /> Admin
-                  </Button>
-                </Link>
-              )} */}
               {userProfile && userProfile.lukuPoints !== undefined && userProfile.lukuPoints >= 20 && (
                 <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />
               )}
-              {typeof userProfile?.lukuPoints === 'number' && (
-                <div className="flex items-center text-sm font-medium text-primary mr-1 ml-0 px-2 py-1 rounded-md bg-primary/10">
-                  <Coins className="h-4 w-4 mr-1 text-yellow-500" />
-                  {userProfile.lukuPoints}
-                </div>
-              )}
-              {typeof userProfile?.currentStreak === 'number' && userProfile.currentStreak > 0 && (
-                <div className="flex items-center text-sm font-medium text-destructive mr-2 px-2 py-1 rounded-md bg-destructive/10">
-                  <Flame className="h-4 w-4 mr-1" />
-                  {userProfile.currentStreak}
-                </div>
-              )}
+              <TooltipProvider delayDuration={100}>
+                {typeof userProfile?.lukuPoints === 'number' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center text-sm font-medium text-primary mr-1 ml-0 px-2 py-1 rounded-md bg-primary/10 cursor-default">
+                        <Coins className="h-4 w-4 mr-1 text-yellow-500" />
+                        {userProfile.lukuPoints}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Your LukuPoints: {userProfile.lukuPoints}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {typeof userProfile?.currentStreak === 'number' && userProfile.currentStreak > 0 && (
+                   <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center text-sm font-medium text-destructive mr-2 px-2 py-1 rounded-md bg-destructive/10 cursor-default">
+                        <Flame className="h-4 w-4 mr-1" />
+                        {userProfile.currentStreak}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Your LukuStreak: {userProfile.currentStreak} days!</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </TooltipProvider>
             </>
           )}
           <Button
@@ -154,18 +164,34 @@ export function SiteHeader() {
                       {userProfile && userProfile.lukuPoints !== undefined && userProfile.lukuPoints >= 20 &&(
                          <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />
                       )}
-                      {typeof userProfile?.lukuPoints === 'number' && (
-                        <div className="flex items-center text-base font-medium text-primary px-2 py-1.5 rounded-md bg-primary/10">
-                          <Coins className="h-5 w-5 mr-2 text-yellow-500" />
-                          {userProfile.lukuPoints}
-                        </div>
-                      )}
-                      {typeof userProfile?.currentStreak === 'number' && userProfile.currentStreak > 0 && (
-                        <div className="flex items-center text-base font-medium text-destructive px-2 py-1.5 rounded-md bg-destructive/10">
-                          <Flame className="h-5 w-5 mr-1" />
-                          {userProfile.currentStreak}
-                        </div>
-                      )}
+                      <TooltipProvider delayDuration={100}>
+                        {typeof userProfile?.lukuPoints === 'number' && (
+                           <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center text-base font-medium text-primary px-2 py-1.5 rounded-md bg-primary/10 cursor-default">
+                                <Coins className="h-5 w-5 mr-2 text-yellow-500" />
+                                {userProfile.lukuPoints}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Your LukuPoints: {userProfile.lukuPoints}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                        {typeof userProfile?.currentStreak === 'number' && userProfile.currentStreak > 0 && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center text-base font-medium text-destructive px-2 py-1.5 rounded-md bg-destructive/10 cursor-default">
+                                <Flame className="h-5 w-5 mr-1" />
+                                {userProfile.currentStreak}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Your LukuStreak: {userProfile.currentStreak} days!</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </TooltipProvider>
                     </div>
                     <SheetClose asChild>
                       <Link href="/upload" legacyBehavior passHref>
@@ -192,15 +218,6 @@ export function SiteHeader() {
                         </Button>
                       </Link>
                     </SheetClose>
-                    {/* {userProfile?.isAdmin && (
-                        <SheetClose asChild>
-                            <Link href="/admin" legacyBehavior passHref>
-                                <Button variant="ghost" className={`${navLinkClass} text-destructive hover:text-destructive hover:bg-destructive/10`}>
-                                    <ShieldCheck className="mr-2 h-5 w-5" /> Admin
-                                </Button>
-                            </Link>
-                        </SheetClose>
-                    )} */}
                   </>
                 )}
                 <div className="border-t pt-3 space-y-3">
