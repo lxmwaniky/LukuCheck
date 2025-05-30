@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { updateUserProfileInFirestore, deleteUserData, getUserProfileStats, type UserProfileStats } from '@/actions/userActions';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeIcon as ProfileBadgeIcon, Flame } from 'lucide-react'; // Renamed BadgeIcon to ProfileBadgeIcon
+import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeIcon as ProfileBadgeIcon, Flame, Award } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -109,10 +109,11 @@ interface BadgeDetails {
 
 const BADGE_DEFINITIONS: Record<string, BadgeDetails> = {
   PROFILE_PRO: { id: "PROFILE_PRO", name: "Profile Pro", description: "Completed profile with custom photo and social links.", icon: UserIcon },
-  FIRST_SUBMISSION: { id: "FIRST_SUBMISSION", name: "First Submission", description: "Submitted first outfit to the leaderboard.", icon: Trophy },
+  FIRST_SUBMISSION: { id: "FIRST_SUBMISSION", name: "First Submission", description: "Submitted first outfit to the leaderboard.", icon: Award }, // Changed icon
   REFERRAL_ROCKSTAR: { id: "REFERRAL_ROCKSTAR", name: "Referral Rockstar", description: "Successfully referred 3 new stylists!", icon: Gift },
   STREAK_STARTER_3: { id: "STREAK_STARTER_3", name: "Streak Starter (3 Days)", description: "Submitted outfits for 3 consecutive days.", icon: Flame },
   STREAK_KEEPER_7: { id: "STREAK_KEEPER_7", name: "Streak Keeper (7 Days)", description: "Submitted outfits for 7 consecutive days.", icon: Flame },
+  TOP_3_FINISHER: { id: "TOP_3_FINISHER", name: "Top 3 Finisher", description: "Achieved a Top 3 rank on the daily leaderboard!", icon: Trophy },
 };
 
 
@@ -255,11 +256,9 @@ export default function ProfilePage() {
     if (auth.currentUser?.providerData.some(provider => provider.providerId === 'password')) {
        setShowReauthDialog(true);
     } else {
-       // For non-password providers, proceed without re-auth if needed, or implement specific flow
-       // For simplicity now, still show a confirmation dialog.
        setShowReauthDialog(true); 
     }
-    setIsDeleting(true); // Ensure isDeleting is set here to manage button state
+    setIsDeleting(true); 
   };
 
 
@@ -286,26 +285,22 @@ export default function ProfilePage() {
             await reauthenticateWithCredential(auth.currentUser, credential);
             toast({ title: 'Re-authentication Successful', description: 'Proceeding with account deletion...' });
         } else {
-            // Non-password provider, just proceed after confirmation from dialog
              toast({ title: 'Confirmation Received', description: 'Proceeding with account deletion...' });
         }
 
-        // Call server action to delete all user data (Firestore, Storage)
         const dataDeletionResult = await deleteUserData(user.uid);
         if (!dataDeletionResult.success) {
-          // This error from the server action (e.g., Admin SDK not configured) should be shown
           throw new Error(dataDeletionResult.error || 'Server action failed to delete account data.');
         }
         
-        // Delete Firebase Auth user (client-side, after re-authentication)
         if (auth.currentUser) {
             await deleteFirebaseAuthUser(auth.currentUser);
         }
 
         toast({ title: 'Account Deleted', description: 'Your account and all associated data have been permanently deleted.' });
         
-        await signOut(auth); // Sign out from Firebase client auth
-        router.push('/signup'); // Redirect to signup or login page
+        await signOut(auth); 
+        router.push('/signup'); 
 
     } catch (error: any) {
       errorOccurred = true;
@@ -314,30 +309,26 @@ export default function ProfilePage() {
       let desc = error.message;
       if (error.code === 'auth/wrong-password') {
         desc = "Incorrect password for re-authentication. Please try again.";
-        setReauthPassword(''); // Clear password field for retry
+        setReauthPassword(''); 
       } else if (error.code === 'auth/too-many-requests') {
         desc = "Too many re-authentication attempts. Please try again later.";
-        setShowReauthDialog(false); // Close dialog on too many attempts
+        setShowReauthDialog(false); 
       } else if (error.code === 'auth/requires-recent-login') {
         desc = "This operation is sensitive and requires recent authentication. Please log out and log back in, then try again.";
-        setShowReauthDialog(false); // Close dialog
+        setShowReauthDialog(false); 
       } else {
-        // Generic message, could be from server action or other client error
         desc = `Account deletion failed: ${error.message || "Unknown error"}`;
       }
       toast({ title: 'Error Deleting Account', description: desc, variant: 'destructive' });
     } finally {
       setIsReauthenticating(false);
-      // Only close dialog and reset isDeleting if not a wrong password error (allowing retry)
       if (errorOccurred && !(caughtError?.code === 'auth/wrong-password')) {
          setShowReauthDialog(false);
          setIsDeleting(false);
       } else if (!errorOccurred) {
-         // If successful, dialog should close and isDeleting reset
          setShowReauthDialog(false);
          setIsDeleting(false);
       }
-      // If it was a wrong password error, dialog remains open, isDeleting remains true for button state
     }
   };
 
@@ -351,8 +342,6 @@ export default function ProfilePage() {
   }
   
   if (!user) {
-    // AppLayout should handle redirection. This is a fallback.
-    // useEffect(() => { router.replace('/login'); }, [router]); 
     return <div className="text-center p-4">Please log in to view your profile. Redirecting...</div>;
   }
 
@@ -603,7 +592,7 @@ export default function ProfilePage() {
               Refer a Stylist & Earn LukuPoints!
             </h3>
             <p className="text-sm text-muted-foreground">
-              Share your unique referral link with friends. For every friend who signs up and verifies their email, you'll earn <strong className="text-accent">2 LukuPoints!</strong> (Plus, they get 5 LukuPoints on signup!)
+              Share your unique referral link with friends. For every friend who signs up and verifies their email, you'll earn <strong className="text-accent">2 LukuPoints!</strong> If you refer 3 friends, you'll earn the "Referral Rockstar" badge and a bonus <strong className="text-accent">10 LukuPoints!</strong> (Plus, they get 5 LukuPoints on signup!)
             </p>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 border rounded-md bg-secondary/30">
               <Input
@@ -694,7 +683,6 @@ export default function ProfilePage() {
         <CardFooter />
       </Card>
 
-      {/* Image Cropping Dialog */}
       <Dialog open={showCropDialog} onOpenChange={(isOpen) => {
           setShowCropDialog(isOpen);
           if (!isOpen) {

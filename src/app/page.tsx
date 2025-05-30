@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, Badge as BadgeIcon, Award } from 'lucide-react'; // Added Award
+import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, Badge as ProfileBadgeIcon, Award } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { format, subDays, addDays, set, isBefore, isAfter, isToday, differenceInMilliseconds } from 'date-fns';
+import { format, subDays, addDays, set, isBefore, isAfter, isToday, differenceInMilliseconds, isValid } from 'date-fns';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import Image from 'next/image';
 
 
 const formatTimeLeft = (ms: number): string => {
@@ -35,15 +34,16 @@ export default function HomePage() {
   const [isLeaderboardReleasedForViewing, setIsLeaderboardReleasedForViewing] = useState(false);
   const [currentViewableLeaderboardDate, setCurrentViewableLeaderboardDate] = useState<Date | null>(null);
 
+
   useEffect(() => {
     setIsClient(true);
 
     const calculateTimes = () => {
       const now = new Date();
 
-      // Submission Window Logic (6 AM - 2:55 PM daily)
+      // Submission Window Logic: 6:00 AM to 2:55 PM daily
       const submissionOpenTimeToday = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
-      const submissionCloseTimeToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM
+      const submissionCloseTimeToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
 
       const currentIsSubmissionWindowOpen = isAfter(now, submissionOpenTimeToday) && isBefore(now, submissionCloseTimeToday);
       setIsSubmissionWindowOpen(currentIsSubmissionWindowOpen);
@@ -60,49 +60,48 @@ export default function HomePage() {
         setSubmissionStatusMessage(`Submissions closed. Opens tomorrow at 6 AM (in ${formatTimeLeft(timeLeft)})`);
       }
 
-      // Leaderboard Viewing Logic (Date D's LB: 3 PM on Date D - 2:55 PM on Date D+1)
-      let leaderboardDateToConsider: Date;
-      // If current time is before 2:55 PM today, we are in the viewing window for YESTERDAY's leaderboard.
-      // If current time is 2:55 PM or later today, we are in the viewing window for TODAY's leaderboard (once it's released at 3 PM).
+      // Leaderboard Viewing Logic: Day D's LB: 3 PM on Day D - 2:55 PM on Day D+1
+      let leaderboardDateToView: Date;
       const endOfPrevDayViewingWindow = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM Today
 
       if (isBefore(now, endOfPrevDayViewingWindow)) {
-        leaderboardDateToConsider = subDays(now, 1); // Consider yesterday's leaderboard
+        leaderboardDateToView = subDays(now, 1); // Consider yesterday's leaderboard
       } else {
-        leaderboardDateToConsider = new Date(now); // Consider today's leaderboard
+        leaderboardDateToView = new Date(now); // Consider today's leaderboard
       }
-      setCurrentViewableLeaderboardDate(leaderboardDateToConsider);
-
-      const releaseTimeForConsideredDate = set(leaderboardDateToConsider, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 }); // 3 PM on its date
-      const viewingEndTimeForConsideredDate = set(addDays(leaderboardDateToConsider, 1), { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM the day AFTER its date
-
-      const isReleased = isAfter(now, releaseTimeForConsideredDate);
-      const isStillViewable = isBefore(now, viewingEndTimeForConsideredDate);
       
-      setIsLeaderboardReleasedForViewing(isReleased && isStillViewable);
+      if (isValid(leaderboardDateToView)) {
+        setCurrentViewableLeaderboardDate(leaderboardDateToView);
+        const releaseTimeForDateToView = set(leaderboardDateToView, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 }); // 3 PM on its date
+        const viewingEndTimeForDateToView = set(addDays(leaderboardDateToView, 1), { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM the day AFTER
 
-      if (!isReleased) { // Before 3 PM on leaderboardDateToConsider
-        const timeLeftToRelease = differenceInMilliseconds(releaseTimeForConsideredDate, now);
-        setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToConsider, "MMM d")} release in: ${formatTimeLeft(timeLeftToRelease)} (at 3 PM)`);
-      } else if (isReleased && isStillViewable) { // Between 3 PM on its date and 2:55 PM the next day
-        const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForConsideredDate, now);
-        setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToConsider, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)}`);
-      } else { // After 2:55 PM on the day after leaderboardDateToConsider (meaning today's board should be considered next)
-        const nextReleaseDate = new Date(now); 
-        const nextReleaseTime = set(nextReleaseDate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 });
+        const isReleased = isAfter(now, releaseTimeForDateToView);
+        const isStillViewable = isBefore(now, viewingEndTimeForDateToView);
         
-        if (isAfter(now, nextReleaseTime)) { // If it's after 3pm today, today's is live
-             const todayViewingEndTime = set(addDays(now,1), { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
-             const timeLeft = differenceInMilliseconds(todayViewingEndTime, now);
-             setLeaderboardStatusMessage(`Results for ${format(now, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeft)}`);
-             setCurrentViewableLeaderboardDate(now);
-             setIsLeaderboardReleasedForViewing(true);
-        } else { // Before 3pm today, waiting for today's to release
-             const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
-             setLeaderboardStatusMessage(`Results for ${format(nextReleaseDate, "MMM d")} release in: ${formatTimeLeft(timeLeft)} (at 3 PM)`);
-             setCurrentViewableLeaderboardDate(nextReleaseDate);
+        setIsLeaderboardReleasedForViewing(isReleased && isStillViewable);
+
+        if (!isReleased) { 
+          const timeLeftToRelease = differenceInMilliseconds(releaseTimeForDateToView, now);
+          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} release in: ${formatTimeLeft(timeLeftToRelease)} (at 3 PM)`);
+        } else if (isReleased && isStillViewable) { 
+          const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForDateToView, now);
+          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)}`);
+        } else { 
+          const nextReleaseDate = isAfter(now, releaseTimeForDateToView) ? addDays(leaderboardDateToView, 1) : leaderboardDateToView;
+          if (isValid(nextReleaseDate)){
+            const nextReleaseTime = set(nextReleaseDate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 });
+            const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
+            setLeaderboardStatusMessage(`Results for ${format(nextReleaseDate, "MMM d")} release in: ${formatTimeLeft(timeLeft)} (at 3 PM)`);
+            setCurrentViewableLeaderboardDate(nextReleaseDate); // Update to show countdown for the correct upcoming date
              setIsLeaderboardReleasedForViewing(false);
+          } else {
+            setLeaderboardStatusMessage("Leaderboard status unavailable.");
+          }
         }
+      } else {
+         setLeaderboardStatusMessage("Leaderboard date calculation error.");
+         setCurrentViewableLeaderboardDate(null);
+         setIsLeaderboardReleasedForViewing(false);
       }
     };
 
@@ -128,13 +127,21 @@ export default function HomePage() {
     },
     {
       question: "How do I earn LukuPoints?",
-      answer: "You earn LukuPoints by: Signing up (5 points), adding your TikTok (1 pt) or Instagram (1 pt) links (once each), completing your profile with a custom photo and both social links ('Profile Pro' badge + 5 pts), your first leaderboard submission ('First Submission' badge + 3 pts), daily leaderboard submissions (1 pt for 'LukuStreak'), hitting LukuStreak milestones (e.g., 2 bonus pts for a 3-day streak, 5 bonus for a 7-day streak), and successfully referring 3 new stylists ('Referral Rockstar' badge + 10 pts). Each referral also earns you 2 LukuPoints."
+      answer: "You earn LukuPoints by: Signing up (5 pts), adding your TikTok (1 pt) or Instagram (1 pt) links (once each), completing your profile ('Profile Pro' badge + 5 pts), your first leaderboard submission ('First Submission' badge + 3 pts), daily leaderboard submissions for your LukuStreak (1 pt/day), hitting LukuStreak milestones (e.g., 3-day streak +2 bonus pts; 7-day streak +5 bonus pts), successfully referring 3 new stylists ('Referral Rockstar' badge + 10 bonus pts - each referral also gets you 2 pts), and for ranking in the Top 3 on the daily leaderboard (Rank 1: 5 pts, Rank 2: 3 pts, Rank 3: 2 pts - awarded on your next submission)."
     },
     {
       question: "What are Badges?",
       answer: (
-        <div className="space-y-2">
-          <p>Badges are special achievements! Earn them for: 'Profile Pro' (complete profile), 'First Submission', 'Referral Rockstar' (3 referrals), 'Streak Starter' (3-day streak), and 'Streak Keeper' (7-day streak).</p>
+        <div className="space-y-3">
+          <p>Badges are special achievements! You can earn them for:</p>
+          <ul className="list-disc list-inside space-y-1.5 pl-2">
+            <li><strong>Profile Pro:</strong> Complete your profile with a custom photo and both social links. (<ProfileBadgeIcon className="inline h-4 w-4 text-accent" />)</li>
+            <li><strong>First Submission:</strong> Submit your first outfit to the leaderboard. (<Award className="inline h-4 w-4 text-accent" />)</li>
+            <li><strong>Referral Rockstar:</strong> Successfully refer 3 new stylists. (<GiftIcon className="inline h-4 w-4 text-accent" />)</li>
+            <li><strong>Streak Starter (3 Days):</strong> Submit outfits for 3 consecutive days. (<Flame className="inline h-4 w-4 text-red-500" />)</li>
+            <li><strong>Streak Keeper (7 Days):</strong> Submit outfits for 7 consecutive days. (<Flame className="inline h-4 w-4 text-orange-500" />)</li>
+            <li><strong>Top 3 Finisher:</strong> Achieve a Top 3 rank on the daily leaderboard. (<Trophy className="inline h-4 w-4 text-yellow-500" />)</li>
+          </ul>
           <p>Additionally, you'll earn tiered Luku Badges displayed next to your name as you accumulate LukuPoints, showcasing your status in the community:</p>
           <ul className="list-none space-y-1 pl-2">
             <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-yellow-600 fill-yellow-600" /> <strong>Luku Bronze:</strong> 10-49 LukuPoints</li>
@@ -279,4 +286,5 @@ export default function HomePage() {
     </div>
   );
 }
+
 

@@ -23,9 +23,10 @@ export interface UserProfile {
   referralPointsAwarded?: boolean;
   tiktokPointsAwarded?: boolean; 
   instagramPointsAwarded?: boolean;
-  badges?: string[]; // e.g., ['PROFILE_PRO', 'FIRST_SUBMISSION']
+  badges?: string[]; 
   currentStreak?: number;
-  lastSubmissionDate?: string | null; // YYYY-MM-DD
+  lastSubmissionDate?: string | null; 
+  lastTop3BonusDate?: string | null; // Added to track Top 3 bonus
 }
 
 export interface AuthContextType {
@@ -83,6 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           badges: profileData.badges || [],
           currentStreak: profileData.currentStreak || 0,
           lastSubmissionDate: profileData.lastSubmissionDate || null,
+          lastTop3BonusDate: profileData.lastTop3BonusDate || null,
         };
         setUserProfile(loadedProfile);
 
@@ -93,11 +95,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           !referralProcessingAttempted 
         ) {
           setReferralProcessingAttempted(true); 
-          console.log('[AuthContext] Attempting to process referral for user:', firebaseUser.uid);
           try {
             const result = await processReferral(firebaseUser.uid);
             if (result.success) {
-              console.log('[AuthContext] Referral processed successfully for user:', firebaseUser.uid, 'Message:', result.message);
               // Optionally refresh profile here if points/badges for referrer are immediately needed client-side for referrer
             } else {
               console.error('[AuthContext] Failed to process referral:', result.error);
@@ -108,7 +108,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
       } else {
-        console.warn("User profile not found in Firestore for UID:", firebaseUser.uid);
         setUserProfile({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -122,6 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           badges: [],
           currentStreak: 0,
           lastSubmissionDate: null,
+          lastTop3BonusDate: null,
         });
       }
     } catch (error) {
@@ -192,6 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 badges: profileData.badges || [],
                 currentStreak: profileData.currentStreak || 0,
                 lastSubmissionDate: profileData.lastSubmissionDate || null,
+                lastTop3BonusDate: profileData.lastTop3BonusDate || null,
               };
               setUserProfile(updatedProfile);
 
@@ -202,10 +203,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 !referralProcessingAttempted
               ) {
                 setReferralProcessingAttempted(true);
-                console.log('[AuthContext Snapshot] Attempting to process referral for user:', currentFirebaseUser.uid);
                  processReferral(currentFirebaseUser.uid).then(result => {
                      if (result.success) {
-                        console.log('[AuthContext Snapshot] Referral processed successfully for user:', currentFirebaseUser.uid, 'Message:', result.message);
+                        // Referral processed
                      } else {
                         console.error('[AuthContext Snapshot] Failed to process referral:', result.error);
                      }
@@ -213,7 +213,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               }
 
             } else {
-               console.warn("User profile document no longer exists for UID:", currentFirebaseUser.uid);
                setUserProfile(null);
             }
             setLoading(false);
