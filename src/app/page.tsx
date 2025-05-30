@@ -155,7 +155,7 @@ export default function HomePage() {
       <SiteHeader />
       <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-12 md:py-10">
         <Shirt className="w-20 h-20 sm:w-24 sm:h-24 text-primary mb-6" />
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome to LukuCheck!</h1>
+        <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome</h1>
         <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl">
           Get your outfits rated by AI, receive style suggestions, earn LukuPoints & Badges, and compete on the daily leaderboard.
         </p>
