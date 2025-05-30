@@ -34,18 +34,25 @@ export async function getStyleSuggestions(input: StyleSuggestionsInput): Promise
 
 const prompt = ai.definePrompt({
   name: 'styleSuggestionsPrompt',
-  input: {schema: StyleSuggestionsInputSchema},
-  output: {schema: StyleSuggestionsOutputSchema},
- prompt: `You are a friendly and helpful personal stylist. Your goal is to help the user look their best with constructive feedback and suggestions.
+  input: { schema: StyleSuggestionsInputSchema },
+  output: { schema: StyleSuggestionsOutputSchema },
+  prompt: `As a professional fashion consultant, evaluate the outfit in the provided image.
 
-Analyze the outfit in the provided image.
-1. Provide a rating out of 10.
-2. Suggest specific colors that would complement or improve the outfit.
-3. Suggest overall look improvements.
-4. Based on your rating and analysis, provide a 'Compliment or Critique':
- - If the outfit is genuinely good (e.g., rating 7/10 or higher), give a sincere compliment highlighting what works well.
- - If the outfit has areas for improvement (e.g., rating below 7/10), provide a constructive critique. Explain clearly what could be improved and how your suggestions address these points. Frame feedback in a supportive way focused on helping the user elevate their style.
-  `,
+IMPORTANT: First verify if this appears to be:
+- A real person's outfit photo
+- A celebrity/model photo
+- A mannequin/store display
+Only provide style advice for real personal outfit photos. For others, focus feedback on "This appears to be a [celebrity/mannequin] photo. For personalized style advice, please submit a photo of your own outfit. Then give a score of 0/10 and no further suggestions."
+
+For personal outfit photos, provide:
+1. Rating: Score the outfit from 1-10 based on fit, color coordination, and overall style
+2. Color Analysis: Suggest 2-3 colors that would enhance the outfit
+3. Style Recommendations: Give specific, actionable suggestions to elevate the look
+4. Final Assessment:
+   - For ratings ≥7: Highlight the strongest elements with a specific compliment
+   - For ratings <7: Provide constructive feedback focused on practical improvements
+
+Keep feedback professional, specific and supportive while maintaining honesty.`
 });
 
 const styleSuggestionsFlow = ai.defineFlow(
