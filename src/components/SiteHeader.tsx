@@ -1,7 +1,7 @@
 
 'use client';
 import Link from 'next/link';
-import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame } from 'lucide-react';
+import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/config/firebase';
@@ -73,7 +73,16 @@ export function SiteHeader() {
                   Profile
                 </Button>
               </Link>
-              {userProfile && <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />}
+              {/* {userProfile?.isAdmin && (
+                <Link href="/admin" legacyBehavior passHref>
+                  <Button variant="ghost" className="text-sm text-destructive hover:text-destructive hover:bg-destructive/10">
+                    <ShieldCheck className="mr-2 h-4 w-4" /> Admin
+                  </Button>
+                </Link>
+              )} */}
+              {userProfile && userProfile.lukuPoints !== undefined && userProfile.lukuPoints >= 20 && (
+                <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />
+              )}
               {typeof userProfile?.lukuPoints === 'number' && (
                 <div className="flex items-center text-sm font-medium text-primary mr-1 ml-0 px-2 py-1 rounded-md bg-primary/10">
                   <Coins className="h-4 w-4 mr-1 text-yellow-500" />
@@ -122,8 +131,7 @@ export function SiteHeader() {
             aria-label="Toggle theme"
             className="mr-1"
           >
-            {mounted && (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />)}
-            {!mounted && <Moon className="h-5 w-5" /> }
+            {mounted ? (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />) : <Moon className="h-5 w-5" />}
             <span className="sr-only">Toggle Theme</span>
           </Button>
           <Sheet>
@@ -143,7 +151,9 @@ export function SiteHeader() {
                 {user && user.emailVerified && (
                   <>
                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
-                      {userProfile && <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />}
+                      {userProfile && userProfile.lukuPoints !== undefined && userProfile.lukuPoints >= 20 &&(
+                         <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />
+                      )}
                       {typeof userProfile?.lukuPoints === 'number' && (
                         <div className="flex items-center text-base font-medium text-primary px-2 py-1.5 rounded-md bg-primary/10">
                           <Coins className="h-5 w-5 mr-2 text-yellow-500" />
@@ -182,10 +192,19 @@ export function SiteHeader() {
                         </Button>
                       </Link>
                     </SheetClose>
+                    {/* {userProfile?.isAdmin && (
+                        <SheetClose asChild>
+                            <Link href="/admin" legacyBehavior passHref>
+                                <Button variant="ghost" className={`${navLinkClass} text-destructive hover:text-destructive hover:bg-destructive/10`}>
+                                    <ShieldCheck className="mr-2 h-5 w-5" /> Admin
+                                </Button>
+                            </Link>
+                        </SheetClose>
+                    )} */}
                   </>
                 )}
                 <div className="border-t pt-3 space-y-3">
-                 <SheetClose asChild>
+                  <SheetClose asChild>
                     <a href={paypalDonationUrl} target="_blank" rel="noopener noreferrer" className="w-full">
                       <Button variant="outline" className={navLinkClass}>
                         <Coffee className="mr-2 h-5 w-5 text-destructive" /> Donate

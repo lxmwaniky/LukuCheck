@@ -26,7 +26,8 @@ export interface UserProfile {
   badges?: string[]; 
   currentStreak?: number;
   lastSubmissionDate?: string | null; 
-  lastTop3BonusDate?: string | null; // Added to track Top 3 bonus
+  lastTop3BonusDate?: string | null;
+  // isAdmin?: boolean; // Removed isAdmin flag
 }
 
 export interface AuthContextType {
@@ -85,6 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           currentStreak: profileData.currentStreak || 0,
           lastSubmissionDate: profileData.lastSubmissionDate || null,
           lastTop3BonusDate: profileData.lastTop3BonusDate || null,
+          // isAdmin: profileData.isAdmin || false, // Removed isAdmin flag
         };
         setUserProfile(loadedProfile);
 
@@ -108,6 +110,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
       } else {
+        // This case should ideally not happen if createUserProfileInFirestore runs successfully on signup
         setUserProfile({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -122,6 +125,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           currentStreak: 0,
           lastSubmissionDate: null,
           lastTop3BonusDate: null,
+          // isAdmin: false, // Default to false if no profile doc
         });
       }
     } catch (error) {
@@ -168,8 +172,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (currentFirebaseUser) {
           const userRef = doc(db, 'users', currentFirebaseUser.uid);
+          // Initial fetch
           await fetchAndSetUserProfile(currentFirebaseUser); 
           
+          // Set up listener for real-time updates
           profileListenerUnsubscribe = onSnapshot(userRef, (snapshot) => {
             if (snapshot.exists()) {
               const profileData = snapshot.data();
@@ -193,6 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 currentStreak: profileData.currentStreak || 0,
                 lastSubmissionDate: profileData.lastSubmissionDate || null,
                 lastTop3BonusDate: profileData.lastTop3BonusDate || null,
+                // isAdmin: profileData.isAdmin || false, // Removed isAdmin
               };
               setUserProfile(updatedProfile);
 
@@ -200,9 +207,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 currentFirebaseUser.emailVerified &&
                 updatedProfile.referredBy &&
                 !updatedProfile.referralPointsAwarded &&
-                !referralProcessingAttempted
+                !referralProcessingAttempted // Check local state to prevent multiple calls
               ) {
-                setReferralProcessingAttempted(true);
+                setReferralProcessingAttempted(true); // Set flag immediately
                  processReferral(currentFirebaseUser.uid).then(result => {
                      if (result.success) {
                         // Referral processed
@@ -213,6 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               }
 
             } else {
+               // This might happen if the user document is deleted.
                setUserProfile(null);
             }
             setLoading(false);
@@ -222,10 +230,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setLoading(false);
           });
         } else {
+           // No current Firebase user
            setUserProfile(null);
            setLoading(false);
         }
       } else {
+        // User logged out
         setUser(null);
         setUserProfile(null);
         setReferralProcessingAttempted(false);
@@ -239,7 +249,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         profileListenerUnsubscribe();
       }
     };
-  }, []); 
+  }, []); // Empty dependency array ensures this runs once on mount
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading, refreshUserProfile }}>
@@ -249,5 +259,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-
-    
