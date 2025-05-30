@@ -51,6 +51,7 @@ export interface LeaderboardEntry {
   lookSuggestions?: string;
   tiktokUrl?: string | null;
   instagramUrl?: string | null;
+  lukuPoints: number; // Changed from optional to required number
 }
 
 
@@ -67,14 +68,26 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
       where('leaderboardDate', '==', leaderboardDate),
       orderBy('rating', 'desc'),
       orderBy('submittedAt', 'asc')
-      // No limit here, pagination handled client-side for now
+      // No limit here, pagination handled client-side
     );
 
     const querySnapshot = await getDocs(outfitsQuery);
     
     const userProfilePromises = querySnapshot.docs.map(async (outfitDoc) => {
       const outfitData = outfitDoc.data();
-      let userData: any = { username: outfitData.username, photoURL: outfitData.userPhotoURL, tiktokUrl: null, instagramUrl: null }; // Default to outfit data
+      let userData: { 
+        username: string | null; 
+        photoURL: string | null; 
+        tiktokUrl: string | null; 
+        instagramUrl: string | null;
+        lukuPoints: number;
+      } = { 
+        username: outfitData.username, 
+        photoURL: outfitData.userPhotoURL, 
+        tiktokUrl: null, 
+        instagramUrl: null,
+        lukuPoints: 0 // Default to 0 if user not found or points not set
+      }; 
       
       if (outfitData.userId) {
         const userDocRef = doc(db, 'users', outfitData.userId);
@@ -85,6 +98,7 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
           userData.photoURL = firestoreUserData.customPhotoURL || firestoreUserData.photoURL || outfitData.userPhotoURL;
           userData.tiktokUrl = firestoreUserData.tiktokUrl || null;
           userData.instagramUrl = firestoreUserData.instagramUrl || null;
+          userData.lukuPoints = typeof firestoreUserData.lukuPoints === 'number' ? firestoreUserData.lukuPoints : 0;
         }
       }
       return { outfitDoc, userData };
@@ -98,7 +112,7 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
         id: outfitDoc.id,
         userId: outfitData.userId,
         username: userData.username,
-        userPhotoURL: userData.photoURL,
+        userPhotoURL: userData.userPhotoURL,
         outfitImageURL: outfitData.outfitImageURL,
         rating: outfitData.rating,
         submittedAt: (outfitData.submittedAt as Timestamp).toDate(),
@@ -108,6 +122,7 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
         lookSuggestions: outfitData.lookSuggestions,
         tiktokUrl: userData.tiktokUrl,
         instagramUrl: userData.instagramUrl,
+        lukuPoints: typeof userData.lukuPoints === 'number' ? userData.lukuPoints : 0, // Ensure it's a number
       };
     });
 
