@@ -1,7 +1,7 @@
 
 'use client';
 import Link from 'next/link';
-import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame } from 'lucide-react'; // Added Flame
+import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/config/firebase';
@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useEffect, useState } from 'react';
+import { LukuBadge } from '@/components/LukuBadge';
 
 export function SiteHeader() {
   const { user, userProfile, loading } = useAuth();
@@ -72,8 +73,9 @@ export function SiteHeader() {
                   Profile
                 </Button>
               </Link>
+              {userProfile && <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />}
               {typeof userProfile?.lukuPoints === 'number' && (
-                <div className="flex items-center text-sm font-medium text-primary mr-1 ml-1 px-2 py-1 rounded-md bg-primary/10">
+                <div className="flex items-center text-sm font-medium text-primary mr-1 ml-0 px-2 py-1 rounded-md bg-primary/10">
                   <Coins className="h-4 w-4 mr-1 text-yellow-500" />
                   {userProfile.lukuPoints}
                 </div>
@@ -93,7 +95,8 @@ export function SiteHeader() {
             aria-label="Toggle theme"
           >
             {mounted && (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />)}
-            {!mounted && <Moon className="h-5 w-5" /> /* Or a placeholder icon or nothing */}
+            {!mounted && <Moon className="h-5 w-5" /> }
+            <span className="sr-only">Toggle Theme</span>
           </Button>
           {!loading && (
             user ? (
@@ -120,7 +123,7 @@ export function SiteHeader() {
             className="mr-1"
           >
             {mounted && (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />)}
-            {!mounted && <Moon className="h-5 w-5" /> /* Or a placeholder icon or nothing */}
+            {!mounted && <Moon className="h-5 w-5" /> }
             <span className="sr-only">Toggle Theme</span>
           </Button>
           <Sheet>
@@ -140,6 +143,7 @@ export function SiteHeader() {
                 {user && user.emailVerified && (
                   <>
                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+                      {userProfile && <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />}
                       {typeof userProfile?.lukuPoints === 'number' && (
                         <div className="flex items-center text-base font-medium text-primary px-2 py-1.5 rounded-md bg-primary/10">
                           <Coins className="h-5 w-5 mr-2 text-yellow-500" />
@@ -181,10 +185,10 @@ export function SiteHeader() {
                   </>
                 )}
                 <div className="border-t pt-3 space-y-3">
-                  <SheetClose asChild>
+                 <SheetClose asChild>
                     <a href={paypalDonationUrl} target="_blank" rel="noopener noreferrer" className="w-full">
                       <Button variant="outline" className={navLinkClass}>
-                        <Coffee className="mr-2 h-5 w-5 text-destructive" /> Support LukuCheck
+                        <Coffee className="mr-2 h-5 w-5 text-destructive" /> Donate
                       </Button>
                     </a>
                   </SheetClose>

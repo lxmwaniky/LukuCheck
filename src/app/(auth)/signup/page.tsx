@@ -4,7 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { auth, createUserWithEmailAndPassword, sendEmailVerification } from '@/config/firebase';
+import { auth, createUserWithEmailAndPassword, sendEmailVerification, updateProfile as updateFirebaseAuthProfile, signInWithEmailAndPassword } from '@/config/firebase';
 import { createUserProfileInFirestore, checkUsernameAvailability } from '@/actions/userActions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -102,42 +102,43 @@ function SignupForm() {
     setIsSubmitting(true);
 
     try {
-      // 1. Create Firebase Auth user client-side
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
       if (firebaseUser) {
-        // 2. Create Firestore user profile via server action (Admin SDK will set display name in Auth as well)
-        // Pass username and referrerUid to the server action
+        await updateFirebaseAuthProfile(firebaseUser, { displayName: username });
+
         const profileResult = await createUserProfileInFirestore(
           firebaseUser.uid,
           email,
-          username, // This is the display name
+          username,
           referrerUid
         );
 
         if (!profileResult.success) {
-          // This is tricky: Auth user created, but Firestore profile failed.
-          // For now, we proceed to email verification but log the error.
-          // A more robust solution might involve deleting the Auth user if profile creation fails critically.
           console.error("Signup Error: Firestore profile creation failed:", profileResult.error);
           toast({
             title: "Profile Creation Issue",
             description: profileResult.error || "Could not save all profile details. Please try updating your profile later or contact support.",
             variant: "destructive",
           });
-          // Don't block email verification flow
         }
-
-        // 3. Send verification email
-        await sendEmailVerification(firebaseUser);
+        
+        const actionCodeSettings = {
+          url: `${window.location.origin}/upload`, // Redirect here after verification
+          handleCodeInApp: true,
+        };
+        await sendEmailVerification(firebaseUser, actionCodeSettings);
         toast({
           title: 'Account Created!',
           description: 'Please check your email to verify your account.'
         });
 
-        await refreshUserProfile(); // Refresh context to pick up new user state
-        router.push('/verify-email-notice'); // Redirect to notice page
+        // Attempt to sign in the new user to establish AuthContext state, then refresh
+        // This can be omitted if AuthContext handles the new user automatically upon redirect
+        // await signInWithEmailAndPassword(auth, email, password); 
+        await refreshUserProfile();
+        router.push('/verify-email-notice');
 
       } else {
         throw new Error("Failed to create Firebase Auth user.");
@@ -146,7 +147,7 @@ function SignupForm() {
       console.error('Signup Error:', error);
       let errorMessage = error.message || "An unexpected error occurred during sign-up.";
       if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email address is already in use. If it\'s yours, please try logging in, or use a different email.';
+        errorMessage = 'This email address is already in use. If it\'s yours, please try logging in or use a different email.';
       } else if (error.code === 'auth/weak-password') {
         errorMessage = 'Password is too weak. Please choose a stronger password (at least 6 characters).';
       } else if (error.code === 'auth/invalid-email') {
@@ -304,8 +305,6 @@ function SignupForm() {
 
 export default function SignupPage() {
   return (
-    // Suspense is good practice if useSearchParams is used directly in a page component
-    // though in this case, SignupForm is the main consumer.
     <Suspense fallback={<div className="flex min-h-screen flex-col items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>}>
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
         <SignupForm />

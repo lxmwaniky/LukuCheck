@@ -1,13 +1,12 @@
 
 'use server';
 
-import { Timestamp, FieldValue } from 'firebase-admin/firestore'; 
+import { Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 import { adminDb, adminInitialized, getAdminStorageBucket } from '@/config/firebaseAdmin';
 import type { UserProfile } from '@/contexts/AuthContext';
 import { revalidatePath } from 'next/cache';
 import type { UserRecord as AdminUserRecord } from 'firebase-admin/auth';
-// getAdminStorageBucket is now imported
 import { differenceInCalendarDays } from 'date-fns';
 
 // Badge and Point Constants
@@ -19,18 +18,19 @@ const STREAK_KEEPER_7_BADGE = "STREAK_KEEPER_7";
 
 const POINTS_PROFILE_PRO = 5;
 const POINTS_FIRST_SUBMISSION = 3;
-const POINTS_REFERRAL_ROCKSTAR = 10; 
+const POINTS_REFERRAL_ROCKSTAR = 10; // Bonus points for achieving the badge
 const POINTS_STREAK_STARTER_3 = 2;
 const POINTS_STREAK_KEEPER_7 = 5;
 const POINTS_DAILY_STREAK_SUBMISSION = 1;
 const REFERRALS_FOR_ROCKSTAR_BADGE = 3;
+const POINTS_PER_REFERRAL = 2;
 
 
 interface UpdateProfileArgs {
   userId: string;
   username?: string;
-  photoDataUrl?: string; 
-  currentPhotoUrl?: string | null; 
+  photoDataUrl?: string;
+  currentPhotoUrl?: string | null;
   tiktokUrl?: string;
   instagramUrl?: string;
 }
@@ -51,22 +51,22 @@ export async function createUserProfileInFirestore(
     await userRef.set({
       uid: userId,
       email: email,
-      username: username, 
-      photoURL: null, 
-      customPhotoURL: null, 
-      emailVerified: false, 
+      username: username,
+      photoURL: null,
+      customPhotoURL: null,
+      emailVerified: false,
       createdAt: FieldValue.serverTimestamp(),
       lastLogin: FieldValue.serverTimestamp(),
       tiktokUrl: null,
       instagramUrl: null,
-      lukuPoints: 5, 
+      lukuPoints: 5, // Initial points on signup
       referredBy: referrerUid || null,
-      referralPointsAwarded: false,
-      tiktokPointsAwarded: false, 
+      referralPointsAwarded: false, // For the new user, this means points haven't been awarded to their referrer yet
+      tiktokPointsAwarded: false,
       instagramPointsAwarded: false,
       badges: [],
       currentStreak: 0,
-      lastSubmissionDate: null, 
+      lastSubmissionDate: null,
     });
 
     const adminAuth = getAdminAuth();
@@ -94,13 +94,13 @@ export async function updateUserProfileInFirestore({
     console.error("[UserActions ERROR] Admin SDK not initialized. Cannot update profile.");
     return { success: false, error: "Server error: Admin SDK not configured. Profile update failed." };
   }
-  const adminAuth = getAdminAuth(); 
+  const adminAuth = getAdminAuth();
   const userRefAdmin = adminDb.collection('users').doc(userId);
   const updateDataFirestore: { [key: string]: any } = {};
   const authUpdatePayload: { displayName?: string; photoURL?: string } = {};
   let newPublicPhotoURL: string | undefined = undefined;
   let pointsToAwardThisUpdate = 0;
-  let newBadgesToAdd: string[] = [];
+  const newBadgesToAdd: string[] = [];
 
   try {
     const userDocSnap = await userRefAdmin.get();
@@ -121,6 +121,7 @@ export async function updateUserProfileInFirestore({
       if (newTiktok && (!currentUserData.tiktokUrl || currentUserData.tiktokUrl.trim() === '') && !currentUserData.tiktokPointsAwarded) {
         pointsToAwardThisUpdate += 1;
         updateDataFirestore.tiktokPointsAwarded = true;
+        // console.log(`[UserActions DEBUG] User ${userId} earned 1 point for adding TikTok link.`);
       }
     }
 
@@ -130,12 +131,13 @@ export async function updateUserProfileInFirestore({
       if (newInstagram && (!currentUserData.instagramUrl || currentUserData.instagramUrl.trim() === '') && !currentUserData.instagramPointsAwarded) {
         pointsToAwardThisUpdate += 1;
         updateDataFirestore.instagramPointsAwarded = true;
+        // console.log(`[UserActions DEBUG] User ${userId} earned 1 point for adding Instagram link.`);
       }
     }
-    
+
     const hasCustomPhotoField = photoDataUrl || currentUserData.customPhotoURL;
-    const hasTiktokField = updateDataFirestore.tiktokUrl !== undefined ? updateDataFirestore.tiktokUrl !== null : currentUserData.tiktokUrl !== null;
-    const hasInstagramField = updateDataFirestore.instagramUrl !== undefined ? updateDataFirestore.instagramUrl !== null : currentUserData.instagramUrl !== null;
+    const hasTiktokField = (updateDataFirestore.tiktokUrl !== undefined ? updateDataFirestore.tiktokUrl !== null : currentUserData.tiktokUrl !== null && currentUserData.tiktokUrl.trim() !== '');
+    const hasInstagramField = (updateDataFirestore.instagramUrl !== undefined ? updateDataFirestore.instagramUrl !== null : currentUserData.instagramUrl !== null && currentUserData.instagramUrl.trim() !== '');
 
     if (hasCustomPhotoField && hasTiktokField && hasInstagramField && !currentBadges.includes(PROFILE_PRO_BADGE)) {
         newBadgesToAdd.push(PROFILE_PRO_BADGE);
@@ -149,16 +151,17 @@ export async function updateUserProfileInFirestore({
       if (!adminBucket) {
         return { success: false, error: "Server error: Storage service not available." };
       }
-      
+
       if (currentUserData.customPhotoURL && currentUserData.customPhotoURL.includes(adminBucket.name)) {
         try {
           const urlParts = new URL(currentUserData.customPhotoURL);
-          let filePath = decodeURIComponent(urlParts.pathname.substring(1)); 
+          let filePath = decodeURIComponent(urlParts.pathname.substring(1));
           if (filePath.startsWith(`${adminBucket.name}/`)) {
             filePath = filePath.substring(`${adminBucket.name}/`.length);
           }
           if (filePath) {
             await adminBucket.file(filePath).delete({ ignoreNotFound: true });
+            // console.log(`[UserActions DEBUG] Deleted old profile photo: ${filePath}`);
           }
         } catch (e: any) {
           console.warn(`[UserActions WARN] Failed to delete old profile photo from Storage (non-critical): ${currentUserData.customPhotoURL}`, e.message);
@@ -170,12 +173,13 @@ export async function updateUserProfileInFirestore({
       const file = adminBucket.file(photoStorageRefPath);
       const imageBuffer = Buffer.from(photoDataUrl.split(',')[1], 'base64');
       await file.save(imageBuffer, { metadata: { contentType: 'image/jpeg' } });
-      await file.makePublic(); 
-      newPublicPhotoURL = file.publicUrl(); 
-      
-      updateDataFirestore.photoURL = newPublicPhotoURL; 
-      updateDataFirestore.customPhotoURL = newPublicPhotoURL; 
-      authUpdatePayload.photoURL = newPublicPhotoURL; 
+      await file.makePublic();
+      newPublicPhotoURL = file.publicUrl();
+      // console.log(`[UserActions DEBUG] Uploaded new profile photo: ${newPublicPhotoURL}`);
+
+      updateDataFirestore.photoURL = newPublicPhotoURL;
+      updateDataFirestore.customPhotoURL = newPublicPhotoURL;
+      authUpdatePayload.photoURL = newPublicPhotoURL;
     }
 
     if (pointsToAwardThisUpdate > 0) {
@@ -187,16 +191,19 @@ export async function updateUserProfileInFirestore({
 
     if (Object.keys(authUpdatePayload).length > 0) {
       await adminAuth.updateUser(userId, authUpdatePayload);
+      // console.log(`[UserActions DEBUG] Updated Firebase Auth profile for ${userId}.`);
     }
 
     if (Object.keys(updateDataFirestore).length > 0) {
         await userRefAdmin.update(updateDataFirestore);
+        // console.log(`[UserActions DEBUG] Updated Firestore profile for ${userId} with data:`, updateDataFirestore);
     } else if (Object.keys(authUpdatePayload).length === 0) {
+        // console.log(`[UserActions DEBUG] No changes detected to update profile for ${userId}.`);
         return { success: true, message: 'No changes detected to update profile.', newPhotoURL: newPublicPhotoURL };
     }
-    
+
     revalidatePath('/profile');
-    revalidatePath('/'); 
+    revalidatePath('/');
     return { success: true, message: 'Profile updated successfully.', newPhotoURL: newPublicPhotoURL };
 
   } catch (error: any) {
@@ -217,7 +224,7 @@ export async function deleteUserData(userId: string): Promise<{ success: boolean
     console.error("[UserActions ERROR] Admin SDK not initialized. Cannot delete user data.");
     return { success: false, error: "Server error: Admin SDK not configured. Account deletion failed." };
   }
-  const adminAuthInstance = getAdminAuth(); // Use a different name to avoid conflict with imported adminAuth
+  const adminAuthInstance = getAdminAuth();
 
   try {
     const batch = adminDb.batch();
@@ -235,7 +242,7 @@ export async function deleteUserData(userId: string): Promise<{ success: boolean
     const outfitsSnapshot = await outfitsQuery.get();
     outfitsSnapshot.docs.forEach(docSnapshot => batch.delete(docSnapshot.ref));
     // console.log(`[UserActions DEBUG] Queued deletion of ${outfitsSnapshot.size} outfit documents for user ${userId}.`);
-    
+
     await batch.commit();
     // console.log(`[UserActions DEBUG] Firestore data deletion committed for user ${userId}.`);
 
@@ -256,7 +263,7 @@ export async function deleteUserData(userId: string): Promise<{ success: boolean
 
     await adminAuthInstance.deleteUser(userId);
     // console.log(`[UserActions DEBUG] Firebase Auth user ${userId} deleted successfully.`);
-    
+
     revalidatePath('/profile');
     revalidatePath('/leaderboard');
     revalidatePath('/');
@@ -348,7 +355,7 @@ export async function getUserProfileStats(userId: string): Promise<{ success: bo
 
 
 export async function processReferral(newlyRegisteredUserId: string): Promise<{ success: boolean; message?: string; error?: string }> {
-  // console.log(`[UserActions DEBUG] processReferral called for newlyRegisteredUserId: ${newlyRegisteredUserId}`);
+  console.log(`[UserActions DEBUG] processReferral called for newlyRegisteredUserId: ${newlyRegisteredUserId}`);
   if (!adminInitialized || !adminDb) {
     console.error("[UserActions ERROR] Admin SDK not initialized. Cannot process referral.");
     return { success: false, error: "Server error: Admin SDK not configured." };
@@ -359,68 +366,90 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
     const newUserDocSnap = await newUserDocRef.get();
 
     if (!newUserDocSnap.exists) {
+      console.warn(`[UserActions WARN] New user document ${newlyRegisteredUserId} not found during referral processing.`);
       return { success: false, error: "New user document not found." };
     }
 
     const newUserData = newUserDocSnap.data() as UserProfile;
     const referrerUid = newUserData.referredBy;
-    const alreadyAwarded = newUserData.referralPointsAwarded;
+    const alreadyAwardedToReferrerForThisUser = newUserData.referralPointsAwarded; // This flag indicates if the *referrer* got points for *this new user*
 
     if (!referrerUid) {
+      console.log(`[UserActions DEBUG] User ${newlyRegisteredUserId} was not referred or referrerUid is null.`);
       return { success: true, message: "User was not referred." };
     }
 
-    if (alreadyAwarded) {
+    if (alreadyAwardedToReferrerForThisUser) {
+      console.log(`[UserActions DEBUG] Referral points already processed for new user ${newlyRegisteredUserId} (meaning referrer was awarded).`);
       return { success: true, message: "Referral points already awarded for this user." };
     }
 
+    console.log(`[UserActions DEBUG] Processing referral for ${newlyRegisteredUserId} by referrer ${referrerUid}.`);
+
     const referrerDocRef = adminDb.collection('users').doc(referrerUid);
-    let pointsToAwardReferrer = 2;
-    let newBadgesForReferrer: string[] = [];
-    let referrerUpdated = false;
+    let pointsToAwardReferrerThisTime = POINTS_PER_REFERRAL; // Base points for this referral
+    const newBadgesForReferrer: string[] = [];
+    let referrerUpdateSuccessful = false;
 
     await adminDb.runTransaction(async (transaction) => {
       const referrerDocSnap = await transaction.get(referrerDocRef);
       if (!referrerDocSnap.exists) {
-        console.warn(`[UserActions WARN] Referrer UID ${referrerUid} not found for new user ${newlyRegisteredUserId}.`);
+        console.warn(`[UserActions WARN] Referrer UID ${referrerUid} not found. Marking referral for ${newlyRegisteredUserId} as processed to prevent loops.`);
         transaction.update(newUserDocRef, { referralPointsAwarded: true });
-        return; 
+        return;
       }
-      
+
       const referrerData = referrerDocSnap.data() as UserProfile;
       const currentReferrerBadges = referrerData.badges || [];
-      
-      const referralsQuery = adminDb.collection('users').where('referredBy', '==', referrerUid).where('referralPointsAwarded', '==', true);
-      const referralsSnapshot = await referralsQuery.get(); 
-      
-      const successfulReferralsCount = referralsSnapshot.size + 1; 
 
-      if (successfulReferralsCount >= REFERRALS_FOR_ROCKSTAR_BADGE && !currentReferrerBadges.includes(REFERRAL_ROCKSTAR_BADGE)) {
+      // Count how many users this referrer has ALREADY successfully referred
+      // A successful referral means the new user has 'referralPointsAwarded: true' on THEIR doc.
+      const referralsQuery = adminDb.collection('users')
+                                   .where('referredBy', '==', referrerUid)
+                                   .where('referralPointsAwarded', '==', true);
+      const existingReferralsSnapshot = await transaction.get(referralsQuery);
+      const countOfPreviousSuccessfulReferrals = existingReferralsSnapshot.size;
+
+      const newTotalSuccessfulReferrals = countOfPreviousSuccessfulReferrals + 1; // Including the current one
+      console.log(`[UserActions DEBUG] Referrer ${referrerUid} current successful referrals: ${countOfPreviousSuccessfulReferrals}. New total will be: ${newTotalSuccessfulReferrals}.`);
+
+      // Check for Referral Rockstar Badge
+      if (newTotalSuccessfulReferrals >= REFERRALS_FOR_ROCKSTAR_BADGE && !currentReferrerBadges.includes(REFERRAL_ROCKSTAR_BADGE)) {
         newBadgesForReferrer.push(REFERRAL_ROCKSTAR_BADGE);
-        pointsToAwardReferrer += POINTS_REFERRAL_ROCKSTAR;
-        // console.log(`[UserActions DEBUG] Referrer ${referrerUid} earned REFERRAL_ROCKSTAR_BADGE and ${POINTS_REFERRAL_ROCKSTAR} bonus points.`);
+        pointsToAwardReferrerThisTime += POINTS_REFERRAL_ROCKSTAR; // Add bonus for achieving the badge
+        console.log(`[UserActions DEBUG] Referrer ${referrerUid} earned REFERRAL_ROCKSTAR_BADGE and ${POINTS_REFERRAL_ROCKSTAR} bonus points. Total for this referral: ${pointsToAwardReferrerThisTime}`);
       }
 
       const referrerUpdatePayload: {[key: string]: any} = {
-        lukuPoints: FieldValue.increment(pointsToAwardReferrer)
+        lukuPoints: FieldValue.increment(pointsToAwardReferrerThisTime)
       };
       if (newBadgesForReferrer.length > 0) {
         referrerUpdatePayload.badges = FieldValue.arrayUnion(...newBadgesForReferrer);
       }
-      
+
       transaction.update(referrerDocRef, referrerUpdatePayload);
-      transaction.update(newUserDocRef, { referralPointsAwarded: true });
-      referrerUpdated = true;
+      transaction.update(newUserDocRef, { referralPointsAwarded: true }); // Mark this new user's referral as processed
+      referrerUpdateSuccessful = true;
     });
 
-    if(referrerUpdated) {
-        // console.log(`[UserActions DEBUG] Referral points awarded to ${referrerUid} for referring ${newlyRegisteredUserId}. Total points: ${pointsToAwardReferrer}. New Badges: ${newBadgesForReferrer.join(', ')}`);
-        revalidatePath(`/profile`); 
+    if(referrerUpdateSuccessful) {
+        console.log(`[UserActions DEBUG] Transaction successful. Referrer ${referrerUid} awarded ${pointsToAwardReferrerThisTime} LukuPoints for referring ${newlyRegisteredUserId}. New Badges for referrer: ${newBadgesForReferrer.join(', ')}.`);
+        revalidatePath(`/profile`);
+        revalidatePath(`/leaderboard`); // Referrer's badge might appear on leaderboard
+    } else {
+        console.warn(`[UserActions WARN] Referrer update transaction did not complete successfully for referrer ${referrerUid}.`);
     }
-    return { success: true, message: "Referral points processed." };
+    return { success: true, message: "Referral points processing attempted." };
 
   } catch (error: any) {
     console.error(`[UserActions ERROR] Failed to process referral for ${newlyRegisteredUserId}:`, error);
+    // Attempt to mark the new user's referral as processed even on error to prevent infinite loops if possible
+    try {
+        await adminDb.collection('users').doc(newlyRegisteredUserId).update({ referralPointsAwarded: true });
+        console.log(`[UserActions INFO] Marked referralPointsAwarded for ${newlyRegisteredUserId} as true after an error to prevent reprocessing.`);
+    } catch (updateError) {
+        console.error(`[UserActions CRITICAL] Failed to mark referralPointsAwarded for ${newlyRegisteredUserId} after an error:`, updateError);
+    }
     return { success: false, error: `Failed to process referral: ${error.message || "Unknown error"}` };
   }
 }
@@ -438,6 +467,7 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
     const userRef = adminDb.collection('users').doc(userId);
 
     try {
+        let perksUpdated = false;
         await adminDb.runTransaction(async (transaction) => {
             const userSnap = await transaction.get(userRef);
             if (!userSnap.exists) {
@@ -450,48 +480,59 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
             const newBadges: string[] = [];
             const updateData: { [key: string]: any } = {};
 
+            // First Submission Badge
             if (!currentBadges.includes(FIRST_SUBMISSION_BADGE)) {
                 newBadges.push(FIRST_SUBMISSION_BADGE);
                 pointsToAward += POINTS_FIRST_SUBMISSION;
                 // console.log(`[UserActions DEBUG] Awarding ${userId} FIRST_SUBMISSION_BADGE and ${POINTS_FIRST_SUBMISSION} points.`);
             }
 
-            const todayStr = new Date().toISOString().split('T')[0];
+            // Streak Logic
+            const todayStr = new Date().toISOString().split('T')[0]; // Server's UTC date
             let currentStreak = userData.currentStreak || 0;
+            let newLastSubmissionDate = userData.lastSubmissionDate;
 
-            if (userData.lastSubmissionDate) {
-                const lastSubmission = new Date(userData.lastSubmissionDate);
-                const today = new Date(todayStr);
-                const diffDays = differenceInCalendarDays(today, lastSubmission);
+            if (userData.lastSubmissionDate !== todayStr) { // Only process streak if not already processed today
+                if (userData.lastSubmissionDate) {
+                    const lastSubmission = new Date(userData.lastSubmissionDate);
+                    const today = new Date(todayStr);
+                    const diffDays = differenceInCalendarDays(today, lastSubmission);
 
-                if (diffDays === 1) { 
-                    currentStreak++;
-                } else if (diffDays > 1) { 
+                    if (diffDays === 1) { // Consecutive day
+                        currentStreak++;
+                    } else if (diffDays > 1) { // Streak broken
+                        currentStreak = 1;
+                    } // If diffDays === 0, it means lastSubmissionDate was today, handled by outer check.
+                      // If diffDays < 0, something is wrong (future date), treat as new streak.
+                      else if (diffDays < 0 ) {
+                        currentStreak = 1;
+                      }
+                } else { // No previous submission date, so this is the first day of a streak
                     currentStreak = 1;
-                } else if (diffDays === 0) {
-                    // console.log(`[UserActions DEBUG] Same day submission perks already handled for ${userId}. Current streak: ${currentStreak}`);
-                     transaction.update(userRef, updateData); 
-                     return; 
                 }
-            } else { 
-                currentStreak = 1;
-            }
-            
-            updateData.currentStreak = currentStreak;
-            updateData.lastSubmissionDate = todayStr;
-            pointsToAward += POINTS_DAILY_STREAK_SUBMISSION; 
-            // console.log(`[UserActions DEBUG] User ${userId} new streak: ${currentStreak}. Awarding ${POINTS_DAILY_STREAK_SUBMISSION} daily point.`);
+                
+                pointsToAward += POINTS_DAILY_STREAK_SUBMISSION; // Award daily submission point
+                newLastSubmissionDate = todayStr; // Update last submission date
+                // console.log(`[UserActions DEBUG] User ${userId} new streak: ${currentStreak}. Last submission: ${newLastSubmissionDate}. Awarding ${POINTS_DAILY_STREAK_SUBMISSION} daily point.`);
 
-            if (currentStreak === 3 && !currentBadges.includes(STREAK_STARTER_3_BADGE) && !newBadges.includes(STREAK_STARTER_3_BADGE)) {
-                newBadges.push(STREAK_STARTER_3_BADGE);
-                pointsToAward += POINTS_STREAK_STARTER_3;
-                // console.log(`[UserActions DEBUG] Awarding ${userId} STREAK_STARTER_3_BADGE and ${POINTS_STREAK_STARTER_3} points.`);
+                updateData.currentStreak = currentStreak;
+                updateData.lastSubmissionDate = newLastSubmissionDate;
+
+                 // Streak Badges
+                if (currentStreak >= 3 && !currentBadges.includes(STREAK_STARTER_3_BADGE) && !newBadges.includes(STREAK_STARTER_3_BADGE)) {
+                    newBadges.push(STREAK_STARTER_3_BADGE);
+                    pointsToAward += POINTS_STREAK_STARTER_3;
+                    // console.log(`[UserActions DEBUG] Awarding ${userId} STREAK_STARTER_3_BADGE and ${POINTS_STREAK_STARTER_3} points.`);
+                }
+                if (currentStreak >= 7 && !currentBadges.includes(STREAK_KEEPER_7_BADGE) && !newBadges.includes(STREAK_KEEPER_7_BADGE)) {
+                    newBadges.push(STREAK_KEEPER_7_BADGE);
+                    pointsToAward += POINTS_STREAK_KEEPER_7;
+                    // console.log(`[UserActions DEBUG] Awarding ${userId} STREAK_KEEPER_7_BADGE and ${POINTS_STREAK_KEEPER_7} points.`);
+                }
+            } else {
+                // console.log(`[UserActions DEBUG] Perks for today (${todayStr}) already processed for user ${userId}.`);
             }
-            if (currentStreak === 7 && !currentBadges.includes(STREAK_KEEPER_7_BADGE) && !newBadges.includes(STREAK_KEEPER_7_BADGE)) {
-                newBadges.push(STREAK_KEEPER_7_BADGE);
-                pointsToAward += POINTS_STREAK_KEEPER_7;
-                // console.log(`[UserActions DEBUG] Awarding ${userId} STREAK_KEEPER_7_BADGE and ${POINTS_STREAK_KEEPER_7} points.`);
-            }
+
 
             if (newBadges.length > 0) {
                 updateData.badges = FieldValue.arrayUnion(...newBadges);
@@ -500,10 +541,19 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
                 updateData.lukuPoints = FieldValue.increment(pointsToAward);
             }
 
-            transaction.update(userRef, updateData);
+            if (Object.keys(updateData).length > 0) {
+                transaction.update(userRef, updateData);
+                perksUpdated = true;
+                // console.log(`[UserActions DEBUG] Updated submission perks for ${userId}:`, updateData);
+            } else {
+                // console.log(`[UserActions DEBUG] No perk updates needed for ${userId} on this submission.`);
+            }
         });
-
-        revalidatePath('/profile');
+        
+        if (perksUpdated) {
+            revalidatePath('/profile');
+            revalidatePath('/leaderboard'); // User's badge/points might change on leaderboard
+        }
         return { success: true, message: "Leaderboard submission perks processed." };
 
     } catch (error: any) {
@@ -511,4 +561,3 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
         return { success: false, error: `Failed to process submission perks: ${error.message || "Unknown error"}` };
     }
 }
-    

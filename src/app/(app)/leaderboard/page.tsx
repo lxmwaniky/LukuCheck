@@ -10,17 +10,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Trophy, CalendarDays, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Clock, Users, ChevronLeft, ChevronRight, Instagram, Link as LinkIcon, Sparkles } from 'lucide-react';
-import { format, subDays, set } from 'date-fns';
+import { format, subDays, set, isBefore, isAfter, addDays } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { LukuBadge } from '@/components/LukuBadge';
 
 
 type LeaderboardEntry = ServerLeaderboardEntry & {
   tiktokUrl?: string | null;
   instagramUrl?: string | null;
+  lukuPoints?: number;
 };
 
 const ITEMS_PER_PAGE = 10;
@@ -44,9 +46,9 @@ function LeaderboardPage() {
   const [statusMessage, setStatusMessage] = useState<string | undefined>('Initializing...');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
-  const [currentLeaderboardDate, setCurrentLeaderboardDate] = useState<string>('');
-  const [timeLeftToRelease, setTimeLeftToRelease] = useState<number>(0);
-  
+  const [currentLeaderboardDate, setCurrentLeaderboardDate] = useState<string>(''); 
+  const [timeLeftToRelease, setTimeLeftToRelease] = useState<number>(0); 
+
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
@@ -56,25 +58,23 @@ function LeaderboardPage() {
       let dateStringToFetch: string;
       let displayDate: Date;
 
-      // Leaderboard for Date D is released at 3 PM on Date D and viewable until 2 PM on Date D+1
-      if (now.getHours() < 14) { 
-        // Before 2 PM today, we are viewing YESTERDAY's leaderboard
+      const endOfViewingPrevDayLeaderboard = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM today
+
+      if (isBefore(now, endOfViewingPrevDayLeaderboard)) {
         displayDate = subDays(now, 1);
-      } else { 
-        // At or after 2 PM today, we are viewing TODAY's leaderboard (which releases at 3 PM)
+      } else {
         displayDate = new Date(now);
       }
       dateStringToFetch = toYYYYMMDD(displayDate);
       setCurrentLeaderboardDate(dateStringToFetch);
 
-      const releaseDateTimeForFetchedDate = set(displayDate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 }); // 3 PM on the dateStringToFetch
+      const releaseDateTimeForFetchedDate = set(displayDate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 }); 
 
-      if (now.getTime() >= releaseDateTimeForFetchedDate.getTime()) {
-        // Leaderboard for dateStringToFetch should be released
+      if (isAfter(now, releaseDateTimeForFetchedDate)) {
         try {
           const data = await getLeaderboardData({ leaderboardDate: dateStringToFetch });
           setAllEntries(data.entries);
-          setCurrentPage(1); 
+          setCurrentPage(1);
           if (data.error) {
             setStatusMessage(data.error);
           } else if (data.entries.length === 0) {
@@ -88,30 +88,28 @@ function LeaderboardPage() {
         }
          setTimeLeftToRelease(0);
       } else {
-        // Leaderboard for dateStringToFetch is not yet released
         setTimeLeftToRelease(releaseDateTimeForFetchedDate.getTime() - now.getTime());
         setStatusMessage(`Leaderboard for ${formatDate(dateStringToFetch)} will be available at 3 PM.`);
-        setAllEntries([]); 
+        setAllEntries([]);
       }
       setIsLoading(false);
     };
 
     determineLeaderboardStateAndFetch();
-    const interval = setInterval(determineLeaderboardStateAndFetch, 60000); 
+    const interval = setInterval(determineLeaderboardStateAndFetch, 60000);
 
     return () => clearInterval(interval);
   }, []);
-  
+
   useEffect(() => {
     let timerInterval: NodeJS.Timeout | null = null;
     if (timeLeftToRelease > 0 && statusMessage?.includes('will be available')) {
         timerInterval = setInterval(() => {
             setTimeLeftToRelease(prevTime => {
-                if (prevTime <= 1000) { 
+                if (prevTime <= 1000) {
                     if(timerInterval) clearInterval(timerInterval);
-                    // Trigger a re-fetch by briefly setting loading, then allowing main useEffect to run
-                    setIsLoading(true); 
-                    setTimeout(() => setIsLoading(false), 50); // minimal delay
+                    setIsLoading(true);
+                    setTimeout(() => setIsLoading(false), 50);
                     return 0;
                 }
                 return prevTime - 1000;
@@ -126,12 +124,11 @@ function LeaderboardPage() {
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
-    // Ensure date string is treated as UTC to avoid timezone shifts if it's just YYYY-MM-DD
     const date = new Date(dateString + 'T00:00:00Z'); 
     return format(date, "MMMM d, yyyy");
   };
-  
-  const isLeaderboardReleased = !statusMessage?.includes('will be available');
+
+  const isLeaderboardReleased = !statusMessage?.includes('will be available at 3 PM');
 
   const totalPages = Math.ceil(allEntries.length / ITEMS_PER_PAGE);
   const displayedEntries = allEntries.slice(
@@ -146,7 +143,7 @@ function LeaderboardPage() {
   const handleNextPage = () => {
     setCurrentPage((prev) => Math.min(totalPages, prev + 1));
   };
-  
+
   const getRank = (index: number) => {
     return (currentPage - 1) * ITEMS_PER_PAGE + index + 1;
   }
@@ -159,12 +156,12 @@ function LeaderboardPage() {
           <CardTitle className="text-3xl sm:text-4xl font-bold">Daily Style Leaderboard</CardTitle>
           {currentLeaderboardDate && (
             <CardDescription className="text-base sm:text-lg text-muted-foreground flex items-center justify-center mt-1">
-              <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> 
+              <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Showing results for: {formatDate(currentLeaderboardDate)}
             </CardDescription>
           )}
            <CardDescription className="text-xs mt-1">
-                (Each day's results released at 3 PM, viewable until 2 PM next day)
+                (Submissions: 6 AM - 2:55 PM daily. Results: 3 PM daily - 2:55 PM next day)
             </CardDescription>
         </CardHeader>
         <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
@@ -194,7 +191,7 @@ function LeaderboardPage() {
               <AlertTitle>Error Loading Leaderboard</AlertTitle>
               <AlertDescription>{statusMessage}</AlertDescription>
             </Alert>
-          ): displayedEntries.length === 0 && isLeaderboardReleased ? ( 
+          ): displayedEntries.length === 0 && isLeaderboardReleased ? (
             <Alert variant="default" className="mb-6 mx-2 sm:mx-0">
               <Info className="h-5 w-5" />
               <AlertTitle>No Submissions Found</AlertTitle>
@@ -226,8 +223,8 @@ function LeaderboardPage() {
                     const rank = getRank(index);
                     const isCurrentUser = user?.uid === entry.userId;
                     return (
-                    <TableRow 
-                        key={entry.id} 
+                    <TableRow
+                        key={entry.id}
                         className={cn(
                             rank <= 3 ? 'bg-accent/10' : '',
                             isCurrentUser ? 'bg-primary/20 ring-2 ring-primary ring-offset-1' : ''
@@ -247,7 +244,10 @@ function LeaderboardPage() {
                             <AvatarFallback>{(entry.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col">
-                            <span className="font-medium truncate max-w-[100px] sm:max-w-[150px] text-sm sm:text-base">{entry.username || 'Anonymous User'}</span>
+                            <div className="flex items-center gap-1.5">
+                                <span className="font-medium truncate max-w-[100px] sm:max-w-[150px] text-sm sm:text-base">{entry.username || 'Anonymous User'}</span>
+                                <LukuBadge lukuPoints={entry.lukuPoints} />
+                            </div>
                             <div className="flex items-center gap-1.5 mt-0.5">
                                 {entry.tiktokUrl && (
                                     <Link href={entry.tiktokUrl} target="_blank" rel="noopener noreferrer" aria-label={`${entry.username}'s TikTok Profile`} onClick={(e) => e.stopPropagation()}>
@@ -339,7 +339,10 @@ function LeaderboardPage() {
                     <AvatarFallback>{(selectedEntry.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
-                    <DialogTitle className="text-xl sm:text-2xl">{selectedEntry.username || 'Anonymous User'}'s Outfit</DialogTitle>
+                    <DialogTitle className="text-xl sm:text-2xl flex items-center gap-2">
+                        {selectedEntry.username || 'Anonymous User'}
+                        <LukuBadge lukuPoints={selectedEntry.lukuPoints} />
+                    </DialogTitle>
                     <DialogDescription>
                         Feedback for {formatDate(currentLeaderboardDate)}
                     </DialogDescription>
@@ -381,14 +384,14 @@ function LeaderboardPage() {
                 ))}
               </div>
             </div>
-            
+
             <Separator className="my-4" />
 
             <div>
               <h3 className="text-lg font-semibold mb-1 flex items-center"><MessageSquareQuote className="mr-2 h-5 w-5 text-primary"/>Stylist's Verdict:</h3>
               <p className="text-sm text-foreground/90 italic">{selectedEntry.complimentOrCritique || "No verdict provided."}</p>
             </div>
-            
+
             {selectedEntry.colorSuggestions && selectedEntry.colorSuggestions.length > 0 && (
               <div>
                 <h3 className="text-lg font-semibold mb-1 flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Color Suggestions:</h3>
@@ -422,4 +425,3 @@ function LeaderboardPageWrapper() {
 // Renaming original export to avoid conflict, and because Dialog needs to wrap it
 const LeaderboardPageActual = LeaderboardPage;
 export default LeaderboardPageWrapper;
-

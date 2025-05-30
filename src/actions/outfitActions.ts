@@ -1,7 +1,8 @@
 
 'use server';
-import { db } from '@/config/firebase'; // Client SDK
-import { collection, query, where, getDocs, orderBy, Timestamp, doc, getDoc as getFirestoreDoc } from 'firebase/firestore';
+import { db, storage } from '@/config/firebase'; // Client SDK
+import { collection, query, where, getDocs, orderBy, Timestamp, doc, getDoc as getFirestoreDoc, addDoc } from 'firebase/firestore';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 export interface ProcessedOutfit extends StyleSuggestionsOutput {
  outfitImageURL: string;
@@ -11,7 +12,7 @@ export interface ProcessedOutfit extends StyleSuggestionsOutput {
 import { getStyleSuggestions, type StyleSuggestionsOutput } from '@/ai/flows/style-suggestions';
 
 export async function processOutfitWithAI(
-  { photoDataUri }: { photoDataUri: string } 
+  { photoDataUri }: { photoDataUri: string }
 ): Promise<{success: boolean; data?: StyleSuggestionsOutput; error?: string; limitReached?: boolean}> {
 
   try {
@@ -23,7 +24,7 @@ export async function processOutfitWithAI(
     
     return { 
       success: true, 
-      data: aiResult 
+      data: aiResult
     };
 
   } catch (error: any) {
@@ -44,6 +45,7 @@ export interface LeaderboardEntry {
   outfitImageURL: string;
   rating: number;
   submittedAt: Date;
+  // Fields for detailed view
   complimentOrCritique?: string;
   colorSuggestions?: string[];
   lookSuggestions?: string;
@@ -65,6 +67,7 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
       where('leaderboardDate', '==', leaderboardDate),
       orderBy('rating', 'desc'),
       orderBy('submittedAt', 'asc')
+      // No limit here, pagination handled client-side for now
     );
 
     const querySnapshot = await getDocs(outfitsQuery);
@@ -99,6 +102,7 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
         outfitImageURL: outfitData.outfitImageURL,
         rating: outfitData.rating,
         submittedAt: (outfitData.submittedAt as Timestamp).toDate(),
+        // Include additional AI feedback for the dialog
         complimentOrCritique: outfitData.complimentOrCritique,
         colorSuggestions: outfitData.colorSuggestions,
         lookSuggestions: outfitData.lookSuggestions,

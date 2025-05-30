@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { auth } from '@/config/firebase'; 
+import { auth } from '@/config/firebase';
 import { sendEmailVerification } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ export default function VerifyEmailNoticePage() {
       router.replace('/upload');
     }
     if (!loading && !user) {
-      router.replace('/login'); 
+      router.replace('/login');
     }
   }, [user, loading, router]);
 
@@ -37,7 +37,7 @@ export default function VerifyEmailNoticePage() {
           try {
             await auth.currentUser.reload();
             // refreshUserProfile will update the user object in AuthContext
-            await refreshUserProfile(); 
+            await refreshUserProfile();
             // The main useEffect (above) will catch the change in user.emailVerified and redirect
           } catch (error) {
             console.warn("Polling: Failed to reload user status", error);
@@ -51,7 +51,7 @@ export default function VerifyEmailNoticePage() {
       return () => clearInterval(intervalId); // Cleanup interval on component unmount
     }
   }, [user, refreshUserProfile]);
-  
+
   const handleResendVerificationEmail = async () => {
     if (!user) {
       toast({ title: "Error", description: "You must be logged in to resend verification email.", variant: "destructive" });
@@ -59,7 +59,11 @@ export default function VerifyEmailNoticePage() {
     }
     setIsResending(true);
     try {
-      await sendEmailVerification(user);
+      const actionCodeSettings = {
+        url: `${window.location.origin}/upload`, // Redirect here after verification
+        handleCodeInApp: true,
+      };
+      await sendEmailVerification(user, actionCodeSettings);
       toast({ title: 'Verification Email Resent', description: 'Please check your inbox (and spam folder).' });
     } catch (error: any) {
       console.error("Error resending verification email:", error);
@@ -70,12 +74,12 @@ export default function VerifyEmailNoticePage() {
   };
 
   const handleManualRefresh = async () => {
-    if (!user) return; 
+    if (!user) return;
     setIsCheckingStatus(true);
     try {
       await user.reload();
       await refreshUserProfile(); // This will update context and trigger re-render + useEffect for redirection if verified
-      
+
       // Check local auth.currentUser after reload, before context fully updates
       if (auth.currentUser?.emailVerified) {
         toast({title: "Verified!", description: "Redirecting..."});
@@ -98,7 +102,7 @@ export default function VerifyEmailNoticePage() {
       </div>
     );
   }
-  
+
   if (!user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-4">
@@ -139,4 +143,3 @@ export default function VerifyEmailNoticePage() {
     </div>
   );
 }
-
