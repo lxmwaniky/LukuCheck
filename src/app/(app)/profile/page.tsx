@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { updateUserProfileInFirestore, deleteUserData, getUserProfileStats, type UserProfileStats } from '@/actions/userActions';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeCheck, Users, ShieldCheck as LegendIcon, Award } from 'lucide-react';
+import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, Flame } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { signOut, deleteUser as deleteFirebaseAuthUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { signOut, deleteUser as deleteFirebaseAuthUser, EmailAuthProvider, reauthenticateWithCredential, updateProfile as updateFirebaseAuthProfile } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
@@ -31,7 +31,6 @@ import Link from 'next/link';
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Flame } from 'lucide-react';
 
 
 // Helper function to generate a centered crop
@@ -120,6 +119,10 @@ const BADGE_DEFINITIONS: Record<string, BadgeDetails> = {
   LEGEND_STATUS: { id: "LEGEND_STATUS", name: "Legend Status", description: "Reached 250 LukuPoints - truly legendary!", icon: LegendIcon },
 };
 
+// Define constants for display text, mirroring those in userActions.ts
+const POINTS_PER_REFERRAL = 2;
+const REFERRALS_FOR_ROCKSTAR_BADGE = 3;
+const POINTS_REFERRAL_ROCKSTAR = 10;
 
 export default function ProfilePage() {
   const { user, userProfile, loading: authLoading, refreshUserProfile } = useAuth();
@@ -260,9 +263,11 @@ export default function ProfilePage() {
     if (auth.currentUser?.providerData.some(provider => provider.providerId === 'password')) {
        setShowReauthDialog(true);
     } else {
+       // For non-password providers (e.g. Google), re-authentication is more complex and might involve re-popup.
+       // For simplicity, we'll proceed to confirmation, but a real app might force re-auth via popup.
        setShowReauthDialog(true); 
     }
-    setIsDeleting(true); 
+    setIsDeleting(true); // Set deleting to true when dialog is triggered.
   };
 
 
@@ -289,9 +294,11 @@ export default function ProfilePage() {
             await reauthenticateWithCredential(auth.currentUser, credential);
             toast({ title: 'Re-authentication Successful', description: 'Proceeding with account deletion...' });
         } else {
+            // For social providers, no password re-auth here. Just confirming the intent.
              toast({ title: 'Confirmation Received', description: 'Proceeding with account deletion...' });
         }
 
+        // Call server action to delete user data (Firestore, Storage, Auth)
         const dataDeletionResult = await deleteUserData(user.uid);
         if (!dataDeletionResult.success) {
           throw new Error(dataDeletionResult.error || 'Server action failed to delete account data.');
@@ -302,7 +309,9 @@ export default function ProfilePage() {
 
         toast({ title: 'Account Deleted', description: 'Your account and all associated data have been permanently deleted.' });
         
+        // Sign out on client (AuthContext will handle redirect via onAuthStateChanged)
         await signOut(auth); 
+        // Router push is a fallback in case AuthContext doesn't redirect immediately
         router.push('/signup'); 
 
     } catch (error: any) {
@@ -312,13 +321,13 @@ export default function ProfilePage() {
       let desc = error.message;
       if (error.code === 'auth/wrong-password') {
         desc = "Incorrect password for re-authentication. Please try again.";
-        setReauthPassword(''); 
+        setReauthPassword(''); // Clear password field on wrong password
       } else if (error.code === 'auth/too-many-requests') {
         desc = "Too many re-authentication attempts. Please try again later.";
-        setShowReauthDialog(false); 
+        setShowReauthDialog(false); // Close dialog on too many requests
       } else if (error.code === 'auth/requires-recent-login') {
         desc = "This operation is sensitive and requires recent authentication. Please log out and log back in, then try again.";
-        setShowReauthDialog(false); 
+        setShowReauthDialog(false); // Close dialog
       } else {
         desc = `Account deletion failed: ${error.message || "Unknown error"}`;
       }
@@ -326,12 +335,15 @@ export default function ProfilePage() {
     } finally {
       setIsReauthenticating(false);
       if (errorOccurred && !(caughtError?.code === 'auth/wrong-password')) {
+         // If error occurred and it wasn't a wrong password, close dialog & reset isDeleting
          setShowReauthDialog(false);
          setIsDeleting(false);
       } else if (!errorOccurred) {
+         // If successful, close dialog and reset isDeleting
          setShowReauthDialog(false);
          setIsDeleting(false);
       }
+      // If it was a wrong password, dialog remains open for user to retry.
     }
   };
 
@@ -340,12 +352,12 @@ export default function ProfilePage() {
     return <div className="flex justify-center items-center h-full p-4"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading profile...</span></div>;
   }
 
-  if (!userProfile && !authLoading) { // Changed condition
-    return <div className="text-center p-4">Loading user profile details. If this persists, please try again or re-login.</div>;
-  }
-  
   if (!user) { // Should be caught by AppLayout, but as a fallback
     return <div className="text-center p-4">Please log in to view your profile. Redirecting...</div>;
+  }
+  
+  if (!userProfile) { // User is logged in, but profile hasn't loaded yet
+    return <div className="text-center p-4">Loading user profile details. If this persists, please try again or re-login.</div>;
   }
 
 
@@ -485,19 +497,37 @@ export default function ProfilePage() {
                 <h3 className="text-xl font-semibold mb-3">Your Social Links</h3>
                 <div className="flex items-center space-x-3">
                     {userProfile?.tiktokUrl ? (
-                        <Link href={userProfile.tiktokUrl} target="_blank" rel="noopener noreferrer" aria-label="TikTok Profile">
-                            <Button variant="outline" size="icon" className="rounded-full h-10 w-10 sm:h-12 sm:w-12">
-                                <LinkIconProp className="h-5 w-5 sm:h-6 sm:w-6" />
-                            </Button>
-                        </Link>
+                         <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Link href={userProfile.tiktokUrl} target="_blank" rel="noopener noreferrer" aria-label="TikTok Profile">
+                                        <Button variant="outline" size="icon" className="rounded-full h-10 w-10 sm:h-12 sm:w-12">
+                                            <LinkIconProp className="h-5 w-5 sm:h-6 sm:w-6" />
+                                        </Button>
+                                    </Link>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                <p>TikTok: {userProfile.tiktokUrl}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     ) : null}
 
                     {userProfile?.instagramUrl ? (
-                         <Link href={userProfile.instagramUrl} target="_blank" rel="noopener noreferrer" aria-label="Instagram Profile">
-                            <Button variant="outline" size="icon" className="rounded-full h-10 w-10 sm:h-12 sm:w-12">
-                                <Instagram className="h-5 w-5 sm:h-6 sm:w-6" />
-                            </Button>
-                        </Link>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Link href={userProfile.instagramUrl} target="_blank" rel="noopener noreferrer" aria-label="Instagram Profile">
+                                        <Button variant="outline" size="icon" className="rounded-full h-10 w-10 sm:h-12 sm:w-12">
+                                            <Instagram className="h-5 w-5 sm:h-6 sm:w-6" />
+                                        </Button>
+                                    </Link>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                <p>Instagram: {userProfile.instagramUrl}</p>
+                                </TooltipContent>
+                            </Tooltip>
+                         </TooltipProvider>
                     ) : null}
                 </div>
                  {(!userProfile?.tiktokUrl && !userProfile?.instagramUrl) && (
