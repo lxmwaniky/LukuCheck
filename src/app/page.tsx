@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, Badge as ProfileBadgeIcon, Award } from 'lucide-react';
+import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, Badge as ProfileBadgeIcon, Award, UploadCloud, Send, BarChart3, Coins } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { format, subDays, addDays, set, isBefore, isAfter, isToday, differenceInMilliseconds, isValid } from 'date-fns';
+import { format, subDays, addDays, set, isBefore, isAfter, isToday, differenceInMilliseconds, isValid, parseISO } from 'date-fns';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
@@ -20,6 +20,10 @@ const formatTimeLeft = (ms: number): string => {
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+};
+
+const toYYYYMMDD = (date: Date): string => {
+  return date.toISOString().split('T')[0];
 };
 
 
@@ -41,9 +45,9 @@ export default function HomePage() {
     const calculateTimes = () => {
       const now = new Date();
 
-      // Submission Window Logic: 6:00 AM to 2:55 PM daily
+      // Submission Window Logic: 6 AM to 2:55 PM daily
       const submissionOpenTimeToday = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
-      const submissionCloseTimeToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
+      const submissionCloseTimeToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM
 
       const currentIsSubmissionWindowOpen = isAfter(now, submissionOpenTimeToday) && isBefore(now, submissionCloseTimeToday);
       setIsSubmissionWindowOpen(currentIsSubmissionWindowOpen);
@@ -64,10 +68,10 @@ export default function HomePage() {
       let leaderboardDateToView: Date;
       const leaderboardViewingDeadlineToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM Today
 
-      if (isBefore(now, leaderboardViewingDeadlineToday)) { // Before 2:55 PM today, we look at YESTERDAY's leaderboard.
-        leaderboardDateToView = subDays(now, 1);
-      } else { // At or after 2:55 PM today, we look at TODAY's leaderboard.
-        leaderboardDateToView = new Date(now);
+      if (isBefore(now, leaderboardViewingDeadlineToday)) {
+        leaderboardDateToView = subDays(now, 1); // Show yesterday's leaderboard
+      } else {
+        leaderboardDateToView = new Date(now); // Show today's leaderboard
       }
       
       if (isValid(leaderboardDateToView)) {
@@ -85,17 +89,15 @@ export default function HomePage() {
           setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} release in: ${formatTimeLeft(timeLeftToRelease)} (at 3 PM)`);
         } else if (isReleased && isStillViewable) { 
           const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForDateToView, now);
-          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)} (until 2:55 PM next day)`);
+          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)}`);
         } else { 
-            // This means we are past the viewing window for leaderboardDateToView.
-            // We should be looking at the *next* day's leaderboard which isn't released yet.
-            const nextDay = addDays(now, isAfter(now, releaseTimeForDateToView) ? 1 : 0);
+            const nextDay = addDays(leaderboardDateToView, 1); 
             const nextReleaseTime = set(nextDay, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0});
 
             if (isValid(nextDay)){
                 const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
                 setLeaderboardStatusMessage(`Results for ${format(nextDay, "MMM d")} release in: ${formatTimeLeft(timeLeft)} (at 3 PM)`);
-                setCurrentViewableLeaderboardDate(nextDay); // Update to show countdown for the correct upcoming date
+                setCurrentViewableLeaderboardDate(nextDay);
                 setIsLeaderboardReleasedForViewing(false);
             } else {
                 setLeaderboardStatusMessage("Leaderboard status unavailable.");
@@ -173,20 +175,41 @@ export default function HomePage() {
     }
   ];
 
+  const gameplaySteps = [
+    {
+      icon: UploadCloud,
+      title: "Upload Your Look",
+      description: "Snap a photo of your outfit and easily upload it to get started."
+    },
+    {
+      icon: Sparkles,
+      title: "AI Style Analysis",
+      description: "Our AI scores your outfit (0-10) and provides color, look suggestions, plus a direct critique."
+    },
+    {
+      icon: Send,
+      title: "Join the Challenge",
+      description: "Submit your rated outfit to the daily leaderboard. Submissions are open 6 AM - 2:55 PM daily."
+    },
+    {
+      icon: BarChart3,
+      title: "Track Your Progress",
+      description: "See your rank on the leaderboard (results 3 PM - 2:55 PM next day) and view other styles."
+    },
+    {
+      icon: Coins,
+      title: "Earn & Achieve",
+      description: "Gain LukuPoints for participation, streaks, referrals, & top ranks. Unlock cool badges!"
+    }
+  ];
+
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
       <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-12 md:py-10">
-        <Image
-            src="https://img.freepik.com/free-psd/fashion-store-banner-template-with-photo_23-2148645320.jpg"
-            alt="Fashionable outfit collage"
-            width={800}
-            height={400}
-            className="rounded-lg shadow-xl mb-8 object-cover w-full max-w-4xl aspect-[2/1]"
-            data-ai-hint="fashion collage lifestyle"
-            priority
-        />
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome!</h1>
+        
+        <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome to LukuCheck!</h1>
         <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl">
           Get your outfits rated by AI, receive style suggestions, earn LukuPoints & Badges, and compete on the daily leaderboard.
         </p>
@@ -253,23 +276,26 @@ export default function HomePage() {
           </Card>
         )}
 
-        <div className="mt-12 sm:mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 w-full max-w-4xl">
-          <div className="p-4 sm:p-6 rounded-lg shadow-lg border bg-card">
-            <Sparkles className="w-8 h-8 text-accent mb-3" />
-            <h3 className="text-xl sm:text-2xl font-semibold mb-2">Upload & Rate</h3>
-            <p className="text-muted-foreground text-sm sm:text-base">Easily upload a photo of your outfit and let our AI provide an instant rating and feedback.</p>
-          </div>
-          <div className="p-4 sm:p-6 rounded-lg shadow-lg border bg-card">
-             <StarIconProp className="w-8 h-8 text-accent mb-3" />
-            <h3 className="text-xl sm:text-2xl font-semibold mb-2">Earn LukuPoints & Badges</h3>
-            <p className="text-muted-foreground text-sm sm:text-base">Gain points and unlock cool badges for profile completion, referrals, daily submissions, and streaks!</p>
-          </div>
-          <div className="p-4 sm:p-6 rounded-lg shadow-lg border bg-card">
-            <Trophy className="w-8 h-8 text-accent mb-3" />
-            <h3 className="text-xl sm:text-2xl font-semibold mb-2">Daily Leaderboard</h3>
-            <p className="text-muted-foreground text-sm sm:text-base">Submit your best looks and see how you rank against others in the community.</p>
-          </div>
-        </div>
+        <section className="mt-12 sm:mt-16 w-full max-w-4xl">
+            <h2 className="text-3xl font-bold mb-6 flex items-center justify-center">
+                <Shirt className="mr-3 h-8 w-8 text-primary"/>
+                How LukuCheck Works
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {gameplaySteps.map((step, index) => (
+                    <Card key={index} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+                        <CardHeader className="items-center text-center">
+                            <step.icon className="w-10 h-10 text-accent mb-3" />
+                            <CardTitle className="text-xl">{step.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-muted-foreground text-sm text-center">{step.description}</p>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </section>
+
 
         <section className="mt-12 sm:mt-16 w-full max-w-3xl">
             <h2 className="text-3xl font-bold mb-6 flex items-center justify-center">
@@ -297,3 +323,5 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
