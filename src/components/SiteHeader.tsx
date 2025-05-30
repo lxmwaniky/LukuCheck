@@ -1,7 +1,7 @@
 
 'use client';
 import Link from 'next/link';
-import { Shirt, Home, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Gift } from 'lucide-react'; // Added Coffee, Gift
+import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame } from 'lucide-react'; // Added Flame
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/config/firebase';
@@ -73,9 +73,15 @@ export function SiteHeader() {
                 </Button>
               </Link>
               {typeof userProfile?.lukuPoints === 'number' && (
-                <div className="flex items-center text-sm font-medium text-primary mr-2 ml-1 px-2 py-1 rounded-md bg-primary/10">
+                <div className="flex items-center text-sm font-medium text-primary mr-1 ml-1 px-2 py-1 rounded-md bg-primary/10">
                   <Coins className="h-4 w-4 mr-1 text-yellow-500" />
                   {userProfile.lukuPoints}
+                </div>
+              )}
+              {typeof userProfile?.currentStreak === 'number' && userProfile.currentStreak > 0 && (
+                <div className="flex items-center text-sm font-medium text-destructive mr-2 px-2 py-1 rounded-md bg-destructive/10">
+                  <Flame className="h-4 w-4 mr-1" />
+                  {userProfile.currentStreak}
                 </div>
               )}
             </>
@@ -115,6 +121,7 @@ export function SiteHeader() {
           >
             {mounted && (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />)}
             {!mounted && <Moon className="h-5 w-5" /> /* Or a placeholder icon or nothing */}
+            <span className="sr-only">Toggle Theme</span>
           </Button>
           <Sheet>
             <SheetTrigger asChild>
@@ -132,12 +139,20 @@ export function SiteHeader() {
               <nav className="flex flex-col space-y-3 mt-6">
                 {user && user.emailVerified && (
                   <>
-                   {typeof userProfile?.lukuPoints === 'number' && (
-                      <div className="flex items-center text-base font-medium text-primary mb-2 px-2 py-1.5 rounded-md bg-primary/10 self-start">
-                        <Coins className="h-5 w-5 mr-2 text-yellow-500" />
-                        {userProfile.lukuPoints} LukuPoints
-                      </div>
-                    )}
+                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+                      {typeof userProfile?.lukuPoints === 'number' && (
+                        <div className="flex items-center text-base font-medium text-primary px-2 py-1.5 rounded-md bg-primary/10">
+                          <Coins className="h-5 w-5 mr-2 text-yellow-500" />
+                          {userProfile.lukuPoints}
+                        </div>
+                      )}
+                      {typeof userProfile?.currentStreak === 'number' && userProfile.currentStreak > 0 && (
+                        <div className="flex items-center text-base font-medium text-destructive px-2 py-1.5 rounded-md bg-destructive/10">
+                          <Flame className="h-5 w-5 mr-1" />
+                          {userProfile.currentStreak}
+                        </div>
+                      )}
+                    </div>
                     <SheetClose asChild>
                       <Link href="/upload" legacyBehavior passHref>
                         <Button variant="ghost" className={navLinkClass}>
