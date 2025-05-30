@@ -48,6 +48,23 @@ const nextConfig: NextConfig = {
             { '@opentelemetry/exporter-jaeger': 'commonjs @opentelemetry/exporter-jaeger' },
         ];
     }
+
+    // Attempt to ignore Handlebars warnings about require.extensions
+    // These warnings are often benign but can be noisy or interfere with some build systems.
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings || []),
+      (warning) => {
+        return (
+          warning.module &&
+          warning.module.resource &&
+          typeof warning.module.resource === 'string' &&
+          warning.module.resource.includes('node_modules/handlebars/lib/index.js') &&
+          typeof warning.message === 'string' &&
+          warning.message.includes('require.extensions is not supported by webpack')
+        );
+      },
+    ];
+
     return config;
   },
 };
