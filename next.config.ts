@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
        {
-        protocol: 'https', // Fixed typo from 'httpshttps'
+        protocol: 'https',
         hostname: 'lh3.googleusercontent.com', // For Google User Avatars
         port: '',
         pathname: '/**',
@@ -36,6 +36,19 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       }
     ],
+  },
+  webpack: (config, { isServer }) => {
+    // For server-side code, Genkit might try to optionally load Jaeger.
+    // We mark it as external to prevent Webpack from trying to bundle it
+    // if it's not explicitly installed as a dependency for tracing.
+    // This helps resolve "Module not found" warnings during the build.
+    if (isServer) {
+        config.externals = [
+            ...(config.externals || []),
+            { '@opentelemetry/exporter-jaeger': 'commonjs @opentelemetry/exporter-jaeger' },
+        ];
+    }
+    return config;
   },
 };
 
