@@ -2,11 +2,10 @@
 'use server';
 
 import { Timestamp, FieldValue } from 'firebase-admin/firestore';
-import { getAuth as getAdminAuth } from 'firebase-admin/auth';
+import { getAuth as getAdminAuth, type UserRecord as AdminUserRecord } from 'firebase-admin/auth';
 import { adminDb, adminInitialized, getAdminStorageBucket } from '@/config/firebaseAdmin';
 import type { UserProfile } from '@/contexts/AuthContext';
 import { revalidatePath } from 'next/cache';
-import type { UserRecord as AdminUserRecord } from 'firebase-admin/auth';
 import { differenceInCalendarDays, subDays, format as formatDateFns } from 'date-fns';
 import { getLeaderboardData } from '@/actions/outfitActions'; // To check previous day's leaderboard
 
@@ -17,6 +16,10 @@ const REFERRAL_ROCKSTAR_BADGE = "REFERRAL_ROCKSTAR";
 const STREAK_STARTER_3_BADGE = "STREAK_STARTER_3";
 const STREAK_KEEPER_7_BADGE = "STREAK_KEEPER_7";
 const TOP_3_FINISHER_BADGE = "TOP_3_FINISHER";
+const PERFECT_SCORE_BADGE = "PERFECT_SCORE";
+const CENTURY_CLUB_BADGE = "CENTURY_CLUB";
+const LEGEND_STATUS_BADGE = "LEGEND_STATUS";
+
 
 const POINTS_PROFILE_PRO = 5;
 const POINTS_FIRST_SUBMISSION = 3;
@@ -29,6 +32,7 @@ const POINTS_PER_REFERRAL = 2;
 const POINTS_TOP_3_RANK_1 = 5;
 const POINTS_TOP_3_RANK_2 = 3;
 const POINTS_TOP_3_RANK_3 = 2;
+const POINTS_PERFECT_SCORE = 5;
 
 
 interface UpdateProfileArgs {
@@ -52,6 +56,16 @@ export async function createUserProfileInFirestore(
   }
   const userRef = adminDb.collection('users').doc(userId);
   try {
+    const initialLukuPoints = 5;
+    const initialBadges: string[] = [];
+
+    if (initialLukuPoints >= 250 && !initialBadges.includes(LEGEND_STATUS_BADGE)) {
+        initialBadges.push(LEGEND_STATUS_BADGE);
+    } else if (initialLukuPoints >= 100 && !initialBadges.includes(CENTURY_CLUB_BADGE)) {
+        initialBadges.push(CENTURY_CLUB_BADGE);
+    }
+
+
     await userRef.set({
       uid: userId,
       email: email,
@@ -63,15 +77,15 @@ export async function createUserProfileInFirestore(
       lastLogin: FieldValue.serverTimestamp(),
       tiktokUrl: null,
       instagramUrl: null,
-      lukuPoints: 5, // Initial points on signup
+      lukuPoints: initialLukuPoints,
       referredBy: referrerUid || null,
       referralPointsAwarded: false,
       tiktokPointsAwarded: false,
       instagramPointsAwarded: false,
-      badges: [],
+      badges: initialBadges,
       currentStreak: 0,
       lastSubmissionDate: null,
-      lastTop3BonusDate: null, // To track if top 3 bonus for a specific day was awarded
+      lastTop3BonusDate: null,
     });
 
     const adminAuth = getAdminAuth();
@@ -112,6 +126,7 @@ export async function updateUserProfileInFirestore({
     }
     const currentUserData = userDocSnap.data() as UserProfile;
     const currentBadges = currentUserData.badges || [];
+    let currentLukuPoints = currentUserData.lukuPoints || 0;
 
     if (typeof username === 'string' && username !== currentUserData.username) {
       updateDataFirestore.username = username;
@@ -182,7 +197,15 @@ export async function updateUserProfileInFirestore({
 
     if (pointsToAwardThisUpdate > 0) {
         updateDataFirestore.lukuPoints = FieldValue.increment(pointsToAwardThisUpdate);
+        currentLukuPoints += pointsToAwardThisUpdate;
     }
+
+    if (currentLukuPoints >= 250 && !currentBadges.includes(LEGEND_STATUS_BADGE) && !newBadgesToAdd.includes(LEGEND_STATUS_BADGE)) {
+        newBadgesToAdd.push(LEGEND_STATUS_BADGE);
+    } else if (currentLukuPoints >= 100 && !currentBadges.includes(CENTURY_CLUB_BADGE) && !newBadgesToAdd.includes(CENTURY_CLUB_BADGE)) {
+        newBadgesToAdd.push(CENTURY_CLUB_BADGE);
+    }
+
     if (newBadgesToAdd.length > 0) {
         updateDataFirestore.badges = FieldValue.arrayUnion(...newBadgesToAdd);
     }
@@ -371,6 +394,8 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
     let pointsToAwardReferrerThisTime = POINTS_PER_REFERRAL; 
     const newBadgesForReferrer: string[] = [];
     let referrerUpdateSuccessful = false;
+    let currentReferrerLukuPoints = 0;
+    let currentReferrerBadges: string[] = [];
 
     await adminDb.runTransaction(async (transaction) => {
       const referrerDocSnap = await transaction.get(referrerDocRef);
@@ -380,11 +405,13 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
       }
 
       const referrerData = referrerDocSnap.data() as UserProfile;
-      const currentReferrerBadges = referrerData.badges || [];
+      currentReferrerBadges = referrerData.badges || [];
+      currentReferrerLukuPoints = referrerData.lukuPoints || 0;
+
 
       const referralsQuery = adminDb.collection('users')
                                    .where('referredBy', '==', referrerUid)
-                                   .where('referralPointsAwarded', '==', true);
+                                   .where('referralPointsAwarded', '==', true); // Count only successfully processed referrals
       const existingReferralsSnapshot = await transaction.get(referralsQuery);
       const countOfPreviousSuccessfulReferrals = existingReferralsSnapshot.size;
 
@@ -394,6 +421,15 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
         newBadgesForReferrer.push(REFERRAL_ROCKSTAR_BADGE);
         pointsToAwardReferrerThisTime += POINTS_REFERRAL_ROCKSTAR; 
       }
+
+      const updatedReferrerLukuPoints = currentReferrerLukuPoints + pointsToAwardReferrerThisTime;
+
+      if (updatedReferrerLukuPoints >= 250 && !currentReferrerBadges.includes(LEGEND_STATUS_BADGE) && !newBadgesForReferrer.includes(LEGEND_STATUS_BADGE)) {
+          newBadgesForReferrer.push(LEGEND_STATUS_BADGE);
+      } else if (updatedReferrerLukuPoints >= 100 && !currentReferrerBadges.includes(CENTURY_CLUB_BADGE) && !newBadgesForReferrer.includes(CENTURY_CLUB_BADGE)) {
+          newBadgesForReferrer.push(CENTURY_CLUB_BADGE);
+      }
+
 
       const referrerUpdatePayload: {[key: string]: any} = {
         lukuPoints: FieldValue.increment(pointsToAwardReferrerThisTime)
@@ -424,7 +460,7 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
   }
 }
 
-export async function handleLeaderboardSubmissionPerks(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+export async function handleLeaderboardSubmissionPerks(userId: string, submittedOutfitRating: number): Promise<{ success: boolean; message?: string; error?: string }> {
     if (!adminInitialized || !adminDb) {
         console.error("[UserActions ERROR] Admin SDK not initialized. Cannot process submission perks.");
         return { success: false, error: "Server error: Admin SDK not configured." };
@@ -444,7 +480,8 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
             }
 
             const userData = userSnap.data() as UserProfile & { lastTop3BonusDate?: string | null };
-            const currentBadges = userData.badges || [];
+            let currentBadges = userData.badges || [];
+            let currentLukuPoints = userData.lukuPoints || 0;
             let pointsToAward = 0;
             const newBadges: string[] = [];
             const updateData: { [key: string]: any } = {};
@@ -454,6 +491,13 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
                 newBadges.push(FIRST_SUBMISSION_BADGE);
                 pointsToAward += POINTS_FIRST_SUBMISSION;
             }
+
+            // Perfect Score Badge
+            if (submittedOutfitRating === 10 && !currentBadges.includes(PERFECT_SCORE_BADGE) && !newBadges.includes(PERFECT_SCORE_BADGE)) {
+                newBadges.push(PERFECT_SCORE_BADGE);
+                pointsToAward += POINTS_PERFECT_SCORE;
+            }
+
 
             // Streak Logic
             const todayStr = new Date().toISOString().split('T')[0]; // Server's UTC date
@@ -469,7 +513,7 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
                         currentStreak++;
                     } else if (diffDays > 1) { 
                         currentStreak = 1;
-                    } else if (diffDays < 0 ) {
+                    } else if (diffDays < 0 ) { // Should not happen if clocks are synced, but handle defensively
                         currentStreak = 1;
                       }
                 } else { 
@@ -517,12 +561,22 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
             }
 
 
+            if (pointsToAward > 0) {
+                updateData.lukuPoints = FieldValue.increment(pointsToAward);
+                currentLukuPoints += pointsToAward; // Update local tracker for subsequent badge checks
+            }
+            
+            // Check for Century Club / Legend Status badges based on the new total points
+            if (currentLukuPoints >= 250 && !currentBadges.includes(LEGEND_STATUS_BADGE) && !newBadges.includes(LEGEND_STATUS_BADGE)) {
+                newBadges.push(LEGEND_STATUS_BADGE);
+            } else if (currentLukuPoints >= 100 && !currentBadges.includes(CENTURY_CLUB_BADGE) && !newBadges.includes(CENTURY_CLUB_BADGE)) {
+                newBadges.push(CENTURY_CLUB_BADGE);
+            }
+
             if (newBadges.length > 0) {
                 updateData.badges = FieldValue.arrayUnion(...newBadges);
             }
-            if (pointsToAward > 0) {
-                updateData.lukuPoints = FieldValue.increment(pointsToAward);
-            }
+
 
             if (Object.keys(updateData).length > 0) {
                 transaction.update(userRef, updateData);
@@ -541,5 +595,3 @@ export async function handleLeaderboardSubmissionPerks(userId: string): Promise<
         return { success: false, error: `Failed to process submission perks: ${error.message || "Unknown error"}` };
     }
 }
-
-    

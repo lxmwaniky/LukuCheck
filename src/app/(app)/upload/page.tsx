@@ -16,9 +16,9 @@ import { handleLeaderboardSubmissionPerks } from '@/actions/userActions';
 import { UploadCloud, Sparkles, Send, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Ban, Clock, ShieldAlert, ImageOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/config/firebase';
-import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, where, getDocs as getFirestoreDocs } from 'firebase/firestore'; // Added collection, addDoc
+import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, where, getDocs as getFirestoreDocs } from 'firebase/firestore'; 
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { format, subDays, set, isBefore, isAfter, addDays } from 'date-fns';
+import { format, subDays, set, isBefore, isAfter, addDays, parseISO } from 'date-fns';
 
 interface ProcessedOutfitClient extends StyleSuggestionsOutput {
  outfitImageURL: string;
@@ -58,7 +58,7 @@ function getAiUsageDateString(): string {
   // Format targetDate as YYYY-MM-DD
   const year = targetDate.getFullYear();
   const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-  const dayString = String(targetDate.getDate()).padStart(2, '0'); // Renamed to avoid conflict
+  const dayString = String(targetDate.getDate()).padStart(2, '0'); 
   return `${year}-${month}-${dayString}`;
 }
 
@@ -101,7 +101,7 @@ export default function UploadPage() {
       }
     } catch (error) {
       console.error("[UploadPage DEBUG] fetchAIUsageOnClient - Failed to fetch AI usage:", error);
-      toast({ title: "Error", description: "Could not fetch AI usage. Check Firestore rules.", variant: "destructive" });
+      // toast({ title: "Error", description: "Could not fetch AI usage. Check Firestore rules.", variant: "destructive" });
     }
   };
 
@@ -122,7 +122,7 @@ export default function UploadPage() {
       if (currentCount >= AI_USAGE_DAILY_LIMIT) {
         // console.log("[UploadPage DEBUG] clientIncrementAIUsage - Limit reached, currentCount:", currentCount);
         setAiUsage({ count: currentCount, limitReached: true }); // Update state immediately
-        toast({ title: 'Usage Limit Reached', description: `AI usage limit (${AI_USAGE_DAILY_LIMIT}/day) reached.`, variant: 'default' });
+        toast({ title: 'Usage Limit Reached', description: `AI usage limit (${AI_USAGE_DAILY_LIMIT}/day) reached. Resets 6 AM local time.`, variant: 'default' });
         return { success: false, error: `AI usage limit (${AI_USAGE_DAILY_LIMIT}/day) reached.`, limitReached: true };
       }
 
@@ -193,7 +193,7 @@ export default function UploadPage() {
     }, 60000); // Check every minute
     return () => clearInterval(interval);
 
-  }, [user, toast]); // Removed `fetchAIUsageOnClient` from deps to avoid loop, it's called inside
+  }, [user, toast]); 
 
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -297,7 +297,7 @@ export default function UploadPage() {
       setAiResult(prev => prev ? {...prev, submittedToLeaderboard: true } : null);
       setHasSubmittedToday(true);
 
-      const perksResult = await handleLeaderboardSubmissionPerks(user.uid);
+      const perksResult = await handleLeaderboardSubmissionPerks(user.uid, aiResult.rating);
       if (perksResult.success) {
         toast({ title: 'Perks Updated!', description: perksResult.message || 'Points & badges processed.', duration: 2000});
         await refreshUserProfile();
@@ -350,7 +350,7 @@ export default function UploadPage() {
             <Info className="h-4 w-4" />
             <AlertTitle>AI Usage: {aiUsage.count}/{AI_USAGE_DAILY_LIMIT} Today</AlertTitle>
             <AlertDescription className="text-xs sm:text-sm">
-              {aiUsage.limitReached ? "You've reached your daily AI analysis limit (resets 6 AM local time)." : `Get up to ${AI_USAGE_DAILY_LIMIT} AI ratings per day (resets 6 AM local time).`}
+              {aiUsage.limitReached ? `You've reached your daily AI analysis limit (${AI_USAGE_DAILY_LIMIT}/day). Resets 6 AM local time.` : `Get up to ${AI_USAGE_DAILY_LIMIT} AI ratings per day (resets 6 AM local time).`}
             </AlertDescription>
           </Alert>
 
@@ -481,4 +481,3 @@ export default function UploadPage() {
     </div>
   );
 }
-

@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import Image from 'next/image';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, Badge as ProfileBadgeIcon, Award, UploadCloud, Send, BarChart3, Coins } from 'lucide-react';
+import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users as UsersIconProp, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, UploadCloud, Send, BarChart3, Coins, User as UserIcon } from 'lucide-react'; // Added UserIcon
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format, subDays, addDays, set, isBefore, isAfter, isToday, differenceInMilliseconds, isValid, parseISO } from 'date-fns';
@@ -47,7 +48,7 @@ export default function HomePage() {
 
       // Submission Window Logic: 6 AM to 2:55 PM daily
       const submissionOpenTimeToday = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
-      const submissionCloseTimeToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM
+      const submissionCloseTimeToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
 
       const currentIsSubmissionWindowOpen = isAfter(now, submissionOpenTimeToday) && isBefore(now, submissionCloseTimeToday);
       setIsSubmissionWindowOpen(currentIsSubmissionWindowOpen);
@@ -58,12 +59,12 @@ export default function HomePage() {
       } else if (currentIsSubmissionWindowOpen) {
         const timeLeft = differenceInMilliseconds(submissionCloseTimeToday, now);
         setSubmissionStatusMessage(`Submissions open! Closes in: ${formatTimeLeft(timeLeft)}`);
-      } else { // After 2:55 PM today
+      } else { 
         const submissionOpenTimeTomorrow = set(addDays(now, 1), { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
         const timeLeft = differenceInMilliseconds(submissionOpenTimeTomorrow, now);
         setSubmissionStatusMessage(`Submissions closed. Opens tomorrow at 6 AM (in ${formatTimeLeft(timeLeft)})`);
       }
-
+      
       // Leaderboard Viewing Logic: Day D's LB: 3 PM on Day D - 2:55 PM on Day D+1
       let leaderboardDateToView: Date;
       const leaderboardViewingDeadlineToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM Today
@@ -89,16 +90,17 @@ export default function HomePage() {
           setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} release in: ${formatTimeLeft(timeLeftToRelease)} (at 3 PM)`);
         } else if (isReleased && isStillViewable) { 
           const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForDateToView, now);
-          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)}`);
+          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)} (until 2:55 PM next day)`);
         } else { 
-            const nextDay = addDays(leaderboardDateToView, 1); 
-            const nextReleaseTime = set(nextDay, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0});
-
-            if (isValid(nextDay)){
+            // If current leaderboardDateToView is past its viewing window, advance to next day's potential leaderboard.
+            const nextDayCandidate = isAfter(now, viewingEndTimeForDateToView) ? addDays(leaderboardDateToView, 1) : leaderboardDateToView;
+            const nextReleaseTime = set(nextDayCandidate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0});
+            
+            if (isValid(nextDayCandidate)){
                 const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
-                setLeaderboardStatusMessage(`Results for ${format(nextDay, "MMM d")} release in: ${formatTimeLeft(timeLeft)} (at 3 PM)`);
-                setCurrentViewableLeaderboardDate(nextDay);
-                setIsLeaderboardReleasedForViewing(false);
+                setLeaderboardStatusMessage(`Results for ${format(nextDayCandidate, "MMM d")} release in: ${formatTimeLeft(timeLeft)} (at 3 PM)`);
+                setCurrentViewableLeaderboardDate(nextDayCandidate);
+                setIsLeaderboardReleasedForViewing(false); 
             } else {
                 setLeaderboardStatusMessage("Leaderboard status unavailable.");
             }
@@ -128,27 +130,55 @@ export default function HomePage() {
   const faqs = [
     {
       question: "How often can I submit an outfit for AI rating?",
-      answer: "You can get AI feedback on your outfits up to 5 times per day, as per your daily AI usage limit."
+      answer: "You can get AI feedback on your outfits up to 5 times per day, as per your daily AI usage limit (resets at 6 AM local time)."
     },
     {
       question: "How do I earn LukuPoints?",
-      answer: "You earn LukuPoints by: Signing up (5 pts), adding your TikTok (1 pt) or Instagram (1 pt) links (once each), completing your profile ('Profile Pro' badge + 5 pts), your first leaderboard submission ('First Submission' badge + 3 pts), daily leaderboard submissions for your LukuStreak (1 pt/day), hitting LukuStreak milestones (e.g., 3-day streak +2 bonus pts; 7-day streak +5 bonus pts), successfully referring 3 new stylists ('Referral Rockstar' badge + 10 bonus pts - each referral also gets you 2 pts), and for ranking in the Top 3 on the daily leaderboard (Rank 1: 5 pts, Rank 2: 3 pts, Rank 3: 2 pts - awarded on your next submission when perks are checked)."
+      answer: (
+        <div className="space-y-1">
+          <p>You earn LukuPoints for various activities:</p>
+          <ul className="list-disc list-inside pl-2 space-y-0.5 text-sm">
+            <li>Signing up: <strong>5 points</strong></li>
+            <li>Adding your TikTok link (once): <strong>1 point</strong></li>
+            <li>Adding your Instagram link (once): <strong>1 point</strong></li>
+            <li>Completing your profile (photo & social links for "Profile Pro" badge): <strong>5 points</strong></li>
+            <li>First leaderboard submission ("First Submission" badge): <strong>3 points</strong></li>
+            <li>Daily leaderboard submission for your LukuStreak: <strong>1 point/day</strong></li>
+            <li>Achieving a 10/10 AI rating ("Perfect Score" badge, once): <strong>5 points</strong></li>
+            <li>3-Day LukuStreak ("Streak Starter" badge): <strong>2 bonus points</strong></li>
+            <li>7-Day LukuStreak ("Streak Keeper" badge): <strong>5 bonus points</strong></li>
+            <li>Referring a new stylist (per verified referral): <strong>2 points</strong></li>
+            <li>Referring 3 new stylists ("Referral Rockstar" badge): <strong>10 bonus points</strong></li>
+            <li>Ranking Top 3 on daily leaderboard (awarded next day):
+                <ul className="list-circle list-inside pl-4">
+                    <li>Rank 1: <strong>5 points</strong></li>
+                    <li>Rank 2: <strong>3 points</strong></li>
+                    <li>Rank 3: <strong>2 points</strong></li>
+                </ul>
+            </li>
+          </ul>
+        </div>
+      )
     },
     {
       question: "What are Badges?",
       answer: (
         <div className="space-y-3">
-          <p>Badges are special achievements for various milestones! You can earn:</p>
-          <ul className="list-disc list-inside space-y-1.5 pl-2">
-            <li className="flex items-center gap-1.5"><ProfileBadgeIcon className="h-4 w-4 text-accent" /><strong>Profile Pro:</strong> Complete your profile with a custom photo and both social links.</li>
+          <p>Badges are special achievements for various milestones and statuses!</p>
+          <p className="font-semibold">Achievement Badges:</p>
+          <ul className="list-disc list-inside space-y-1.5 pl-2 text-sm">
+            <li className="flex items-center gap-1.5"><UserIcon className="h-4 w-4 text-accent" /><strong>Profile Pro:</strong> Complete your profile with a custom photo and both social links.</li>
             <li className="flex items-center gap-1.5"><Award className="inline h-4 w-4 text-accent" /><strong>First Submission:</strong> Submit your first outfit to the leaderboard.</li>
             <li className="flex items-center gap-1.5"><GiftIcon className="inline h-4 w-4 text-accent" /><strong>Referral Rockstar:</strong> Successfully refer 3 new stylists.</li>
             <li className="flex items-center gap-1.5"><Flame className="inline h-4 w-4 text-red-500" /><strong>Streak Starter (3 Days):</strong> Submit outfits for 3 consecutive days.</li>
             <li className="flex items-center gap-1.5"><Flame className="inline h-4 w-4 text-orange-500" /><strong>Streak Keeper (7 Days):</strong> Submit outfits for 7 consecutive days.</li>
             <li className="flex items-center gap-1.5"><Trophy className="inline h-4 w-4 text-yellow-500" /><strong>Top 3 Finisher:</strong> Achieve a Top 3 rank on the daily leaderboard.</li>
+            <li className="flex items-center gap-1.5"><StarIconProp className="inline h-4 w-4 text-accent" /><strong>Perfect Score:</strong> Achieve a 10/10 AI rating on an outfit.</li>
+            <li className="flex items-center gap-1.5"><Users className="inline h-4 w-4 text-accent" /><strong>Century Club:</strong> Earn 100 LukuPoints!</li>
+            <li className="flex items-center gap-1.5"><LegendIcon className="inline h-4 w-4 text-accent" /><strong>Legend Status:</strong> Reach 250 LukuPoints - truly legendary!</li>
           </ul>
-          <p className="mt-2">Additionally, you'll earn tiered Luku Badges displayed next to your name as you accumulate LukuPoints, showcasing your status (starting from 20 points):</p>
-          <ul className="list-none space-y-1.5 pl-2">
+          <p className="mt-2 font-semibold">Luku Tier Badges (shown next to your name):</p>
+          <ul className="list-none space-y-1.5 pl-2 text-sm">
             <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-yellow-600 fill-yellow-600" /> <strong>Luku Bronze:</strong> 20-49 LukuPoints</li>
             <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-slate-400 fill-slate-400" /> <strong>Luku Silver:</strong> 50-99 LukuPoints</li>
             <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-yellow-400 fill-yellow-400" /> <strong>Luku Gold:</strong> 100-249 LukuPoints</li>
@@ -251,7 +281,7 @@ export default function HomePage() {
                 <Link href="/leaderboard" passHref className="h-full">
                   <div className="p-4 rounded-lg border bg-card/50 hover:bg-secondary/70 transition-colors cursor-pointer h-full flex flex-col justify-center">
                     <h4 className="text-lg font-semibold flex items-center">
-                      <Users className={`mr-2 h-5 w-5 ${isLeaderboardReleasedForViewing ? 'text-accent' : 'text-primary/70'}`}/>
+                      <UsersIconProp className={`mr-2 h-5 w-5 ${isLeaderboardReleasedForViewing ? 'text-accent' : 'text-primary/70'}`}/>
                       Leaderboard:
                     </h4>
                     <p className="text-sm sm:text-base font-medium">{leaderboardStatusMessage}</p>
@@ -323,5 +353,3 @@ export default function HomePage() {
     </div>
   );
 }
-
-    

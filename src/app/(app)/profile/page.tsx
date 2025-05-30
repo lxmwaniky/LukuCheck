@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { updateUserProfileInFirestore, deleteUserData, getUserProfileStats, type UserProfileStats } from '@/actions/userActions';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeIcon as ProfileBadgeIcon, Flame, Award } from 'lucide-react';
+import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeCheck, Users, ShieldCheck as LegendIcon, Award } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +31,7 @@ import Link from 'next/link';
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Flame } from 'lucide-react';
 
 
 // Helper function to generate a centered crop
@@ -109,11 +110,14 @@ interface BadgeDetails {
 
 const BADGE_DEFINITIONS: Record<string, BadgeDetails> = {
   PROFILE_PRO: { id: "PROFILE_PRO", name: "Profile Pro", description: "Completed profile with custom photo and social links.", icon: UserIcon },
-  FIRST_SUBMISSION: { id: "FIRST_SUBMISSION", name: "First Submission", description: "Submitted first outfit to the leaderboard.", icon: Award }, // Changed icon
+  FIRST_SUBMISSION: { id: "FIRST_SUBMISSION", name: "First Submission", description: "Submitted first outfit to the leaderboard.", icon: Award },
   REFERRAL_ROCKSTAR: { id: "REFERRAL_ROCKSTAR", name: "Referral Rockstar", description: "Successfully referred 3 new stylists!", icon: Gift },
   STREAK_STARTER_3: { id: "STREAK_STARTER_3", name: "Streak Starter (3 Days)", description: "Submitted outfits for 3 consecutive days.", icon: Flame },
   STREAK_KEEPER_7: { id: "STREAK_KEEPER_7", name: "Streak Keeper (7 Days)", description: "Submitted outfits for 7 consecutive days.", icon: Flame },
   TOP_3_FINISHER: { id: "TOP_3_FINISHER", name: "Top 3 Finisher", description: "Achieved a Top 3 rank on the daily leaderboard!", icon: Trophy },
+  PERFECT_SCORE: { id: "PERFECT_SCORE", name: "Perfect Score!", description: "Achieved a 10/10 AI rating on an outfit.", icon: StarIcon },
+  CENTURY_CLUB: { id: "CENTURY_CLUB", name: "Century Club", description: "Earned 100 LukuPoints!", icon: Users },
+  LEGEND_STATUS: { id: "LEGEND_STATUS", name: "Legend Status", description: "Reached 250 LukuPoints - truly legendary!", icon: LegendIcon },
 };
 
 
@@ -293,9 +297,8 @@ export default function ProfilePage() {
           throw new Error(dataDeletionResult.error || 'Server action failed to delete account data.');
         }
         
-        if (auth.currentUser) {
-            await deleteFirebaseAuthUser(auth.currentUser);
-        }
+        // Firebase Auth user is now deleted by the server action using Admin SDK
+        // await deleteFirebaseAuthUser(auth.currentUser); // No longer needed client-side
 
         toast({ title: 'Account Deleted', description: 'Your account and all associated data have been permanently deleted.' });
         
@@ -337,11 +340,11 @@ export default function ProfilePage() {
     return <div className="flex justify-center items-center h-full p-4"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading profile...</span></div>;
   }
 
-  if (!userProfile && !authLoading) {
+  if (!userProfile && !authLoading) { // Changed condition
     return <div className="text-center p-4">Loading user profile details. If this persists, please try again or re-login.</div>;
   }
   
-  if (!user) {
+  if (!user) { // Should be caught by AppLayout, but as a fallback
     return <div className="text-center p-4">Please log in to view your profile. Redirecting...</div>;
   }
 
@@ -525,14 +528,14 @@ export default function ProfilePage() {
                     <p className="text-2xl font-bold text-primary">
                         {userProfile.currentStreak} Day{userProfile.currentStreak > 1 ? 's' : ''}!
                     </p>
-                    {userProfile.lastSubmissionDate && <p className="text-xs text-muted-foreground">Last submission: {userProfile.lastSubmissionDate}</p>}
+                    {userProfile.lastSubmissionDate && <p className="text-xs text-muted-foreground">Last submission: {new Date(userProfile.lastSubmissionDate).toLocaleDateString()}</p>}
                 </div>
             )}
 
             {userBadges.length > 0 && (
                  <div>
                     <h3 className="text-xl font-semibold mb-3 flex items-center">
-                        <ProfileBadgeIcon className="mr-2 h-6 w-6 text-primary" />
+                        <BadgeCheck className="mr-2 h-6 w-6 text-primary" />
                         Your Badges
                     </h3>
                     <div className="flex flex-wrap gap-3">
@@ -592,7 +595,7 @@ export default function ProfilePage() {
               Refer a Stylist & Earn LukuPoints!
             </h3>
             <p className="text-sm text-muted-foreground">
-              Share your unique referral link with friends. For every friend who signs up and verifies their email, you'll earn <strong className="text-accent">2 LukuPoints!</strong> If you refer 3 friends, you'll earn the "Referral Rockstar" badge and a bonus <strong className="text-accent">10 LukuPoints!</strong> (Plus, they get 5 LukuPoints on signup!)
+              Share your unique referral link with friends. For every friend who signs up and verifies their email, you'll earn <strong className="text-accent">{POINTS_PER_REFERRAL} LukuPoints!</strong> If you refer {REFERRALS_FOR_ROCKSTAR_BADGE} friends, you'll earn the "Referral Rockstar" badge and a bonus <strong className="text-accent">{POINTS_REFERRAL_ROCKSTAR} LukuPoints!</strong> (Plus, they get 5 LukuPoints on signup!)
             </p>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 border rounded-md bg-secondary/30">
               <Input
