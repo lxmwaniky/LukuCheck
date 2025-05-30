@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { updateUserProfileInFirestore, deleteUserData, getUserProfileStats, type UserProfileStats } from '@/actions/userActions';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeIcon, Flame } from 'lucide-react';
+import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeIcon as ProfileBadgeIcon, Flame } from 'lucide-react'; // Renamed BadgeIcon to ProfileBadgeIcon
 import {
   AlertDialog,
   AlertDialogAction,
@@ -228,8 +228,8 @@ export default function ProfilePage() {
         username: currentUsername !== (userProfile?.username || user.displayName) ? currentUsername : undefined,
         photoDataUrl: newPhotoDataUrlForUpload ? newPhotoDataUrlForUpload : undefined,
         currentPhotoUrl: userProfile?.customPhotoURL || userProfile?.photoURL,
-        tiktokUrl: tiktokUrl, // Send current value, server will check if it's new
-        instagramUrl: instagramUrl, // Send current value
+        tiktokUrl: tiktokUrl, 
+        instagramUrl: instagramUrl, 
       });
 
       if (result.success) {
@@ -255,9 +255,11 @@ export default function ProfilePage() {
     if (auth.currentUser?.providerData.some(provider => provider.providerId === 'password')) {
        setShowReauthDialog(true);
     } else {
+       // For non-password providers, proceed without re-auth if needed, or implement specific flow
+       // For simplicity now, still show a confirmation dialog.
        setShowReauthDialog(true); 
     }
-    setIsDeleting(true); 
+    setIsDeleting(true); // Ensure isDeleting is set here to manage button state
   };
 
 
@@ -284,22 +286,26 @@ export default function ProfilePage() {
             await reauthenticateWithCredential(auth.currentUser, credential);
             toast({ title: 'Re-authentication Successful', description: 'Proceeding with account deletion...' });
         } else {
+            // Non-password provider, just proceed after confirmation from dialog
              toast({ title: 'Confirmation Received', description: 'Proceeding with account deletion...' });
         }
 
+        // Call server action to delete all user data (Firestore, Storage)
         const dataDeletionResult = await deleteUserData(user.uid);
         if (!dataDeletionResult.success) {
+          // This error from the server action (e.g., Admin SDK not configured) should be shown
           throw new Error(dataDeletionResult.error || 'Server action failed to delete account data.');
         }
         
+        // Delete Firebase Auth user (client-side, after re-authentication)
         if (auth.currentUser) {
             await deleteFirebaseAuthUser(auth.currentUser);
         }
 
         toast({ title: 'Account Deleted', description: 'Your account and all associated data have been permanently deleted.' });
         
-        await signOut(auth); 
-        router.push('/signup');
+        await signOut(auth); // Sign out from Firebase client auth
+        router.push('/signup'); // Redirect to signup or login page
 
     } catch (error: any) {
       errorOccurred = true;
@@ -308,26 +314,30 @@ export default function ProfilePage() {
       let desc = error.message;
       if (error.code === 'auth/wrong-password') {
         desc = "Incorrect password for re-authentication. Please try again.";
-        setReauthPassword(''); 
+        setReauthPassword(''); // Clear password field for retry
       } else if (error.code === 'auth/too-many-requests') {
         desc = "Too many re-authentication attempts. Please try again later.";
-        setShowReauthDialog(false); 
+        setShowReauthDialog(false); // Close dialog on too many attempts
       } else if (error.code === 'auth/requires-recent-login') {
         desc = "This operation is sensitive and requires recent authentication. Please log out and log back in, then try again.";
-        setShowReauthDialog(false); 
+        setShowReauthDialog(false); // Close dialog
       } else {
+        // Generic message, could be from server action or other client error
         desc = `Account deletion failed: ${error.message || "Unknown error"}`;
       }
       toast({ title: 'Error Deleting Account', description: desc, variant: 'destructive' });
     } finally {
       setIsReauthenticating(false);
+      // Only close dialog and reset isDeleting if not a wrong password error (allowing retry)
       if (errorOccurred && !(caughtError?.code === 'auth/wrong-password')) {
          setShowReauthDialog(false);
          setIsDeleting(false);
       } else if (!errorOccurred) {
+         // If successful, dialog should close and isDeleting reset
          setShowReauthDialog(false);
          setIsDeleting(false);
       }
+      // If it was a wrong password error, dialog remains open, isDeleting remains true for button state
     }
   };
 
@@ -533,7 +543,7 @@ export default function ProfilePage() {
             {userBadges.length > 0 && (
                  <div>
                     <h3 className="text-xl font-semibold mb-3 flex items-center">
-                        <BadgeIcon className="mr-2 h-6 w-6 text-primary" />
+                        <ProfileBadgeIcon className="mr-2 h-6 w-6 text-primary" />
                         Your Badges
                     </h3>
                     <div className="flex flex-wrap gap-3">
@@ -733,5 +743,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    
