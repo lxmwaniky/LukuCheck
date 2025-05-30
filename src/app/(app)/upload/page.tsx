@@ -16,7 +16,7 @@ import { handleLeaderboardSubmissionPerks } from '@/actions/userActions';
 import { UploadCloud, Sparkles, Send, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Ban, Clock, ShieldAlert, ImageOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/config/firebase';
-import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, where, getDocs as getFirestoreDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, where, getDocs as getFirestoreDocs } from 'firebase/firestore'; // Added collection, addDoc
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { format, subDays, set, isBefore, isAfter, addDays } from 'date-fns';
 
@@ -25,7 +25,7 @@ interface ProcessedOutfitClient extends StyleSuggestionsOutput {
  submittedToLeaderboard?: boolean;
 }
 
-const AI_USAGE_DAILY_LIMIT = 5;
+const AI_USAGE_DAILY_LIMIT = 5; 
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
@@ -37,8 +37,30 @@ const formatTimeLeft = (ms: number): string => {
 };
 
 const toYYYYMMDD = (date: Date): string => {
-  return date.toISOString().split('T')[0];
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
+
+// Helper function to determine the date string for AI usage tracking (resets at 6 AM local time)
+function getAiUsageDateString(): string {
+  const now = new Date(); // Current local time
+  const currentHour = now.getHours();
+
+  let targetDate = new Date(now); // Start with today
+
+  if (currentHour < 6) {
+    // If before 6 AM, the usage counts towards the "day" that started yesterday at 6 AM
+    targetDate.setDate(now.getDate() - 1); // Go to yesterday
+  }
+
+  // Format targetDate as YYYY-MM-DD
+  const year = targetDate.getFullYear();
+  const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const dayString = String(targetDate.getDate()).padStart(2, '0'); // Renamed to avoid conflict
+  return `${year}-${month}-${dayString}`;
+}
 
 
 export default function UploadPage() {
@@ -62,8 +84,8 @@ export default function UploadPage() {
 
   const fetchAIUsageOnClient = async () => {
     if (!user) return;
-    const today = toYYYYMMDD(new Date());
-    const usageDocPath = `users/${user.uid}/aiUsage/${today}`;
+    const usageDateString = getAiUsageDateString();
+    const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
     const usageRef = doc(db, usageDocPath);
     // console.log("[UploadPage DEBUG] fetchAIUsageOnClient - Path:", usageDocPath);
     try {
@@ -74,20 +96,20 @@ export default function UploadPage() {
         // console.log("[UploadPage DEBUG] fetchAIUsageOnClient - Found doc, count:", count);
         setAiUsage({ count, limitReached: count >= AI_USAGE_DAILY_LIMIT });
       } else {
-        // console.log("[UploadPage DEBUG] fetchAIUsageOnClient - No doc found, count: 0");
+        // console.log("[UploadPage DEBUG] fetchAIUsageOnClient - No doc found for usageDateString", usageDateString, "count: 0");
         setAiUsage({ count: 0, limitReached: false });
       }
     } catch (error) {
       console.error("[UploadPage DEBUG] fetchAIUsageOnClient - Failed to fetch AI usage:", error);
-      toast({ title: "Error", description: "Could not fetch AI usage.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not fetch AI usage. Check Firestore rules.", variant: "destructive" });
     }
   };
 
   const clientIncrementAIUsage = async (): Promise<{ success: boolean; error?: string; limitReached?: boolean }> => {
     if (!user) return { success: false, error: 'User ID is required.'};
 
-    const today = toYYYYMMDD(new Date());
-    const usageDocPath = `users/${user.uid}/aiUsage/${today}`;
+    const usageDateString = getAiUsageDateString();
+    const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
     const usageRef = doc(db, usageDocPath);
     // console.log("[UploadPage DEBUG] clientIncrementAIUsage - Path:", usageDocPath);
 
@@ -95,11 +117,11 @@ export default function UploadPage() {
       const usageSnap = await getDoc(usageRef);
       let currentCount = 0;
       if (usageSnap.exists()) currentCount = usageSnap.data()?.count || 0;
-      // console.log("[UploadPage DEBUG] clientIncrementAIUsage - Current count from Firestore:", currentCount);
+      // console.log("[UploadPage DEBUG] clientIncrementAIUsage - Current count from Firestore (for usageDateString", usageDateString, "):", currentCount);
 
       if (currentCount >= AI_USAGE_DAILY_LIMIT) {
         // console.log("[UploadPage DEBUG] clientIncrementAIUsage - Limit reached, currentCount:", currentCount);
-        setAiUsage({ count: currentCount, limitReached: true });
+        setAiUsage({ count: currentCount, limitReached: true }); // Update state immediately
         toast({ title: 'Usage Limit Reached', description: `AI usage limit (${AI_USAGE_DAILY_LIMIT}/day) reached.`, variant: 'default' });
         return { success: false, error: `AI usage limit (${AI_USAGE_DAILY_LIMIT}/day) reached.`, limitReached: true };
       }
@@ -113,8 +135,8 @@ export default function UploadPage() {
         await updateDoc(usageRef, { count: newCount, lastUsed: Timestamp.now() });
         // console.log("[UploadPage DEBUG] clientIncrementAIUsage - Existing usage doc updated to count:", newCount);
       }
-
-      await fetchAIUsageOnClient(); // Re-fetch to update UI state
+      // console.log("[UploadPage DEBUG] clientIncrementAIUsage - Successfully incremented usage. New count in DB (for usageDateString", usageDateString, "):", newCount);
+      setAiUsage({ count: newCount, limitReached: newCount >= AI_USAGE_DAILY_LIMIT }); // Update UI immediately
       return { success: true, limitReached: newCount >= AI_USAGE_DAILY_LIMIT };
 
     } catch (error: any) {
@@ -150,7 +172,7 @@ export default function UploadPage() {
 
       fetchAIUsageOnClient();
 
-      const todaysDateStr = toYYYYMMDD(now);
+      const todaysDateStr = toYYYYMMDD(now); // For leaderboard submission, still use actual calendar day
       const outfitsCollectionRef = collection(db, 'outfits');
       const q = query(outfitsCollectionRef, where('userId', '==', user.uid), where('leaderboardDate', '==', todaysDateStr));
       try {
@@ -168,10 +190,10 @@ export default function UploadPage() {
     }
     const interval = setInterval(() => {
         if (user) checkSubmissionStatusAndWindow();
-    }, 60000);
+    }, 60000); // Check every minute
     return () => clearInterval(interval);
 
-  }, [user, toast]);
+  }, [user, toast]); // Removed `fetchAIUsageOnClient` from deps to avoid loop, it's called inside
 
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -198,7 +220,7 @@ export default function UploadPage() {
       const incrementResult = await clientIncrementAIUsage();
       if (!incrementResult.success) {
         setIsLoading(false);
-        return; // Error toast is handled within clientIncrementAIUsage
+        return; 
       }
 
       // Client-side image upload
@@ -209,7 +231,6 @@ export default function UploadPage() {
 
       if (!uploadedOutfitImageURL) throw new Error("Failed to upload image or get download URL.");
 
-      // Call server action for AI processing only
       const aiProcessingResult = await processOutfitWithAI({ photoDataUri: imagePreview });
 
       if (aiProcessingResult.success && aiProcessingResult.data) {
@@ -236,8 +257,8 @@ export default function UploadPage() {
       toast({ title: 'Error', description: 'Missing data for leaderboard submission.', variant: 'destructive'});
       return;
     }
-    if (!aiResult.isActualUserOutfit) {
-      toast({ title: "Invalid Submission", description: aiResult.validityCritique || "This outfit cannot be submitted to the leaderboard.", variant: "destructive"});
+     if (!aiResult.isActualUserOutfit) {
+      toast({ title: "Invalid Submission", description: aiResult.validityCritique || "This outfit cannot be submitted to the leaderboard because it was flagged by the AI.", variant: "destructive"});
       return;
     }
     if (hasSubmittedToday) {
@@ -255,7 +276,7 @@ export default function UploadPage() {
 
     setIsSubmittingToLeaderboard(true);
     try {
-      const leaderboardDateStr = toYYYYMMDD(new Date());
+      const leaderboardDateStr = toYYYYMMDD(new Date()); // Submissions are for the current calendar day
       const outfitsCollectionRef = collection(db, 'outfits');
       const outfitData = {
         userId: user.uid,
@@ -278,7 +299,7 @@ export default function UploadPage() {
 
       const perksResult = await handleLeaderboardSubmissionPerks(user.uid);
       if (perksResult.success) {
-        toast({ title: 'Perks Updated!', description: perksResult.message, duration: 2000});
+        toast({ title: 'Perks Updated!', description: perksResult.message || 'Points & badges processed.', duration: 2000});
         await refreshUserProfile();
       } else {
         toast({ title: 'Perks Error', description: perksResult.error, variant: 'destructive'});
@@ -329,7 +350,7 @@ export default function UploadPage() {
             <Info className="h-4 w-4" />
             <AlertTitle>AI Usage: {aiUsage.count}/{AI_USAGE_DAILY_LIMIT} Today</AlertTitle>
             <AlertDescription className="text-xs sm:text-sm">
-              {aiUsage.limitReached ? "You've reached your daily AI analysis limit." : `Get up to ${AI_USAGE_DAILY_LIMIT} AI ratings per day.`}
+              {aiUsage.limitReached ? "You've reached your daily AI analysis limit (resets 6 AM local time)." : `Get up to ${AI_USAGE_DAILY_LIMIT} AI ratings per day (resets 6 AM local time).`}
             </AlertDescription>
           </Alert>
 
@@ -460,3 +481,4 @@ export default function UploadPage() {
     </div>
   );
 }
+
