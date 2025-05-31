@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mail, Lock, LogIn, Loader2, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, LogIn, Loader2, Eye, EyeOff, ArrowLeft, Shirt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
@@ -71,6 +71,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
       <Card className="w-full max-w-md shadow-2xl">
         <CardHeader className="text-center">
+          <Link href="/" passHref aria-label="Back to Home">
+            <Shirt className="mx-auto h-12 w-12 text-primary mb-4 cursor-pointer hover:opacity-80 transition-opacity" />
+          </Link>
           <CardTitle className="text-3xl font-bold text-primary">Welcome Back to LukuCheck!</CardTitle>
           <CardDescription className="text-md">
             Sign in to continue your style journey.
@@ -117,7 +120,7 @@ export default function LoginPage() {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter className="flex flex-col gap-4 pt-2">
             <Button type="submit" className="w-full text-lg py-3" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
               Login
@@ -130,6 +133,11 @@ export default function LoginPage() {
                 <a className="text-primary hover:underline">Create an Account</a>
               </Link>
             </div>
+             <Link href="/" legacyBehavior passHref>
+                <Button variant="link" className="w-full text-muted-foreground hover:text-primary mt-2">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
+                </Button>
+            </Link>
           </CardFooter>
         </form>
       </Card>

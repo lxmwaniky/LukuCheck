@@ -5,142 +5,186 @@ import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import Link from 'next/link';
 
 export default function PrivacyPolicyPage() {
+  const contactEmail = 'lxmwaniky@gmail.com';
+  const appName = 'LukuCheck';
+  const lastUpdatedDate = 'October 28, 2023'; // Update this manually when you make changes
+
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
       <main className="flex-1 container py-8 sm:py-12 md:py-10">
         <Card className="max-w-3xl mx-auto shadow-lg">
           <CardHeader>
-            <CardTitle className="text-2xl sm:text-3xl">Privacy Policy for LukuCheck</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl">Privacy Policy for {appName}</CardTitle>
           </CardHeader>
           <CardContent>
-             <ScrollArea className="h-[60vh] p-1 sm:p-3 border rounded-md">
-              <div className="space-y-4 text-sm text-muted-foreground">
-                <p className="font-bold text-destructive">
-                  IMPORTANT: This is a placeholder Privacy Policy. You MUST replace this with a legally sound document tailored to your application, data practices, and jurisdiction. Consult a legal professional. This template may not cover GDPR, CCPA, or other specific legal requirements.
-                </p>
+            <ScrollArea className="h-[60vh] p-1 sm:p-3 border rounded-md">
+              <div className="space-y-6 text-sm text-foreground/90">
+                <p className="text-xs text-muted-foreground">Last updated: {lastUpdatedDate}</p>
 
-                <p>Last updated: {new Date().toLocaleDateString()}</p>
-
-                <h2 className="text-lg font-semibold text-foreground pt-2">1. Introduction</h2>
                 <p>
-                  LukuCheck ("we", "us", "our") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application and website (collectively, the "Service").
+                  Welcome to {appName}! Your privacy is important to us. This Privacy Policy explains how we
+                  (the creator of {appName}) collect, use, share, and protect your personal information when you use our
+                  mobile application and website (collectively, the "Service").
                 </p>
-
-                <h2 className="text-lg font-semibold text-foreground pt-2">2. Information We Collect</h2>
                 <p>
-                  We may collect information about you in a variety of ways. The information we may collect via the Service includes:
-                </p>
-                <ul className="list-disc list-inside pl-4 space-y-1">
-                  <li>
-                    <strong>Personal Data:</strong> Personally identifiable information, such as your email address, username, and any social media URLs you voluntarily provide when you register an account or update your profile.
-                  </li>
-                  <li>
-                    <strong>User Content:</strong> Images of outfits you upload for AI analysis and/or submission to the leaderboard, and any associated AI-generated feedback. Profile pictures you upload.
-                  </li>
-                  <li>
-                    <strong>Usage Data:</strong> Information automatically collected when you access and use the Service, such as your IP address (which may be used to approximate location), device type, operating system, browser type, access times, and the pages you have viewed directly before and after accessing the Service. This also includes your LukuPoints, badges, streaks, and AI usage counts.
-                  </li>
-                  <li>
-                    <strong>Information from Third-Party Services:</strong> If you register or log in using a third-party service (e.g., Google), we may receive information from that service, such as your name, email, and profile picture, as permitted by your privacy settings on that service.
-                  </li>
-                </ul>
-                <p className="font-bold text-destructive">
-                  Reminder: Be specific about all data collected, including from third-party AI services like Google (Gemini). Check Google's terms regarding data they process.
+                  By using {appName}, you agree to the collection and use of information in accordance with this policy.
+                  If you have any questions, please contact us at{' '}
+                  <a href={`mailto:${contactEmail}`} className="text-primary hover:underline">{contactEmail}</a>.
                 </p>
 
-                <h2 className="text-lg font-semibold text-foreground pt-2">3. How We Use Your Information</h2>
-                <p>
-                  Having accurate information about you permits us to provide you with a smooth, efficient, and customized experience. Specifically, we may use information collected about you via the Service to:
-                </p>
-                <ul className="list-disc list-inside pl-4 space-y-1">
-                  <li>Create and manage your account.</li>
-                  <li>Process your outfit submissions and provide AI-generated feedback.</li>
-                  <li>Operate and display the daily leaderboard.</li>
-                  <li>Award LukuPoints and Badges.</li>
-                  <li>Personalize and improve your experience.</li>
-                  <li>Monitor and analyze usage and trends to improve the Service.</li>
-                  <li>Communicate with you, including sending verification emails or responding to your inquiries.</li>
-                  <li>Prevent fraudulent transactions, monitor against theft, and protect against criminal activity.</li>
-                  <li>Comply with legal obligations.</li>
-                </ul>
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">1. Information We Collect</h2>
+                  <p>We collect information to provide and improve our Service to you. The types of information we may collect include:</p>
+                  <ul className="list-disc list-inside pl-4 space-y-2">
+                    <li>
+                      <strong>Account Information:</strong>
+                      When you create an account, we collect your email address, chosen username, and a hashed version of your password.
+                      If you sign up via a referral link, we may also store the UID of the user who referred you.
+                    </li>
+                    <li>
+                      <strong>Profile Information (Optional):</strong>
+                      You may choose to provide additional information for your profile, such as a profile picture,
+                      links to your TikTok or Instagram profiles. This information, if provided, can be publicly visible.
+                    </li>
+                    <li>
+                      <strong>Outfit Submissions & AI Interaction Data:</strong>
+                      <ul className="list-circle list-inside pl-4 space-y-1 mt-1">
+                        <li>
+                          <strong>Outfit Images:</strong> We collect the images of outfits you upload for AI analysis and, if you choose, for submission to the daily leaderboard.
+                        </li>
+                        <li>
+                          <strong>AI Feedback:</strong> We store the AI-generated rating, critiques, and suggestions associated with your outfit submissions that are posted to the leaderboard.
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <strong>Usage and Engagement Data:</strong>
+                      We collect information about your interactions with the Service, such as your LukuPoints, earned Badges, LukuStreak progress, and AI usage counts (to manage daily limits). We also record the date of your last login and last outfit submission for streak calculations.
+                    </li>
+                    <li>
+                      <strong>Technical Information (Automatically Collected):</strong>
+                      Like most online services, we use Firebase which may automatically collect certain information when you use the Service, such as your IP address (which can be used to estimate your general location), device type, operating system, and access times. This is primarily for service operation, security, and analytics by Firebase.
+                    </li>
+                  </ul>
+                </section>
 
-                <h2 className="text-lg font-semibold text-foreground pt-2">4. Disclosure of Your Information</h2>
-                <p>
-                  We may share information we have collected about you in certain situations. Your information may be disclosed as follows:
-                </p>
-                <ul className="list-disc list-inside pl-4 space-y-1">
-                  <li>
-                    <strong>By Law or to Protect Rights:</strong> If we believe the release of information about you is necessary to respond to legal process, to investigate or remedy potential violations of our policies, or to protect the rights, property, and safety of others, we may share your information as permitted or required by any applicable law, rule, or regulation.
-                  </li>
-                  <li>
-                    <strong>Third-Party Service Providers:</strong> We may share your information with third-party vendors, service providers, contractors, or agents who perform services for us or on our behalf and require access to such information to do that work. Examples include:
-                    <ul className="list-circle list-inside pl-4">
-                        <li>AI Model Providers (e.g., Google for Gemini model access via Genkit) for processing outfit images and generating feedback.</li>
-                        <li>Cloud Hosting Providers (e.g., Firebase/Google Cloud) for data storage and application hosting.</li>
-                    </ul>
-                  </li>
-                   <p className="font-bold text-destructive">
-                    Reminder: Explicitly list types of third-party providers and for what purpose data is shared. Ensure their privacy policies align.
-                   </p>
-                  <li>
-                    <strong>Publicly Visible Information:</strong> Your username, custom profile picture (if provided), submitted outfit images on the leaderboard, their AI ratings, LukuPoints, and Badges are publicly visible to other users of the Service. If you link your TikTok or Instagram, these links may also be visible on the leaderboard.
-                  </li>
-                  <li>
-                    <strong>Business Transfers:</strong> We may share or transfer your information in connection with, or during negotiations of, any merger, sale of company assets, financing, or acquisition of all or a portion of our business to another company.
-                  </li>
-                  <li>
-                    <strong>With Your Consent:</strong> We may disclose your personal information for any other purpose with your consent.
-                  </li>
-                </ul>
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">2. How We Use Your Information</h2>
+                  <p>We use the information we collect for various purposes:</p>
+                  <ul className="list-disc list-inside pl-4 space-y-1">
+                    <li>To provide, operate, and maintain our Service (e.g., manage your account, process outfit uploads, display leaderboards, calculate LukuPoints and streaks).</li>
+                    <li>To provide you with AI-powered feedback on your outfits.</li>
+                    <li>To personalize your experience and allow you to participate in interactive features.</li>
+                    <li>To communicate with you, such as sending email verification, responding to your support requests, or informing you about important updates to the Service or these policies.</li>
+                    <li>To monitor and analyze usage and trends to improve the Service and develop new features.</li>
+                    <li>To enforce our Terms of Service and maintain a safe and respectful community.</li>
+                    <li>To process referrals and award relevant points/badges.</li>
+                  </ul>
+                </section>
 
-                <h2 className="text-lg font-semibold text-foreground pt-2">5. Data Security</h2>
-                <p>
-                  We use administrative, technical, and physical security measures to help protect your personal information. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable, and no method of data transmission can be guaranteed against any interception or other type of misuse.
-                </p>
-                 <p className="font-bold text-destructive">
-                    Reminder: Detail your specific security measures.
-                 </p>
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">3. How We Share Your Information</h2>
+                  <p>We do not sell your personal information. We may share your information in the following limited circumstances:</p>
+                  <ul className="list-disc list-inside pl-4 space-y-2">
+                    <li>
+                      <strong>Publicly on {appName}:</strong>
+                        Certain information is public by the nature of the Service:
+                        <ul className="list-circle list-inside pl-4 space-y-0.5 mt-1">
+                            <li>Your username and profile picture (if you provide one).</li>
+                            <li>Outfit images you submit to the leaderboard, along with their AI rating and feedback.</li>
+                            <li>Your LukuPoints and earned Badges displayed on leaderboards or your profile.</li>
+                            <li>Links to your TikTok or Instagram if you've added them to your profile and they are displayed on the leaderboard.</li>
+                        </ul>
+                    </li>
+                    <li>
+                      <strong>With Service Providers:</strong> We use third-party services to help us operate {appName}. These providers only have access to your information to perform tasks on our behalf and are obligated not to disclose or use it for other purposes.
+                        <ul className="list-circle list-inside pl-4 space-y-0.5 mt-1">
+                            <li>
+                              <strong>Firebase (Google):</strong> For authentication, database (Firestore), image storage (Cloud Storage), and application hosting. Firebase's privacy policy applies to their data processing.
+                            </li>
+                            <li>
+                              <strong>Google AI (Gemini via Genkit):</strong> When you submit an outfit for AI analysis, the image data is sent to Google's AI models for processing. Google's privacy policy and terms for their AI services apply. We only send the image; no other personal user data is sent with it for the analysis itself.
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                      <strong>For Legal Reasons:</strong> We may disclose your information if we believe it's reasonably necessary to comply with a law, regulation, legal process, or governmental request; to protect the safety of any person; to address fraud, security, or technical issues; or to protect our rights or property or the rights or property of our users.
+                    </li>
+                    <li>
+                      <strong>Business Transfers:</strong> If {appName} is involved in a merger, acquisition, or asset sale, your information may be transferred. We would provide notice before your personal information is transferred and becomes subject to a different privacy policy.
+                    </li>
+                  </ul>
+                </section>
 
-                <h2 className="text-lg font-semibold text-foreground pt-2">6. Data Retention</h2>
-                <p>
-                  We will retain your personal information only for as long as is necessary for the purposes set out in this Privacy Policy. We will retain and use your information to the extent necessary to comply with our legal obligations, resolve disputes, and enforce our policies. Outfit images submitted to the leaderboard may be retained as part of the historical leaderboard data.
-                </p>
-                 <p className="font-bold text-destructive">
-                    Reminder: Specify retention periods for different data types.
-                 </p>
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">4. Data Security</h2>
+                  <p>
+                    We take reasonable measures to help protect your information from loss, theft, misuse, and unauthorized access, disclosure, alteration, and destruction. We rely on Firebase's security infrastructure for data storage and authentication. However, no internet or email transmission is ever fully secure or error-free. You are also responsible for keeping your account password confidential.
+                  </p>
+                </section>
 
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">5. Data Retention</h2>
+                  <p>
+                    We retain your personal information for as long as your account is active or as needed to provide you with the Service. If you delete your account, we will take steps to delete your personal information within a reasonable timeframe, subject to any legal obligations or operational backup requirements.
+                  </p>
+                  <p>
+                    Information you have shared on public leaderboards (like outfit images and usernames) may remain visible as part of the historical record of the Service even after account deletion, though it would no longer be actively linked to a deletable account.
+                  </p>
+                </section>
 
-                <h2 className="text-lg font-semibold text-foreground pt-2">7. Your Data Rights</h2>
-                <p>
-                  Depending on your jurisdiction, you may have certain rights regarding your personal information, such as the right to access, correct, delete, or restrict its processing. You can manage some of your information through your profile settings within the App, including deleting your account which will remove associated data as described in the app.
-                </p>
-                 <p className="font-bold text-destructive">
-                    Reminder: Specify rights according to applicable laws (e.g., GDPR, CCPA). Explain how users can exercise these rights.
-                 </p>
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">6. Your Choices and Rights</h2>
+                  <ul className="list-disc list-inside pl-4 space-y-1">
+                    <li>
+                      <strong>Access and Update:</strong> You can access and update certain personal information (like your username, profile picture, social links) through your account settings in the App.
+                    </li>
+                    <li>
+                      <strong>Account Deletion:</strong> You can request to delete your account through the App's profile settings. Deleting your account will remove your personal information from our active databases as described in "Data Retention."
+                    </li>
+                    <li>
+                      <strong>Email Communications:</strong> You will receive transactional emails (like email verification). We currently do not send promotional emails.
+                    </li>
+                    <li>
+                      <strong>Kenyan Data Protection Act:</strong> If you are in Kenya, you may have certain rights under the Data Protection Act, 2019, including the right to access your personal data, request correction or deletion, and object to processing in certain circumstances. To exercise these rights, please contact us.
+                    </li>
+                  </ul>
+                </section>
 
-                <h2 className="text-lg font-semibold text-foreground pt-2">8. Children's Privacy</h2>
-                <p>
-                  Our Service is not intended for use by children under the age of 13 (or a higher age if stipulated by applicable law in your jurisdiction). We do not knowingly collect personally identifiable information from children under this age.
-                </p>
-                 <p className="font-bold text-destructive">
-                    Reminder: If you collect data from users under 16 (or other relevant age), specific rules (like COPPA in the US) may apply.
-                 </p>
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">7. Children's Privacy</h2>
+                  <p>
+                    {appName} is not intended for children under the age of 13. We do not knowingly collect personal information from children under 13. If we become aware that a child under 13 has provided us with personal information without parental consent, we will take steps to delete such information and terminate the child's account.
+                  </p>
+                </section>
 
-                <h2 className="text-lg font-semibold text-foreground pt-2">9. Changes to This Privacy Policy</h2>
-                <p>
-                  We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date.
-                </p>
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">8. International Data Transfers</h2>
+                  <p>
+                    Your information, including personal data, may be transferred to — and maintained on — computers located outside of your state, province, country, or other governmental jurisdiction where the data protection laws may differ from those in your jurisdiction (e.g., Firebase servers are often in the US). Your consent to this Privacy Policy followed by your submission of such information represents your agreement to that transfer.
+                  </p>
+                </section>
 
-                <h2 className="text-lg font-semibold text-foreground pt-2">10. Contact Us</h2>
-                <p>
-                  If you have any questions about this Privacy Policy, please contact us at [Your Contact Email Address].
-                </p>
-                 <p className="font-bold text-destructive">
-                  Reminder: Add your contact email.
-                </p>
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">9. Changes to This Privacy Policy</h2>
+                  <p>
+                    We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date. You are advised to review this Privacy Policy periodically for any changes.
+                  </p>
+                </section>
+
+                <section className="space-y-3">
+                  <h2 className="text-lg font-semibold text-foreground pt-2">10. Contact Us</h2>
+                  <p>
+                    If you have any questions or concerns about this Privacy Policy or our data practices, please contact us at:{' '}
+                    <a href={`mailto:${contactEmail}`} className="text-primary hover:underline">{contactEmail}</a>.
+                  </p>
+                </section>
+
+                <p className="pt-4">Thank you for using {appName}!</p>
               </div>
             </ScrollArea>
           </CardContent>

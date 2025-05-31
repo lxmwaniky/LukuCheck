@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox'; // Added Checkbox import
-import { Mail, User as UserIcon, Lock, Loader2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Mail, User as UserIconProp, Lock, Loader2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, ArrowLeft, Shirt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDebounce } from '@/hooks/use-debounce';
 
@@ -25,7 +25,7 @@ function SignupForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [agreedToTerms, setAgreedToTerms] = useState(false); // State for checkbox
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -186,6 +186,9 @@ function SignupForm() {
   return (
     <Card className="w-full max-w-md shadow-2xl">
       <CardHeader className="text-center">
+        <Link href="/" passHref aria-label="Back to Home">
+          <Shirt className="mx-auto h-12 w-12 text-primary mb-4 cursor-pointer hover:opacity-80 transition-opacity" />
+        </Link>
         <CardTitle className="text-3xl font-bold text-primary">Create Your LukuCheck Account</CardTitle>
         <CardDescription className="text-md">
           Join the community and start rating!
@@ -207,7 +210,7 @@ function SignupForm() {
             />
           </div>
            <div>
-            <Label htmlFor="username" className="flex items-center mb-1.5"><UserIcon className="mr-2 h-4 w-4 text-muted-foreground"/>Username (for display)</Label>
+            <Label htmlFor="username" className="flex items-center mb-1.5"><UserIconProp className="mr-2 h-4 w-4 text-muted-foreground"/>Username (for display)</Label>
             <div className="relative">
               <Input
                 id="username"
@@ -296,21 +299,26 @@ function SignupForm() {
             </Label>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4">
+        <CardFooter className="flex flex-col gap-4 pt-2">
           <Button
             type="submit"
             className="w-full text-lg py-3"
             disabled={isSubmitting || usernameStatus === 'checking' || (usernameError !== null && username.length >=3 && usernameStatus === 'error') || (username.length > 0 && username.length < 3) || !agreedToTerms }
           >
-            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UserIcon className="mr-2 h-5 w-5" />}
+            {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UserIconProp className="mr-2 h-5 w-5" />}
             Sign Up
           </Button>
-          <div className="text-sm text-center">
+          <div className="text-sm text-center w-full flex justify-between">
             <span>Already have an account? </span>
             <Link href="/login" legacyBehavior passHref>
               <a className="text-primary hover:underline">Login here</a>
             </Link>
           </div>
+           <Link href="/" legacyBehavior passHref>
+                <Button variant="link" className="w-full text-muted-foreground hover:text-primary mt-2">
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
+                </Button>
+            </Link>
         </CardFooter>
       </form>
     </Card>
@@ -326,4 +334,3 @@ export default function SignupPage() {
     </Suspense>
   )
 }
-
