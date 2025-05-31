@@ -4,12 +4,13 @@ import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { auth, createUserWithEmailAndPassword, sendEmailVerification, updateProfile as updateFirebaseAuthProfile, signInWithEmailAndPassword } from '@/config/firebase';
+import { auth, createUserWithEmailAndPassword, sendEmailVerification, updateProfile as updateFirebaseAuthProfile } from '@/config/firebase';
 import { createUserProfileInFirestore, checkUsernameAvailability } from '@/actions/userActions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox'; // Added Checkbox import
 import { Mail, User as UserIcon, Lock, Loader2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDebounce } from '@/hooks/use-debounce';
@@ -24,6 +25,7 @@ function SignupForm() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false); // State for checkbox
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -37,11 +39,7 @@ function SignupForm() {
 
   useEffect(() => {
     if (!loading && user) {
-      if (user.emailVerified) {
-        router.replace('/upload');
-      } else {
-        // AuthContext and AppLayout handle redirect to /verify-email-notice
-      }
+      // AuthContext and AppLayout handle redirect to /verify-email-notice or /upload
     }
   }, [user, loading, router]);
 
@@ -78,6 +76,10 @@ function SignupForm() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!agreedToTerms) {
+      toast({ title: "Agreement Required", description: "Please accept the Terms of Service and Privacy Policy to continue.", variant: "destructive" });
+      return;
+    }
     if (password !== confirmPassword) {
       toast({ title: "Error", description: "Passwords do not match.", variant: "destructive" });
       return;
@@ -94,7 +96,7 @@ function SignupForm() {
         toast({ title: "Please wait", description: "Still checking username availability.", variant: "default" });
         return;
     }
-    if (usernameStatus === 'error' && username.length >= 3) {
+    if (usernameStatus === 'error' && username.length >=3) {
         toast({ title: "Username Issue", description: usernameError || "Please choose a different username.", variant: "destructive" });
         return;
     }
@@ -125,7 +127,7 @@ function SignupForm() {
         }
         
         const actionCodeSettings = {
-          url: `${window.location.origin}/upload`, // Redirect here after verification
+          url: `${window.location.origin}/upload`, 
           handleCodeInApp: true,
         };
         await sendEmailVerification(firebaseUser, actionCodeSettings);
@@ -133,11 +135,8 @@ function SignupForm() {
           title: 'Account Created!',
           description: 'Please check your email to verify your account.'
         });
-
-        // Attempt to sign in the new user to establish AuthContext state, then refresh
-        // This can be omitted if AuthContext handles the new user automatically upon redirect
-        // await signInWithEmailAndPassword(auth, email, password); 
-        await refreshUserProfile();
+        
+        await refreshUserProfile(); 
         router.push('/verify-email-notice');
 
       } else {
@@ -152,9 +151,12 @@ function SignupForm() {
         errorMessage = 'Password is too weak. Please choose a stronger password (at least 6 characters).';
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'The email address format is invalid. Please check and try again.';
+      } else if (error.code === 'auth/operation-not-allowed' || 
+                 (error.message && (error.message.includes('Domain not found') || error.message.includes('allowlisted') || error.message.includes('authorized domain')))) {
+        errorMessage = 'Account created, but failed to send verification email. Your app\'s domain (' + window.location.origin + ') might not be allowlisted in Firebase console (Authentication -> Settings -> Authorized domains). Please check this setting.';
       }
       toast({
-        title: "Sign-up Failed",
+        title: "Sign-up Issue",
         description: errorMessage,
         variant: "destructive",
       });
@@ -281,12 +283,24 @@ function SignupForm() {
               </Button>
             </div>
           </div>
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+                id="terms"
+                checked={agreedToTerms}
+                onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)}
+                disabled={isSubmitting}
+                aria-labelledby="terms-label"
+            />
+            <Label htmlFor="terms" id="terms-label" className="text-sm font-normal text-muted-foreground">
+                I agree to the LukuCheck <Link href="/terms-of-service" legacyBehavior><a target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Terms of Service</a></Link> and <Link href="/privacy-policy" legacyBehavior><a target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Privacy Policy</a></Link>.
+            </Label>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button
             type="submit"
             className="w-full text-lg py-3"
-            disabled={isSubmitting || usernameStatus === 'checking' || (usernameError !== null && username.length >=3 && usernameStatus === 'error') || (username.length > 0 && username.length < 3) }
+            disabled={isSubmitting || usernameStatus === 'checking' || (usernameError !== null && username.length >=3 && usernameStatus === 'error') || (username.length > 0 && username.length < 3) || !agreedToTerms }
           >
             {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UserIcon className="mr-2 h-5 w-5" />}
             Sign Up
@@ -312,3 +326,4 @@ export default function SignupPage() {
     </Suspense>
   )
 }
+
