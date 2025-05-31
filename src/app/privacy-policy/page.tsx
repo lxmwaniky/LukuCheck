@@ -10,7 +10,7 @@ import Link from 'next/link';
 export default function PrivacyPolicyPage() {
   const contactEmail = 'lxmwaniky@gmail.com';
   const appName = 'LukuCheck';
-  const lastUpdatedDate = 'October 28, 2023'; // Update this manually when you make changes
+  const lastUpdatedDate = 'May 31, 2025';
 
   return (
     <div className="flex min-h-screen flex-col">
