@@ -20,7 +20,7 @@ import { LukuBadge } from '@/components/LukuBadge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
-type LeaderboardEntry = ServerLeaderboardEntry; // Simplified, as ServerLeaderboardEntry now contains all fields
+type LeaderboardEntry = ServerLeaderboardEntry; 
 
 const ITEMS_PER_PAGE = 10;
 
@@ -211,6 +211,7 @@ function LeaderboardPage() {
                   <TableRow>
                     <TableHead className="w-[50px] sm:w-[60px] text-center px-2 sm:px-4">Rank</TableHead>
                     <TableHead className="px-2 sm:px-4">User</TableHead>
+                    <TableHead className="w-[70px] text-center px-2 sm:px-4">Streak</TableHead>
                     <TableHead className="text-center px-2 sm:px-4">Outfit</TableHead>
                     <TableHead className="text-right px-2 sm:px-4">Score</TableHead>
                   </TableRow>
@@ -242,18 +243,6 @@ function LeaderboardPage() {
                           </Avatar>
                           <div className="flex flex-col">
                             <div className="flex items-center gap-1.5">
-                                {entry.currentStreak > 0 && (
-                                  <TooltipProvider delayDuration={100}>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Flame className="h-4 w-4 text-destructive" />
-                                      </TooltipTrigger>
-                                      <TooltipContent>
-                                        <p>{entry.currentStreak}-day LukuStreak!</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
                                 <span className="font-medium truncate max-w-[100px] sm:max-w-[150px] text-sm sm:text-base">{entry.username || 'Anonymous User'}</span>
                                 <LukuBadge lukuPoints={entry.lukuPoints} />
                             </div>
@@ -271,6 +260,16 @@ function LeaderboardPage() {
                             </div>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-center font-medium px-2 sm:px-4">
+                        {entry.currentStreak && entry.currentStreak > 0 ? (
+                          <div className="flex items-center justify-center">
+                            <Flame className="h-4 w-4 text-destructive mr-1" />
+                            {entry.currentStreak}
+                          </div>
+                        ) : (
+                          '0'
+                        )}
                       </TableCell>
                       <TableCell className="text-center px-2 sm:px-4">
                         <DialogTrigger asChild>
@@ -434,3 +433,4 @@ function LeaderboardPageWrapper() {
 // Renaming original export to avoid conflict, and because Dialog needs to wrap it
 const LeaderboardPageActual = LeaderboardPage;
 export default LeaderboardPageWrapper;
+
