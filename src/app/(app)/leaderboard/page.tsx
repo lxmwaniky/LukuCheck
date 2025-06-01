@@ -430,7 +430,6 @@ function LeaderboardPageWrapper() {
     )
 }
 
-// Renaming original export to avoid conflict, and because Dialog needs to wrap it
 const LeaderboardPageActual = LeaderboardPage;
 export default LeaderboardPageWrapper;
 
