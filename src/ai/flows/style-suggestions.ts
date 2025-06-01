@@ -25,7 +25,7 @@ const StyleSuggestionsOutputSchema = z.object({
   validityCritique: z.string().optional().describe('If not an actual user outfit, a brief explanation why. Otherwise, may be empty.'),
   colorSuggestions: z.array(z.string()).describe('List of color suggestions to enhance the outfit. Provide minimal or generic suggestions if not an actual user outfit or if validity is questionable.'),
   lookSuggestions: z.string().describe('Suggestions for overall look improvements. Provide minimal or generic suggestions if not an actual user outfit or if validity is questionable.'),
-  rating: z.number().describe('The outfit rating out of 10. Assign a very low rating (e.g., 1-2) if not an actual user outfit or if validity is questionable due to privacy/consent concerns.'),
+  rating: z.number().describe('The outfit rating out of 10. Assign a very low rating (e.g., 1-2) if not an actual user outfit or if validity is questionable due to privacy/consent concerns. For valid user outfits, use the full 0-10 scale appropriately.').min(0).max(10),
   complimentOrCritique: z.string().describe('A direct compliment if the outfit is good (e.g., rating 7+/10 and is a valid user outfit), or a brutal (but constructive) critique if it needs significant improvement or is invalid. Focus on validity and privacy first.'),
 });
 export type StyleSuggestionsOutput = z.infer<typeof StyleSuggestionsOutputSchema>;
@@ -61,7 +61,7 @@ If, AND ONLY IF, the image IS a valid submission (THE USER THEMSELVES wearing th
 Set \`isActualUserOutfit\` to \`true\`.
 Set \`validityCritique\` to an empty string or omit it.
 Then proceed with the detailed style analysis:
-1. Provide a \`rating\` out of 10.
+1. Provide a \`rating\` out of 10. **For valid user outfit submissions, strive to use the full 0-10 rating scale. A rating of 5/10 should represent an average outfit with some good elements and some areas for improvement. Do not be afraid to give higher scores (e.g., 7-9) for well-put-together, stylish, and appropriate looks, and reserve 10/10 for truly exceptional, flawless, and inspiring outfits. Continue to be brutally honest for outfits that genuinely miss the mark (0-4), explaining why clearly.**
 2. Suggest specific \`colorSuggestions\` that would complement or improve the outfit.
 3. Suggest overall \`lookSuggestions\`.
 4. Based on your rating and analysis, provide a \`complimentOrCritique\`:

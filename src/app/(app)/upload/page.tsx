@@ -203,7 +203,7 @@ export default function UploadPage() {
         setTodaysRatedOutfits(prev => [...prev, newRatedOutfit]);
         setImageFile(null);
         setImagePreview(null);
-        toast({ title: 'AI Analysis Complete!', description: `Outfit rated ${aiProcessingResult.data.rating}/10. Ready for review.` });
+        toast({ title: 'AI Analysis Complete!', description: `Outfit rated ${aiProcessingResult.data.rating.toFixed(1)}/10. Ready for review.` });
       } else {
         toast({ title: 'AI Analysis Failed', description: aiProcessingResult.error || 'Unknown error during AI processing.', variant: 'destructive' });
       }
@@ -389,7 +389,7 @@ export default function UploadPage() {
                 </div>
                 <Button 
                   onClick={() => handleSelectOutfitForDetails(outfit)} 
-                  disabled={hasSubmittedToday || !outfit.isActualUserOutfit}
+                  disabled={!outfit.isActualUserOutfit || outfit.submittedToLeaderboard}
                   variant={outfit.submittedToLeaderboard ? "ghost" : "default"}
                   className="w-full sm:w-auto"
                 >
@@ -493,4 +493,3 @@ export default function UploadPage() {
     </div>
   );
 }
-
