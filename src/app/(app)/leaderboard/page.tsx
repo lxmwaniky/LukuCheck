@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Trophy, CalendarDays, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Clock, Users, ChevronLeft, ChevronRight, Instagram, Link as LinkIcon, Sparkles } from 'lucide-react';
+import { Trophy, CalendarDays, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Clock, Users, ChevronLeft, ChevronRight, Instagram, Link as LinkIcon, Sparkles, Flame } from 'lucide-react';
 import { format, subDays, set, isBefore, isAfter, addDays } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -17,13 +17,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { LukuBadge } from '@/components/LukuBadge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
-type LeaderboardEntry = ServerLeaderboardEntry & {
-  tiktokUrl?: string | null;
-  instagramUrl?: string | null;
-  lukuPoints?: number;
-};
+type LeaderboardEntry = ServerLeaderboardEntry; // Simplified, as ServerLeaderboardEntry now contains all fields
 
 const ITEMS_PER_PAGE = 10;
 
@@ -245,6 +242,18 @@ function LeaderboardPage() {
                           </Avatar>
                           <div className="flex flex-col">
                             <div className="flex items-center gap-1.5">
+                                {entry.currentStreak > 0 && (
+                                  <TooltipProvider delayDuration={100}>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Flame className="h-4 w-4 text-destructive" />
+                                      </TooltipTrigger>
+                                      <TooltipContent>
+                                        <p>{entry.currentStreak}-day LukuStreak!</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
                                 <span className="font-medium truncate max-w-[100px] sm:max-w-[150px] text-sm sm:text-base">{entry.username || 'Anonymous User'}</span>
                                 <LukuBadge lukuPoints={entry.lukuPoints} />
                             </div>

@@ -51,7 +51,8 @@ export interface LeaderboardEntry {
   lookSuggestions?: string;
   tiktokUrl?: string | null;
   instagramUrl?: string | null;
-  lukuPoints: number; // Changed from optional to required number
+  lukuPoints: number;
+  currentStreak: number;
 }
 
 
@@ -81,12 +82,14 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
         tiktokUrl: string | null; 
         instagramUrl: string | null;
         lukuPoints: number;
+        currentStreak: number;
       } = { 
         username: outfitData.username, 
         photoURL: outfitData.userPhotoURL, 
         tiktokUrl: null, 
         instagramUrl: null,
-        lukuPoints: 0 // Default to 0 if user not found or points not set
+        lukuPoints: 0, // Default to 0 if user not found or points not set
+        currentStreak: 0, // Default to 0
       }; 
       
       if (outfitData.userId) {
@@ -99,6 +102,7 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
           userData.tiktokUrl = firestoreUserData.tiktokUrl || null;
           userData.instagramUrl = firestoreUserData.instagramUrl || null;
           userData.lukuPoints = typeof firestoreUserData.lukuPoints === 'number' ? firestoreUserData.lukuPoints : 0;
+          userData.currentStreak = firestoreUserData.currentStreak || 0;
         }
       }
       return { outfitDoc, userData };
@@ -112,17 +116,17 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
         id: outfitDoc.id,
         userId: outfitData.userId,
         username: userData.username,
-        userPhotoURL: userData.userPhotoURL,
+        userPhotoURL: userData.photoURL, // Use resolved userData.photoURL
         outfitImageURL: outfitData.outfitImageURL,
         rating: outfitData.rating,
         submittedAt: (outfitData.submittedAt as Timestamp).toDate(),
-        // Include additional AI feedback for the dialog
         complimentOrCritique: outfitData.complimentOrCritique,
         colorSuggestions: outfitData.colorSuggestions,
         lookSuggestions: outfitData.lookSuggestions,
         tiktokUrl: userData.tiktokUrl,
         instagramUrl: userData.instagramUrl,
-        lukuPoints: typeof userData.lukuPoints === 'number' ? userData.lukuPoints : 0, // Ensure it's a number
+        lukuPoints: typeof userData.lukuPoints === 'number' ? userData.lukuPoints : 0,
+        currentStreak: userData.currentStreak,
       };
     });
 
