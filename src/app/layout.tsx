@@ -1,3 +1,4 @@
+
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
@@ -56,11 +57,7 @@ export const metadata: Metadata = {
     },
     description: APP_DESCRIPTION,
     images: [APP_PREVIEW_IMAGE_URL],
-    // TODO: Add your Twitter username if you have one e.g. @yourhandle
-    // creator: '@yourhandle', 
   },
-  // TODO: Add a manifest.json and update path if needed
-  // manifest: "/manifest.json", 
 };
 
 export default function RootLayout({
@@ -75,7 +72,9 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <Providers>
-          {children}
+          <div className="flex min-h-screen flex-col">
+            {children}
+          </div>
           <Toaster />
         </Providers>
         <Analytics />

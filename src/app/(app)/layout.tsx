@@ -20,7 +20,6 @@ export default function AppLayout({
       if (!user) {
         router.replace('/login');
       } else if (user && !user.emailVerified) {
-        // Allow access to /verify-email-notice itself
         if (window.location.pathname !== '/verify-email-notice') {
            router.replace('/verify-email-notice');
         }
@@ -38,7 +37,6 @@ export default function AppLayout({
   }
 
   if (!user || (user && !user.emailVerified && window.location.pathname !== '/verify-email-notice')) {
-    // This case handles redirection state or if user tries to access other app pages before verification
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -51,9 +49,8 @@ export default function AppLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <SiteHeader />
-      <main className="flex-1 container py-4 sm:py-6 md:py-8 px-4">{children}</main>
+      <main className="flex-1 container py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8">{children}</main>
       <SiteFooter />
     </div>
   );
 }
-

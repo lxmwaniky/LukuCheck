@@ -3,90 +3,79 @@
 
 import { adminDb, adminAuth, adminInitialized } from '@/config/firebaseAdmin';
 import type { UserRecord as AdminUserRecord } from 'firebase-admin/auth';
-import type { UserProfile } from '@/contexts/AuthContext';
+import type { UserProfile, UserRole } from '@/contexts/AuthContext';
 import { FieldValue } from 'firebase-admin/firestore';
 import type FirebaseAdmin from 'firebase-admin';
 
-interface AdminUserView extends Omit<UserProfile, 'createdAt' | 'lastLogin'> {
+export interface AdminUserView extends Omit<UserProfile, 'createdAt' | 'lastLogin'> {
   createdAt?: string | null;
   lastLogin?: string | null;
   firebaseAuthDisabled?: boolean;
+  referralsMadeCount?: number;
 }
 
-// Helper function to verify if the currently acting user is an admin
-async function verifyRequestingUserIsAdmin(callerUid: string): Promise<boolean> {
+async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]): Promise<boolean> {
   if (!adminInitialized || !adminDb) {
-    console.error("[AdminActions DEBUG] verifyRequestingUserIsAdmin: Admin SDK not initialized. Cannot verify admin status.");
+    // console.error("[AdminActions] verifyUserRole: Admin SDK not initialized.");
     return false;
   }
   if (!callerUid) {
-    console.error("[AdminActions DEBUG] verifyRequestingUserIsAdmin: Caller UID not provided for admin verification.");
+    // console.error("[AdminActions] verifyUserRole: Caller UID not provided for role verification.");
     return false;
   }
   try {
-    console.log(`[AdminActions DEBUG] verifyRequestingUserIsAdmin: Checking admin status for UID: ${callerUid}`);
     const userDocRef = adminDb.collection('users').doc(callerUid);
     const userDocSnap = await userDocRef.get();
-    if (userDocSnap.exists && userDocSnap.data()?.isAdmin === true) {
-      console.log(`[AdminActions DEBUG] verifyRequestingUserIsAdmin: User ${callerUid} IS an admin.`);
-      return true;
+    if (userDocSnap.exists) {
+      const userData = userDocSnap.data() as UserProfile;
+      const userRole = userData.role || 'user';
+      if (allowedRoles.includes(userRole)) {
+        return true;
+      }
     }
-    console.log(`[AdminActions DEBUG] verifyRequestingUserIsAdmin: User ${callerUid} is NOT an admin or profile not found.`);
+    // console.log(`[AdminActions] verifyUserRole: User ${callerUid} role '${userDocSnap.data()?.role || 'user'}' not in allowed roles [${allowedRoles.join(', ')}].`);
     return false;
   } catch (error) {
-    console.error("[AdminActions DEBUG] verifyRequestingUserIsAdmin: Error verifying admin status:", error);
+    // console.error("[AdminActions] verifyUserRole: Error verifying role:", error);
     return false;
   }
 }
 
 
 export async function getAllUsersForAdmin(callerUid: string): Promise<{ success: boolean; users?: AdminUserView[]; error?: string }> {
-  console.log(`[AdminActions DEBUG] getAllUsersForAdmin: Called by UID: ${callerUid}`);
   if (!adminInitialized || !adminAuth || !adminDb) {
-    console.error("[AdminActions DEBUG] getAllUsersForAdmin: Admin SDK not configured.");
     return { success: false, error: "Admin SDK not configured." };
   }
 
-  const isAdmin = await verifyRequestingUserIsAdmin(callerUid);
-  if (!isAdmin) {
-    console.warn(`[AdminActions DEBUG] getAllUsersForAdmin: Unauthorized access attempt by UID: ${callerUid}`);
-    return { success: false, error: "Unauthorized: Caller is not an admin." };
+  const canAccess = await verifyUserRole(callerUid, ['admin', 'manager']);
+  if (!canAccess) {
+    return { success: false, error: "Unauthorized: Caller does not have sufficient privileges." };
   }
 
   try {
-    console.log("[AdminActions DEBUG] getAllUsersForAdmin: Fetching users from Firebase Auth...");
-    const listUsersResult = await adminAuth.listUsers(1000); // Max 1000 users per page
+    const listUsersResult = await adminAuth.listUsers(1000); 
     const firebaseAuthUsers = listUsersResult.users;
-    console.log(`[AdminActions DEBUG] getAllUsersForAdmin: Fetched ${firebaseAuthUsers.length} users from Firebase Auth.`);
+
+    const allUsersDocsSnap = await adminDb.collection('users').get();
+    const allUserProfiles: Record<string, UserProfile> = {};
+    allUsersDocsSnap.forEach(doc => {
+      allUserProfiles[doc.id] = doc.data() as UserProfile;
+    });
+    
+    const referralsMadeCounts: Record<string, number> = {};
+    allUsersDocsSnap.forEach(doc => {
+        const userData = doc.data() as UserProfile;
+        if (userData.referredBy) {
+            referralsMadeCounts[userData.referredBy] = (referralsMadeCounts[userData.referredBy] || 0) + 1;
+        }
+    });
+
 
     const userProfilesPromises = firebaseAuthUsers.map(async (authUser) => {
-      console.log(`[AdminActions DEBUG] getAllUsersForAdmin: Processing authUser UID: ${authUser.uid}`);
-      const userDocRef = adminDb.collection('users').doc(authUser.uid);
-      let userDocSnap;
-      try {
-        userDocSnap = await userDocRef.get();
-      } catch (dbError) {
-        console.error(`[AdminActions DEBUG] getAllUsersForAdmin: Error fetching Firestore doc for UID ${authUser.uid}:`, dbError);
-        // Fallback to Auth data only if Firestore fetch fails
-        return {
-          uid: authUser.uid,
-          email: authUser.email || null,
-          username: authUser.displayName || 'N/A (DB Error)',
-          photoURL: authUser.photoURL || null,
-          emailVerified: authUser.emailVerified,
-          lukuPoints: 0,
-          badges: [],
-          currentStreak: 0,
-          isAdmin: false, // Assume not admin if profile can't be read
-          firebaseAuthDisabled: authUser.disabled,
-          createdAt: null,
-          lastLogin: null,
-        } as AdminUserView;
-      }
+      const firestoreData = allUserProfiles[authUser.uid];
+      const referralsCount = referralsMadeCounts[authUser.uid] || 0;
       
-      if (userDocSnap && userDocSnap.exists) {
-        console.log(`[AdminActions DEBUG] getAllUsersForAdmin: Firestore doc found for UID: ${authUser.uid}`);
-        const firestoreData = userDocSnap.data() as UserProfile; // UserProfile still has Timestamps
+      if (firestoreData) {
         return {
           ...firestoreData,
           uid: authUser.uid, 
@@ -105,12 +94,12 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
           currentStreak: firestoreData.currentStreak || 0,
           lastSubmissionDate: firestoreData.lastSubmissionDate || null,
           lastTop3BonusDate: firestoreData.lastTop3BonusDate || null,
-          isAdmin: firestoreData.isAdmin || false,
+          role: firestoreData.role || 'user',
           createdAt: firestoreData.createdAt ? (firestoreData.createdAt as FirebaseAdmin.firestore.Timestamp).toDate().toISOString() : null, 
           lastLogin: firestoreData.lastLogin ? (firestoreData.lastLogin as FirebaseAdmin.firestore.Timestamp).toDate().toISOString() : null,
+          referralsMadeCount: referralsCount,
         } as AdminUserView;
       } else {
-        console.log(`[AdminActions DEBUG] getAllUsersForAdmin: Firestore doc NOT found for UID: ${authUser.uid}. Using Auth data only.`);
         return {
           uid: authUser.uid,
           email: authUser.email || null,
@@ -120,54 +109,49 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
           lukuPoints: 0,
           badges: [],
           currentStreak: 0,
-          isAdmin: false,
+          role: 'user',
           firebaseAuthDisabled: authUser.disabled,
           createdAt: null,
           lastLogin: null,
+          referralsMadeCount: referralsCount,
         } as AdminUserView;
       }
     });
 
     const users = await Promise.all(userProfilesPromises);
     const validUsers = users.filter(user => user !== null) as AdminUserView[];
-    console.log(`[AdminActions DEBUG] getAllUsersForAdmin: Successfully processed ${validUsers.length} user profiles.`);
     
     return { success: true, users: validUsers };
   } catch (error: any) {
-    console.error("[AdminActions DEBUG] getAllUsersForAdmin: Error fetching all users:", error);
+    // console.error("[AdminActions] getAllUsersForAdmin: Error fetching all users:", error);
     return { success: false, error: `Failed to fetch users: ${error.message}` };
   }
 }
 
-export async function toggleUserAdminStatus(
+export async function setUserRoleAction(
   callerUid: string,
   targetUserId: string,
-  newAdminStatus: boolean
+  newRole: UserRole
 ): Promise<{ success: boolean; error?: string }> {
-  console.log(`[AdminActions DEBUG] toggleUserAdminStatus: Called by UID: ${callerUid} for target UID: ${targetUserId} to set admin: ${newAdminStatus}`);
   if (!adminInitialized || !adminDb) {
-    console.error("[AdminActions DEBUG] toggleUserAdminStatus: Admin SDK not configured.");
     return { success: false, error: "Admin SDK not configured." };
   }
-  const isAdmin = await verifyRequestingUserIsAdmin(callerUid);
-  if (!isAdmin) {
-    console.warn(`[AdminActions DEBUG] toggleUserAdminStatus: Unauthorized access attempt by UID: ${callerUid}`);
+  const isCallerAdmin = await verifyUserRole(callerUid, ['admin']);
+  if (!isCallerAdmin) {
     return { success: false, error: "Unauthorized: Caller is not an admin." };
   }
 
-  if (callerUid === targetUserId && !newAdminStatus) {
-    console.warn(`[AdminActions DEBUG] toggleUserAdminStatus: Admin UID: ${callerUid} attempted to revoke their own status.`);
-    return { success: false, error: "Admins cannot revoke their own admin status through this panel." };
+  if (callerUid === targetUserId && newRole !== 'admin') {
+    return { success: false, error: "Admins cannot change their own role to a non-admin role through this panel." };
   }
 
   try {
     const userDocRef = adminDb.collection('users').doc(targetUserId);
-    await userDocRef.update({ isAdmin: newAdminStatus });
-    console.log(`[AdminActions DEBUG] toggleUserAdminStatus: Successfully updated admin status for UID: ${targetUserId} to ${newAdminStatus}.`);
+    await userDocRef.update({ role: newRole });
     return { success: true };
   } catch (error: any) {
-    console.error(`[AdminActions DEBUG] toggleUserAdminStatus: Error toggling admin status for ${targetUserId}:`, error);
-    return { success: false, error: `Failed to toggle admin status: ${error.message}` };
+    // console.error(`[AdminActions] setUserRoleAction: Error setting role for ${targetUserId}:`, error);
+    return { success: false, error: `Failed to set user role: ${error.message}` };
   }
 }
 
@@ -177,23 +161,18 @@ export async function adjustUserLukuPoints(
   points: number,
   operation: 'add' | 'set' | 'subtract'
 ): Promise<{ success: boolean; error?: string }> {
-  console.log(`[AdminActions DEBUG] adjustUserLukuPoints: Called by UID: ${callerUid} for target UID: ${targetUserId}, points: ${points}, operation: ${operation}`);
   if (!adminInitialized || !adminDb) {
-    console.error("[AdminActions DEBUG] adjustUserLukuPoints: Admin SDK not configured.");
     return { success: false, error: "Admin SDK not configured." };
   }
-  const isAdmin = await verifyRequestingUserIsAdmin(callerUid);
-  if (!isAdmin) {
-    console.warn(`[AdminActions DEBUG] adjustUserLukuPoints: Unauthorized access attempt by UID: ${callerUid}`);
-    return { success: false, error: "Unauthorized: Caller is not an admin." };
+  const canAccess = await verifyUserRole(callerUid, ['admin', 'manager']);
+  if (!canAccess) {
+    return { success: false, error: "Unauthorized: Caller does not have sufficient privileges." };
   }
 
   if (isNaN(points) || (operation !== 'set' && points <= 0 && operation !== 'subtract')) {
-     console.warn(`[AdminActions DEBUG] adjustUserLukuPoints: Invalid point amount for operation '${operation}': ${points}`);
      return { success: false, error: "Invalid point amount. Must be a positive number for 'add'." };
   }
    if (operation === 'subtract' && points < 0) {
-    console.warn(`[AdminActions DEBUG] adjustUserLukuPoints: Invalid point amount for 'subtract': ${points}. Should be positive.`);
     return { success: false, error: "For 'subtract', provide a positive number of points to remove." };
   }
 
@@ -202,7 +181,6 @@ export async function adjustUserLukuPoints(
     const userDocSnap = await userDocRef.get();
 
     if (!userDocSnap.exists) {
-      console.warn(`[AdminActions DEBUG] adjustUserLukuPoints: Target user profile UID: ${targetUserId} not found.`);
       return { success: false, error: "Target user profile not found." };
     }
     
@@ -217,10 +195,9 @@ export async function adjustUserLukuPoints(
     }
 
     await userDocRef.update({ lukuPoints: newPointsValue });
-    console.log(`[AdminActions DEBUG] adjustUserLukuPoints: Successfully adjusted LukuPoints for UID: ${targetUserId}.`);
     return { success: true };
   } catch (error: any) {
-    console.error(`[AdminActions DEBUG] adjustUserLukuPoints: Error adjusting LukuPoints for ${targetUserId}:`, error);
+    // console.error(`[AdminActions] adjustUserLukuPoints: Error adjusting LukuPoints for ${targetUserId}:`, error);
     return { success: false, error: `Failed to adjust LukuPoints: ${error.message}` };
   }
 }

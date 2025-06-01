@@ -7,6 +7,8 @@ import type { ReactNode} from 'react';
 import { createContext, useContext, useEffect, useState } from 'react';
 import { processReferral } from '@/actions/userActions'; 
 
+export type UserRole = 'user' | 'manager' | 'admin';
+
 export interface UserProfile {
   uid: string;
   email: string | null;
@@ -27,7 +29,7 @@ export interface UserProfile {
   currentStreak?: number;
   lastSubmissionDate?: string | null; 
   lastTop3BonusDate?: string | null;
-  isAdmin?: boolean; // Added isAdmin flag
+  role?: UserRole; 
 }
 
 export interface AuthContextType {
@@ -86,7 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           currentStreak: profileData.currentStreak || 0,
           lastSubmissionDate: profileData.lastSubmissionDate || null,
           lastTop3BonusDate: profileData.lastTop3BonusDate || null,
-          isAdmin: profileData.isAdmin || false, // Load isAdmin flag
+          role: profileData.role || 'user', 
         };
         setUserProfile(loadedProfile);
 
@@ -102,15 +104,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (result.success) {
               // Optionally refresh profile here if points/badges for referrer are immediately needed client-side for referrer
             } else {
-              console.error('[AuthContext] Failed to process referral:', result.error);
+              // console.error('[AuthContext] Failed to process referral:', result.error);
             }
           } catch (e) {
-            console.error('[AuthContext] Error calling processReferral action:', e);
+            // console.error('[AuthContext] Error calling processReferral action:', e);
           }
         }
 
       } else {
-        // This case should ideally not happen if createUserProfileInFirestore runs successfully on signup
         setUserProfile({
           uid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -125,11 +126,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           currentStreak: 0,
           lastSubmissionDate: null,
           lastTop3BonusDate: null,
-          isAdmin: false, // Default to false if no profile doc
+          role: 'user',
         });
       }
     } catch (error) {
-      console.error("Error fetching/setting user profile from Firestore:", error);
+      // console.error("Error fetching/setting user profile from Firestore:", error);
       setUserProfile(null);
     }
   };
@@ -172,10 +173,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (currentFirebaseUser) {
           const userRef = doc(db, 'users', currentFirebaseUser.uid);
-          // Initial fetch
           await fetchAndSetUserProfile(currentFirebaseUser); 
           
-          // Set up listener for real-time updates
           profileListenerUnsubscribe = onSnapshot(userRef, (snapshot) => {
             if (snapshot.exists()) {
               const profileData = snapshot.data();
@@ -199,7 +198,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 currentStreak: profileData.currentStreak || 0,
                 lastSubmissionDate: profileData.lastSubmissionDate || null,
                 lastTop3BonusDate: profileData.lastTop3BonusDate || null,
-                isAdmin: profileData.isAdmin || false, // Load isAdmin
+                role: profileData.role || 'user',
               };
               setUserProfile(updatedProfile);
 
@@ -207,35 +206,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 currentFirebaseUser.emailVerified &&
                 updatedProfile.referredBy &&
                 !updatedProfile.referralPointsAwarded &&
-                !referralProcessingAttempted // Check local state to prevent multiple calls
+                !referralProcessingAttempted 
               ) {
-                setReferralProcessingAttempted(true); // Set flag immediately
+                setReferralProcessingAttempted(true); 
                  processReferral(currentFirebaseUser.uid).then(result => {
                      if (result.success) {
                         // Referral processed
                      } else {
-                        console.error('[AuthContext Snapshot] Failed to process referral:', result.error);
+                        // console.error('[AuthContext Snapshot] Failed to process referral:', result.error);
                      }
                  }).catch(e => console.error('[AuthContext Snapshot] Error calling processReferral action:', e));
               }
 
             } else {
-               // This might happen if the user document is deleted.
                setUserProfile(null);
             }
             setLoading(false);
           }, (error) => {
-            console.error("Error in profile onSnapshot listener:", error);
+            // console.error("Error in profile onSnapshot listener:", error);
             setUserProfile(null);
             setLoading(false);
           });
         } else {
-           // No current Firebase user
            setUserProfile(null);
            setLoading(false);
         }
       } else {
-        // User logged out
         setUser(null);
         setUserProfile(null);
         setReferralProcessingAttempted(false);
@@ -249,7 +245,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         profileListenerUnsubscribe();
       }
     };
-  }, []); // Empty dependency array ensures this runs once on mount
+  }, []); 
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading, refreshUserProfile }}>

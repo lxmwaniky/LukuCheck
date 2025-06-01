@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users as UsersIconProp, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, UploadCloud, Send, BarChart3, Coins, User as UserIcon } from 'lucide-react'; // Added UserIcon
+import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users as UsersIconProp, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, UploadCloud, Send, BarChart3, Coins, User as UserIcon } from 'lucide-react'; 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format, subDays, addDays, set, isBefore, isAfter, isToday, differenceInMilliseconds, isValid, parseISO } from 'date-fns';
@@ -22,11 +22,6 @@ const formatTimeLeft = (ms: number): string => {
   const seconds = totalSeconds % 60;
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
-
-const toYYYYMMDD = (date: Date): string => {
-  return date.toISOString().split('T')[0];
-};
-
 
 export default function HomePage() {
   const { user, loading } = useAuth();
@@ -46,7 +41,6 @@ export default function HomePage() {
     const calculateTimes = () => {
       const now = new Date();
 
-      // Submission Window Logic: 6 AM to 2:55 PM daily
       const submissionOpenTimeToday = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
       const submissionCloseTimeToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
 
@@ -65,20 +59,19 @@ export default function HomePage() {
         setSubmissionStatusMessage(`Submissions closed. Opens tomorrow at 6 AM (in ${formatTimeLeft(timeLeft)})`);
       }
       
-      // Leaderboard Viewing Logic: Day D's LB: 3 PM on Day D - 2:55 PM on Day D+1
       let leaderboardDateToView: Date;
-      const leaderboardViewingDeadlineToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM Today
+      const leaderboardViewingDeadlineToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); 
 
       if (isBefore(now, leaderboardViewingDeadlineToday)) {
-        leaderboardDateToView = subDays(now, 1); // Show yesterday's leaderboard
+        leaderboardDateToView = subDays(now, 1); 
       } else {
-        leaderboardDateToView = new Date(now); // Show today's leaderboard
+        leaderboardDateToView = new Date(now); 
       }
       
       if (isValid(leaderboardDateToView)) {
         setCurrentViewableLeaderboardDate(leaderboardDateToView);
-        const releaseTimeForDateToView = set(leaderboardDateToView, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 }); // 3 PM on its date
-        const viewingEndTimeForDateToView = set(addDays(leaderboardDateToView, 1), { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM the day AFTER
+        const releaseTimeForDateToView = set(leaderboardDateToView, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 }); 
+        const viewingEndTimeForDateToView = set(addDays(leaderboardDateToView, 1), { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); 
 
         const isReleased = isAfter(now, releaseTimeForDateToView);
         const isStillViewable = isBefore(now, viewingEndTimeForDateToView);
@@ -92,7 +85,6 @@ export default function HomePage() {
           const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForDateToView, now);
           setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)} (until 2:55 PM next day)`);
         } else { 
-            // If current leaderboardDateToView is past its viewing window, advance to next day's potential leaderboard.
             const nextDayCandidate = isAfter(now, viewingEndTimeForDateToView) ? addDays(leaderboardDateToView, 1) : leaderboardDateToView;
             const nextReleaseTime = set(nextDayCandidate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0});
             
@@ -235,9 +227,9 @@ export default function HomePage() {
 
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <>
       <SiteHeader />
-      <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-12 md:py-10 px-4">
+      <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-12 md:py-10 px-4 sm:px-6 lg:px-8">
         
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome to LukuCheck!</h1>
         <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl">
@@ -350,7 +342,6 @@ export default function HomePage() {
 
       </main>
       <SiteFooter />
-    </div>
+    </>
   );
 }
-
