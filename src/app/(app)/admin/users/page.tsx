@@ -1,31 +1,30 @@
 
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getAllUsersForAdmin, toggleUserAdminStatus, adjustUserLukuPoints } from '@/actions/adminActions';
-import type { UserProfile } from '@/contexts/AuthContext'; // Re-using for common fields
+import type { UserProfile } from '@/contexts/AuthContext'; 
 import { Button } from '@/components/ui/button';
-// import { Switch } from '@/components/ui/switch'; // Not used for admin toggle yet
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, ShieldCheck, ShieldOff, UserCog, AlertTriangle, Coins, RotateCcw } from 'lucide-react';
+import { Loader2, ShieldCheck, ShieldOff, UserCog, AlertTriangle, Coins, RotateCcw, Search } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from '@/lib/utils'; // For cn helper
+import { cn } from '@/lib/utils'; 
 
 interface AdminUserView extends Omit<UserProfile, 'createdAt' | 'lastLogin'> {
-  createdAt?: string | null; // Timestamps converted to strings
-  lastLogin?: string | null;  // Timestamps converted to strings
+  createdAt?: string | null; 
+  lastLogin?: string | null;  
   firebaseAuthDisabled?: boolean;
 }
 
 export default function AdminUsersPage() {
-  const { user } = useAuth(); // For passing callerUid
+  const { user } = useAuth(); 
   const [users, setUsers] = useState<AdminUserView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,6 +33,9 @@ export default function AdminUsersPage() {
   const [pointsToAdjust, setPointsToAdjust] = useState<string>("");
   const [pointsOperation, setPointsOperation] = useState<'add' | 'set' | 'subtract'>('add');
   const [isAdjustingPoints, setIsAdjustingPoints] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterAdminStatus, setFilterAdminStatus] = useState<'all' | 'admin' | 'user'>('all');
 
   const fetchUsers = useCallback(async () => {
     if (!user?.uid) return;
@@ -84,7 +86,6 @@ export default function AdminUsersPage() {
         return;
     }
 
-
     setIsAdjustingPoints(true);
     const result = await adjustUserLukuPoints(user.uid, selectedUserForPoints.uid, pointsValue, pointsOperation);
     if (result.success) {
@@ -98,6 +99,21 @@ export default function AdminUsersPage() {
     setIsAdjustingPoints(false);
   };
 
+  const filteredUsers = useMemo(() => {
+    return users.filter(u => {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      const matchesSearch = searchTerm === '' ||
+        u.username?.toLowerCase().includes(lowerSearchTerm) ||
+        u.email?.toLowerCase().includes(lowerSearchTerm) ||
+        u.uid.toLowerCase().includes(lowerSearchTerm);
+
+      const matchesAdminStatus = filterAdminStatus === 'all' ||
+        (filterAdminStatus === 'admin' && u.isAdmin) ||
+        (filterAdminStatus === 'user' && !u.isAdmin);
+      
+      return matchesSearch && matchesAdminStatus;
+    });
+  }, [users, searchTerm, filterAdminStatus]);
 
   if (isLoading) {
     return (
@@ -121,12 +137,35 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <div className="border bg-card text-card-foreground shadow-sm rounded-lg"> {/* Mimicking Card structure */}
-      <div className="flex flex-col space-y-1.5 p-6"> {/* Mimicking CardHeader */}
+    <div className="border bg-card text-card-foreground shadow-sm rounded-lg">
+      <div className="flex flex-col space-y-1.5 p-6">
         <h3 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2"><UserCog className="h-6 w-6"/> User Management</h3>
-        <p className="text-sm text-muted-foreground">View, manage, and moderate user accounts.</p>
+        <p className="text-sm text-muted-foreground">View, manage, and moderate user accounts. Found: {filteredUsers.length} / {users.length}</p>
       </div>
-      <div className="p-6 pt-0"> {/* Mimicking CardContent */}
+      <div className="p-6 pt-0 space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-grow">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search by username, email, UID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-8 w-full"
+            />
+          </div>
+          <Select value={filterAdminStatus} onValueChange={(value: 'all' | 'admin' | 'user') => setFilterAdminStatus(value)}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filter by admin status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Users</SelectItem>
+              <SelectItem value="admin">Admins Only</SelectItem>
+              <SelectItem value="user">Regular Users Only</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -140,7 +179,7 @@ export default function AdminUsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {users.map((u) => (
+              {filteredUsers.map((u) => (
                 <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-primary/10' : ''}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -200,7 +239,7 @@ export default function AdminUsersPage() {
             </TableBody>
           </Table>
         </div>
-        {users.length === 0 && <p className="text-center text-muted-foreground py-6">No users found.</p>}
+        {filteredUsers.length === 0 && <p className="text-center text-muted-foreground py-6">No users match your criteria.</p>}
 
         {selectedUserForPoints && (
           <Dialog open={!!selectedUserForPoints} onOpenChange={(open) => { if (!open) setSelectedUserForPoints(null); }}>
@@ -256,3 +295,4 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+

@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { ShieldAlert, Loader2, Users, BarChart3, Settings } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import AdminUsersPage from './users/page'; // Import the new Users page component
+import AdminUsersPage from './users/page'; 
 
 export default function AdminDashboardPage() {
   const { userProfile, loading, user } = useAuth();
@@ -64,15 +64,15 @@ export default function AdminDashboardPage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="users" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 mb-6">
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="h-5 w-5" /> Users
+            <TabsList className="grid w-full grid-cols-1 gap-1 sm:grid-cols-3 mb-6">
+              <TabsTrigger value="users" className="flex items-center justify-center gap-2 text-xs sm:text-sm py-2.5">
+                <Users className="h-4 w-4 sm:h-5 sm:w-5" /> Users
               </TabsTrigger>
-              <TabsTrigger value="leaderboards" disabled className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" /> Leaderboards (Coming Soon)
+              <TabsTrigger value="leaderboards" className="flex items-center justify-center gap-2 text-xs sm:text-sm py-2.5">
+                <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" /> Leaderboards
               </TabsTrigger>
-              <TabsTrigger value="settings" disabled className="flex items-center gap-2">
-                <Settings className="h-5 w-5" /> Settings (Coming Soon)
+              <TabsTrigger value="settings" className="flex items-center justify-center gap-2 text-xs sm:text-sm py-2.5">
+                <Settings className="h-4 w-4 sm:h-5 sm:w-5" /> Settings
               </TabsTrigger>
             </TabsList>
             <TabsContent value="users">
@@ -85,7 +85,7 @@ export default function AdminDashboardPage() {
                   <CardDescription>View and moderate leaderboard entries.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p>Leaderboard management features will be available here soon.</p>
+                  <p>Leaderboard management features will be available here soon. This section is a placeholder.</p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -96,7 +96,7 @@ export default function AdminDashboardPage() {
                   <CardDescription>Configure application-wide settings.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <p>Application settings will be available here soon.</p>
+                  <p>Application settings will be available here soon. This section is a placeholder.</p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -106,3 +106,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+

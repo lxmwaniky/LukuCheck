@@ -237,7 +237,7 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
-      <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-12 md:py-10">
+      <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-12 md:py-10 px-4">
         
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome to LukuCheck!</h1>
         <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl">
@@ -353,3 +353,4 @@ export default function HomePage() {
     </div>
   );
 }
+
