@@ -74,8 +74,8 @@ Users can upload images of their outfits, which are then processed by an AI to p
 
 1.  **Clone the Repository:**
     ```bash
-    git clone <repository-url>
-    cd luku-app # Or your project directory name
+    git clone https://github.com/lxmwaniky/LukuCheck
+    cd LukuCheck
     ```
 2.  **Install Dependencies:**
     ```bash
