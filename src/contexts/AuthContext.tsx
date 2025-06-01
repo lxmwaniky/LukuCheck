@@ -27,7 +27,7 @@ export interface UserProfile {
   currentStreak?: number;
   lastSubmissionDate?: string | null; 
   lastTop3BonusDate?: string | null;
-  // isAdmin?: boolean; // Removed isAdmin flag
+  isAdmin?: boolean; // Added isAdmin flag
 }
 
 export interface AuthContextType {
@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           currentStreak: profileData.currentStreak || 0,
           lastSubmissionDate: profileData.lastSubmissionDate || null,
           lastTop3BonusDate: profileData.lastTop3BonusDate || null,
-          // isAdmin: profileData.isAdmin || false, // Removed isAdmin flag
+          isAdmin: profileData.isAdmin || false, // Load isAdmin flag
         };
         setUserProfile(loadedProfile);
 
@@ -125,7 +125,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           currentStreak: 0,
           lastSubmissionDate: null,
           lastTop3BonusDate: null,
-          // isAdmin: false, // Default to false if no profile doc
+          isAdmin: false, // Default to false if no profile doc
         });
       }
     } catch (error) {
@@ -199,7 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 currentStreak: profileData.currentStreak || 0,
                 lastSubmissionDate: profileData.lastSubmissionDate || null,
                 lastTop3BonusDate: profileData.lastTop3BonusDate || null,
-                // isAdmin: profileData.isAdmin || false, // Removed isAdmin
+                isAdmin: profileData.isAdmin || false, // Load isAdmin
               };
               setUserProfile(updatedProfile);
 
