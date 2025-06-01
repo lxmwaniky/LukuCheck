@@ -11,7 +11,7 @@ export default function TermsOfServicePage() {
   const contactEmail = 'lxmwaniky@gmail.com';
   const appName = 'LukuCheck';
   // Remember to update this date if you make significant changes to the terms!
-  const lastUpdatedDate = 'May 31, 2023'; 
+  const lastUpdatedDate = 'May 31, 2025'; 
 
   return (
     <div className="flex min-h-screen flex-col">
