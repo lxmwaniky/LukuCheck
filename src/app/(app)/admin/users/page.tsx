@@ -24,7 +24,7 @@ type SortDirection = 'asc' | 'desc';
 
 export default function AdminUsersPage() {
   const { user, userProfile } = useAuth(); 
-  const [users, setUsers] = useState<AdminUserView[]>([]);
+  const [usersData, setUsersData] = useState<AdminUserView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -44,6 +44,8 @@ export default function AdminUsersPage() {
   const [sortColumn, setSortColumn] = useState<SortableColumn>('username');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
+  const isSuperAdmin = userProfile?.role === 'admin';
+
 
   const fetchUsers = useCallback(async () => {
     if (!user?.uid) return;
@@ -51,7 +53,7 @@ export default function AdminUsersPage() {
     setError(null);
     const result = await getAllUsersForAdmin(user.uid);
     if (result.success && result.users) {
-      setUsers(result.users);
+      setUsersData(result.users);
     } else {
       setError(result.error || "Failed to load users.");
       toast({ title: "Error", description: result.error || "Failed to load users.", variant: "destructive" });
@@ -64,7 +66,7 @@ export default function AdminUsersPage() {
   }, [fetchUsers]);
 
   const handleSetRole = async () => {
-    if (!user?.uid || !selectedUserForRole || !newRole) return;
+    if (!user?.uid || !selectedUserForRole || !newRole || !isSuperAdmin) return;
     if (user.uid === selectedUserForRole.uid && newRole !== 'admin') {
       toast({ title: "Action Denied", description: "You cannot change your own role to a non-admin role here.", variant: "destructive" });
       return;
@@ -82,13 +84,13 @@ export default function AdminUsersPage() {
   };
 
   const handleAdjustPointsSubmit = async () => {
-    if (!selectedUserForPoints || !user?.uid || pointsToAdjust === "") return;
+    if (!selectedUserForPoints || !user?.uid || pointsToAdjust === "" || !isSuperAdmin) return;
     const pointsValue = parseInt(pointsToAdjust, 10);
     if (isNaN(pointsValue)) {
         toast({ title: "Invalid Input", description: "Please enter a valid number for points.", variant: "destructive" });
         return;
     }
-    if ((pointsOperation === 'add' || pointsOperation === 'subtract') && pointsValue <= 0 && operation !== 'set') {
+     if ((pointsOperation === 'add' || pointsOperation === 'subtract') && pointsValue <= 0 && pointsOperation !== 'set') {
         toast({ title: "Invalid Input", description: `For '${pointsOperation}', points must be a positive number. For 'set', any integer is valid.`, variant: "destructive" });
         return;
     }
@@ -107,7 +109,7 @@ export default function AdminUsersPage() {
   };
 
   const sortedAndFilteredUsers = useMemo(() => {
-    let processedUsers = [...users];
+    let processedUsers = [...usersData];
 
     if (searchTerm) {
       const lowerSearchTerm = searchTerm.toLowerCase();
@@ -140,7 +142,7 @@ export default function AdminUsersPage() {
     });
 
     return processedUsers;
-  }, [users, searchTerm, filterRole, sortColumn, sortDirection]);
+  }, [usersData, searchTerm, filterRole, sortColumn, sortDirection]);
 
   const totalPages = Math.ceil(sortedAndFilteredUsers.length / ITEMS_PER_PAGE);
   const paginatedUsers = sortedAndFilteredUsers.slice(
@@ -185,13 +187,11 @@ export default function AdminUsersPage() {
     );
   }
   
-  const canManageRoles = userProfile?.role === 'admin';
-
   return (
     <div className="border bg-card text-card-foreground shadow-sm rounded-lg">
       <div className="flex flex-col space-y-1.5 p-6">
-        <h3 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2"><Users className="h-6 w-6"/> User Management</h3>
-        <p className="text-sm text-muted-foreground">View, manage, and moderate user accounts. Found: {sortedAndFilteredUsers.length} / {users.length}</p>
+        <h3 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2"><Users className="h-6 w-6"/> User Accounts</h3>
+        <p className="text-sm text-muted-foreground">View and manage user accounts. Found: {sortedAndFilteredUsers.length} / {usersData.length}</p>
       </div>
       <div className="p-6 pt-0 space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -228,7 +228,7 @@ export default function AdminUsersPage() {
                 <TableHead onClick={() => handleSort('currentStreak')} className="cursor-pointer hover:bg-muted/50 text-center">Streak <SortIndicator column="currentStreak" /></TableHead>
                 <TableHead onClick={() => handleSort('referralsMadeCount')} className="cursor-pointer hover:bg-muted/50 text-center hidden sm:table-cell">Referrals <SortIndicator column="referralsMadeCount" /></TableHead>
                 <TableHead onClick={() => handleSort('role')} className="cursor-pointer hover:bg-muted/50 text-center">Role <SortIndicator column="role" /></TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -262,16 +262,16 @@ export default function AdminUsersPage() {
                           {u.role || 'user'}
                       </span>
                   </TableCell>
-                  <TableCell className="text-right space-x-1">
-                    {canManageRoles && (
-                       <Button variant="outline" size="sm" className="px-2 py-1 h-auto text-xs" onClick={() => { setSelectedUserForRole(u); setNewRole(u.role || 'user'); }}>
+                  {isSuperAdmin && (
+                    <TableCell className="text-right space-x-1">
+                      <Button variant="outline" size="sm" className="px-2 py-1 h-auto text-xs" onClick={() => { setSelectedUserForRole(u); setNewRole(u.role || 'user'); }}>
                         <Edit3 className="mr-1 h-3 w-3" /> Role
                       </Button>
-                    )}
-                    <Button variant="outline" size="sm" className="px-2 py-1 h-auto text-xs" onClick={() => setSelectedUserForPoints(u)}>
-                      <Coins className="mr-1 h-3 w-3" /> Points
-                    </Button>
-                  </TableCell>
+                      <Button variant="outline" size="sm" className="px-2 py-1 h-auto text-xs" onClick={() => setSelectedUserForPoints(u)}>
+                        <Coins className="mr-1 h-3 w-3" /> Points
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>
@@ -304,7 +304,7 @@ export default function AdminUsersPage() {
         )}
 
 
-        {selectedUserForPoints && (
+        {selectedUserForPoints && isSuperAdmin && (
           <Dialog open={!!selectedUserForPoints} onOpenChange={(open) => { if (!open) setSelectedUserForPoints(null); }}>
             <DialogContent>
               <DialogHeader>
@@ -355,7 +355,7 @@ export default function AdminUsersPage() {
           </Dialog>
         )}
 
-        {selectedUserForRole && canManageRoles && (
+        {selectedUserForRole && isSuperAdmin && (
           <Dialog open={!!selectedUserForRole} onOpenChange={(open) => { if (!open) setSelectedUserForRole(null); }}>
             <DialogContent>
               <DialogHeader>
@@ -368,7 +368,7 @@ export default function AdminUsersPage() {
                     <Select
                         value={newRole}
                         onValueChange={(value: UserRole) => setNewRole(value)}
-                        disabled={user?.uid === selectedUserForRole.uid && (selectedUserForRole.role === 'admin' || selectedUserForRole.role === 'manager')}
+                        disabled={user?.uid === selectedUserForRole.uid && (selectedUserForRole.role === 'admin')}
                     >
                         <SelectTrigger className="col-span-3">
                             <SelectValue placeholder="Select new role" />
@@ -380,8 +380,8 @@ export default function AdminUsersPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                 {user?.uid === selectedUserForRole.uid && (selectedUserForRole.role === 'admin' || selectedUserForRole.role === 'manager') &&
-                  <p className="col-span-4 text-xs text-destructive text-center">You cannot change your own role from Admin/Manager here.</p>
+                 {user?.uid === selectedUserForRole.uid && (selectedUserForRole.role === 'admin') &&
+                  <p className="col-span-4 text-xs text-destructive text-center">You cannot change your own role from Admin here.</p>
                 }
               </div>
               <DialogFooter>
@@ -400,3 +400,4 @@ export default function AdminUsersPage() {
     </div>
   );
 }
+

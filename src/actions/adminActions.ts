@@ -16,11 +16,9 @@ export interface AdminUserView extends Omit<UserProfile, 'createdAt' | 'lastLogi
 
 async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]): Promise<boolean> {
   if (!adminInitialized || !adminDb) {
-    // console.error("[AdminActions] verifyUserRole: Admin SDK not initialized.");
     return false;
   }
   if (!callerUid) {
-    // console.error("[AdminActions] verifyUserRole: Caller UID not provided for role verification.");
     return false;
   }
   try {
@@ -33,10 +31,8 @@ async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]): Prom
         return true;
       }
     }
-    // console.log(`[AdminActions] verifyUserRole: User ${callerUid} role '${userDocSnap.data()?.role || 'user'}' not in allowed roles [${allowedRoles.join(', ')}].`);
     return false;
   } catch (error) {
-    // console.error("[AdminActions] verifyUserRole: Error verifying role:", error);
     return false;
   }
 }
@@ -100,6 +96,8 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
           referralsMadeCount: referralsCount,
         } as AdminUserView;
       } else {
+        // This case should ideally not happen if createUserProfileInFirestore is always called on signup.
+        // However, to be robust:
         return {
           uid: authUser.uid,
           email: authUser.email || null,
@@ -109,11 +107,11 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
           lukuPoints: 0,
           badges: [],
           currentStreak: 0,
-          role: 'user',
+          role: 'user', // Default role if no profile
           firebaseAuthDisabled: authUser.disabled,
-          createdAt: null,
-          lastLogin: null,
-          referralsMadeCount: referralsCount,
+          createdAt: null, // No Firestore profile, so no createdAt from there
+          lastLogin: null, // No Firestore profile
+          referralsMadeCount: referralsCount, // Referrals can still be counted
         } as AdminUserView;
       }
     });
@@ -123,7 +121,6 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
     
     return { success: true, users: validUsers };
   } catch (error: any) {
-    // console.error("[AdminActions] getAllUsersForAdmin: Error fetching all users:", error);
     return { success: false, error: `Failed to fetch users: ${error.message}` };
   }
 }
@@ -150,7 +147,6 @@ export async function setUserRoleAction(
     await userDocRef.update({ role: newRole });
     return { success: true };
   } catch (error: any) {
-    // console.error(`[AdminActions] setUserRoleAction: Error setting role for ${targetUserId}:`, error);
     return { success: false, error: `Failed to set user role: ${error.message}` };
   }
 }
@@ -164,9 +160,10 @@ export async function adjustUserLukuPoints(
   if (!adminInitialized || !adminDb) {
     return { success: false, error: "Admin SDK not configured." };
   }
-  const canAccess = await verifyUserRole(callerUid, ['admin', 'manager']);
-  if (!canAccess) {
-    return { success: false, error: "Unauthorized: Caller does not have sufficient privileges." };
+  // Only Admins can adjust points
+  const isCallerAdmin = await verifyUserRole(callerUid, ['admin']);
+  if (!isCallerAdmin) {
+    return { success: false, error: "Unauthorized: Only admins can adjust LukuPoints." };
   }
 
   if (isNaN(points) || (operation !== 'set' && points <= 0 && operation !== 'subtract')) {
@@ -197,7 +194,6 @@ export async function adjustUserLukuPoints(
     await userDocRef.update({ lukuPoints: newPointsValue });
     return { success: true };
   } catch (error: any) {
-    // console.error(`[AdminActions] adjustUserLukuPoints: Error adjusting LukuPoints for ${targetUserId}:`, error);
     return { success: false, error: `Failed to adjust LukuPoints: ${error.message}` };
   }
 }
