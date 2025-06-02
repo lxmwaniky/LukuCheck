@@ -2,9 +2,9 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Coffee } from 'lucide-react';
-import { buttonVariants } from '@/components/ui/button'; // Import buttonVariants
-import { cn } from '@/lib/utils'; // Import cn
+import { Coffee, MessageSquareQuote } from 'lucide-react'; // Changed MessageSquareQuestion to MessageSquareQuote
+import { buttonVariants } from '@/components/ui/button'; 
+import { cn } from '@/lib/utils'; 
 
 export function SiteFooter() {
   const [currentYear, setCurrentYear] = useState<number | null>(null);
@@ -13,39 +13,9 @@ export function SiteFooter() {
     setCurrentYear(new Date().getFullYear());
   }, []);
 
-  const contactEmail = 'lxmwaniky@gmail.com';
+  // const contactEmail = 'lxmwaniky@gmail.com'; // Kept for direct contact if needed elsewhere
   const paypalEmail = 'lekko254@gmail.com';
   const paypalDonationUrl = `https://www.paypal.com/donate/?business=${encodeURIComponent(paypalEmail)}&no_recurring=0&item_name=Support+LukuCheck&currency_code=USD`;
-
-  const bugReportSubject = encodeURIComponent('Bug Report - LukuCheck');
-  const bugReportBody = encodeURIComponent(
-`Please describe the bug:
-[Your description here]
-
-Steps to reproduce:
-1.
-2.
-3.
-
-Expected behavior:
-[What you expected to happen]
-
-Actual behavior:
-[What actually happened]
-
-Browser/OS (if applicable):
-[e.g., Chrome on Windows 10, Safari on iOS 17]`
-  );
-
-  const feedbackSubject = encodeURIComponent('Feedback - LukuCheck');
-  const feedbackBody = encodeURIComponent(
-`I'd like to share some feedback about LukuCheck:
-
-[Your feedback here]`
-  );
-
-  const mailtoBugReport = `mailto:${contactEmail}?subject=${bugReportSubject}&body=${bugReportBody}`;
-  const mailtoFeedback = `mailto:${contactEmail}?subject=${feedbackSubject}&body=${feedbackBody}`;
 
   return (
     <footer className="py-6 md:px-8 md:py-0 border-t">
@@ -69,19 +39,18 @@ Browser/OS (if applicable):
           <Link href="/privacy-policy" legacyBehavior passHref>
             <a className="hover:text-primary hover:underline underline-offset-4">Privacy Policy</a>
           </Link>
-          <a href={mailtoBugReport} className="hover:text-primary hover:underline underline-offset-4">
-            Report a Bug
-          </a>
-          <a href={mailtoFeedback} className="hover:text-primary hover:underline underline-offset-4">
-            Send Feedback
-          </a>
+          <Link href="/submit-ticket" legacyBehavior passHref>
+            <a className="flex items-center hover:text-primary hover:underline underline-offset-4">
+              <MessageSquareQuote className="mr-1 h-4 w-4" /> Support / Report Issue
+            </a>
+          </Link>
           <a
             href={paypalDonationUrl}
             target="_blank"
             rel="noopener noreferrer"
             className={cn(
               buttonVariants({ variant: "outline", size: "sm" }),
-              "h-auto px-3 py-1.5" // Adjusted padding/height for a slightly smaller button feel
+              "h-auto px-3 py-1.5" 
             )}
             aria-label="Donate to support LukuCheck"
           >

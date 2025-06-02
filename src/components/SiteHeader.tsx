@@ -1,7 +1,7 @@
 
 'use client';
 import Link from 'next/link';
-import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame, ShieldCheck, UserCog } from 'lucide-react';
+import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame, ShieldCheck, UserCog, ListChecks } from 'lucide-react'; // Added ListChecks
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/config/firebase';
@@ -42,6 +42,8 @@ export function SiteHeader() {
   const paypalEmail = 'lekko254@gmail.com';
   const paypalDonationUrl = `https://www.paypal.com/donate/?business=${encodeURIComponent(paypalEmail)}&no_recurring=0&item_name=Support+LukuCheck&currency_code=USD`;
 
+  const isAdminOrManager = userProfile?.role && ['admin', 'manager'].includes(userProfile.role);
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -74,10 +76,10 @@ export function SiteHeader() {
                   Profile
                 </Button>
               </Link>
-              {userProfile?.isAdmin && (
+              {isAdminOrManager && (
                   <Link href="/admin" legacyBehavior passHref>
                     <Button variant="ghost" className="text-sm text-destructive hover:text-destructive hover:bg-destructive/10">
-                        <UserCog className="mr-2 h-4 w-4" /> Admin
+                        <UserCog className="mr-2 h-4 w-4" /> Admin Panel
                     </Button>
                   </Link>
               )}
@@ -225,7 +227,7 @@ export function SiteHeader() {
                         </Button>
                       </Link>
                     </SheetClose>
-                     {userProfile?.isAdmin && (
+                     {isAdminOrManager && (
                         <SheetClose asChild>
                             <Link href="/admin" legacyBehavior passHref>
                                 <Button variant="ghost" className={`${navLinkClass} text-destructive hover:text-destructive hover:bg-destructive/10`}>
@@ -237,6 +239,13 @@ export function SiteHeader() {
                   </>
                 )}
                 <div className="border-t pt-3 space-y-3">
+                 <SheetClose asChild>
+                    <Link href="/submit-ticket" legacyBehavior passHref>
+                      <Button variant="outline" className={navLinkClass}>
+                        <ListChecks className="mr-2 h-5 w-5 text-primary" /> Support / Tickets
+                      </Button>
+                    </Link>
+                  </SheetClose>
                   <SheetClose asChild>
                     <a href={paypalDonationUrl} target="_blank" rel="noopener noreferrer" className="w-full">
                       <Button variant="outline" className={navLinkClass}>

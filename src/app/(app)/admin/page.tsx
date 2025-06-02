@@ -5,8 +5,36 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { ShieldAlert, Loader2, Users } from 'lucide-react';
-import AdminUsersPage from './users/page';
+import { Button } from '@/components/ui/button';
+import { ShieldAlert, Loader2, Users, ListChecks, Settings, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
+
+interface DashboardItemProps {
+  title: string;
+  description: string;
+  href: string;
+  icon: React.ElementType;
+  disabled?: boolean;
+}
+
+const DashboardItem: React.FC<DashboardItemProps> = ({ title, description, href, icon: Icon, disabled }) => (
+  <Card className="hover:shadow-lg transition-shadow duration-200">
+    <CardHeader>
+      <CardTitle className="text-xl flex items-center gap-2">
+        <Icon className="h-6 w-6 text-primary" />
+        {title}
+      </CardTitle>
+      <CardDescription>{description}</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <Link href={href} passHref legacyBehavior>
+        <Button className="w-full" disabled={disabled}>
+          Go to {title} <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </Link>
+    </CardContent>
+  </Card>
+);
 
 export default function AdminDashboardPage() {
   const { userProfile, loading, user } = useAuth();
@@ -22,8 +50,7 @@ export default function AdminDashboardPage() {
       if (!user) {
         router.replace('/login?redirect=/admin');
       } else if (user && (!userProfile?.role || !['admin', 'manager'].includes(userProfile.role))) {
-        // Stay on this page to show "Access Denied" if not admin or manager
-        // The AdminUsersPage component itself will handle finer-grained permissions (e.g., read-only for managers)
+        // Stay on this page to show "Access Denied"
       }
     }
   }, [user, userProfile, loading, router, isClient]);
@@ -57,22 +84,34 @@ export default function AdminDashboardPage() {
   
   return (
     <div className="container mx-auto py-8">
-      <Card className="shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl sm:text-3xl flex items-center gap-2">
-            <Users className="h-7 w-7" /> LukuCheck User Management
-          </CardTitle>
-          <CardDescription>
-            Welcome, {userProfile.username || 'Admin User'}. Your role: {userProfile.role}.
-            {userProfile.role === 'manager' && " You have read-only access to user data."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Suspense fallback={<div className="flex items-center justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-            <AdminUsersPage />
-          </Suspense>
-        </CardContent>
-      </Card>
+      <div className="mb-8 text-center">
+        <h1 className="text-3xl sm:text-4xl font-bold">Admin Dashboard</h1>
+        <p className="text-muted-foreground mt-1">
+          Welcome, {userProfile.username || 'Admin User'}. Your role: {userProfile.role}.
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <DashboardItem
+          title="User Management"
+          description="View, edit, and manage user accounts and roles."
+          href="/admin/users"
+          icon={Users}
+        />
+        <DashboardItem
+          title="Ticket System"
+          description="View and manage user-submitted support tickets."
+          href="/admin/tickets"
+          icon={ListChecks}
+        />
+        {/* Placeholder for future settings panel, only for 'admin' role */}
+        <DashboardItem
+          title="Global Settings"
+          description="Configure application-wide settings (Admin only)."
+          href="#" // Or a dedicated /admin/settings page
+          icon={Settings}
+          disabled={userProfile.role !== 'admin'}
+        />
+      </div>
     </div>
   );
 }

@@ -14,11 +14,15 @@ export interface AdminUserView extends Omit<UserProfile, 'createdAt' | 'lastLogi
   referralsMadeCount?: number;
 }
 
-async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]): Promise<boolean> {
+// This function is crucial for security. Ensure it's robust.
+// It's also potentially needed by ticketActions.ts, so ensure it's exported.
+export async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]): Promise<boolean> {
   if (!adminInitialized || !adminDb) {
+    // console.error("[Admin VerifyRole] Admin SDK not configured.");
     return false;
   }
   if (!callerUid) {
+    // console.warn("[Admin VerifyRole] Caller UID is missing.");
     return false;
   }
   try {
@@ -26,13 +30,15 @@ async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]): Prom
     const userDocSnap = await userDocRef.get();
     if (userDocSnap.exists) {
       const userData = userDocSnap.data() as UserProfile;
-      const userRole = userData.role || 'user';
+      const userRole = userData.role || 'user'; // Default to 'user' if role is not set
       if (allowedRoles.includes(userRole)) {
         return true;
       }
     }
+    // console.warn(`[Admin VerifyRole] User ${callerUid} does not have one of allowed roles: ${allowedRoles.join(', ')}`);
     return false;
   } catch (error) {
+    // console.error("[Admin VerifyRole] Error verifying user role:", error);
     return false;
   }
 }
