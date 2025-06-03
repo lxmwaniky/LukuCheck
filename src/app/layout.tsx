@@ -6,6 +6,8 @@ import './globals.css';
 import { Providers } from './providers';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from '@vercel/analytics/react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle } from 'lucide-react';
 
 const geistSans = GeistSans;
 const geistMono = GeistMono;
@@ -72,7 +74,14 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <Providers>
-          <div className="flex min-h-screen flex-col">
+          <Alert variant="destructive" className="fixed top-0 left-0 right-0 z-[200] m-4 rounded-lg shadow-lg">
+            <AlertTriangle className="h-5 w-5" />
+            <AlertTitle className="font-semibold">LukuCheck Temporarily Offline</AlertTitle>
+            <AlertDescription className="text-sm">
+              Due to operational expenses, LukuCheck is currently offline. We are working hard to bring it back as soon as possible and appreciate your patience. Please check back later!
+            </AlertDescription>
+          </Alert>
+          <div className="flex min-h-screen flex-col pt-24"> {/* Added pt-24 for banner spacing */}
             {children}
           </div>
           <Toaster />
@@ -82,3 +91,4 @@ export default function RootLayout({
     </html>
   );
 }
+

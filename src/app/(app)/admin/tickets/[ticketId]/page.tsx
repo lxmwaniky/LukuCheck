@@ -14,7 +14,7 @@ import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { Label } from '@/components/ui/label'; // Added Label import
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 
 interface AdminTicketDetailPageProps {
@@ -77,7 +77,7 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
   };
 
   const handleStatusChange = async (newStatus: TicketStatus) => {
-    if (!user?.uid || !ticket || userProfile?.role !== 'admin') {
+    if (!user?.uid || !ticket || !userProfile?.role || !['admin', 'manager'].includes(userProfile.role)) {
       toast({ title: "Error", description: "Status change failed or not authorized.", variant: "destructive" });
       return;
     }
@@ -134,6 +134,8 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
     );
   }
 
+  const canChangeStatus = userProfile?.role === 'admin' || userProfile?.role === 'manager';
+
   return (
     <div className="space-y-6">
       <Button onClick={() => router.push('/admin/tickets')} variant="outline" size="sm">
@@ -184,13 +186,13 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
             <p className="whitespace-pre-wrap bg-muted/30 p-3 rounded-md border">{ticket.description}</p>
           </div>
 
-          {userProfile?.role === 'admin' && (
+          {canChangeStatus && (
             <div className="space-y-2 pt-2">
-              <Label htmlFor="status" className="font-semibold flex items-center"><Settings2 className="mr-2 h-4 w-4"/>Change Status (Admin Only):</Label>
+              <Label htmlFor="status" className="font-semibold flex items-center"><Settings2 className="mr-2 h-4 w-4"/>Change Status:</Label>
               <Select
                 value={ticket.status}
                 onValueChange={(value: TicketStatus) => handleStatusChange(value)}
-                disabled={isUpdatingStatus || userProfile?.role !== 'admin'}
+                disabled={isUpdatingStatus}
               >
                 <SelectTrigger id="status" className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Select status" />
@@ -205,7 +207,7 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
               {isUpdatingStatus && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Updating status...</p>}
             </div>
           )}
-          {userProfile?.role === 'manager' && (
+          {!canChangeStatus && userProfile?.role && ( // Show read-only status if user is not admin/manager but has a role
              <div className="space-y-2 pt-2">
                 <Label className="font-semibold flex items-center"><Settings2 className="mr-2 h-4 w-4"/>Current Status:</Label>
                 <p className={cn("px-3 py-1.5 text-sm rounded-md border font-semibold inline-block", getStatusClass(ticket.status))}>
@@ -260,3 +262,4 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
     </div>
   );
 }
+

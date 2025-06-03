@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Trophy, CalendarDays, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Clock, Users, ChevronLeft, ChevronRight, Instagram, Link as LinkIcon, Sparkles, Flame } from 'lucide-react';
+import { Trophy, CalendarDays, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Clock, Users, ChevronLeft, ChevronRight, Instagram, Link as LinkIcon, Sparkles, Flame, XCircle } from 'lucide-react';
 import { format, subDays, set, isBefore, isAfter, addDays } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,10 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { LukuBadge } from '@/components/LukuBadge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+// --- Service Suspension Flag ---
+const IS_SERVICE_SUSPENDED = true;
+// --- End Service Suspension Flag ---
 
 
 type LeaderboardEntry = ServerLeaderboardEntry; 
@@ -49,6 +53,13 @@ function LeaderboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
+    if (IS_SERVICE_SUSPENDED) {
+      setIsLoading(false);
+      setStatusMessage('Leaderboard is temporarily suspended.');
+      setAllEntries([]);
+      return;
+    }
+
     const determineLeaderboardStateAndFetch = async () => {
       setIsLoading(true);
       const now = new Date();
@@ -80,7 +91,7 @@ function LeaderboardPage() {
             setStatusMessage(`Displaying top ${data.entries.length} entries for ${formatDate(dateStringToFetch)}.`);
           }
         } catch (error) {
-          console.error('Failed to fetch leaderboard data:', error);
+          // console.error('Failed to fetch leaderboard data:', error);
           setStatusMessage('Could not load leaderboard data. Please try again later.');
         }
          setTimeLeftToRelease(0);
@@ -99,6 +110,7 @@ function LeaderboardPage() {
   }, []);
 
   useEffect(() => {
+    if (IS_SERVICE_SUSPENDED) return;
     let timerInterval: NodeJS.Timeout | null = null;
     if (timeLeftToRelease > 0 && statusMessage?.includes('will be available')) {
         timerInterval = setInterval(() => {
@@ -151,18 +163,28 @@ function LeaderboardPage() {
         <CardHeader className="text-center px-4 py-6 sm:px-6 sm:py-8">
           <Users className="h-12 w-12 sm:h-16 sm:w-16 text-accent mx-auto mb-3 sm:mb-4" />
           <CardTitle className="text-3xl sm:text-4xl font-bold">Daily Style Leaderboard</CardTitle>
-          {currentLeaderboardDate && (
+          {currentLeaderboardDate && !IS_SERVICE_SUSPENDED && (
             <CardDescription className="text-base sm:text-lg text-muted-foreground flex items-center justify-center mt-1">
               <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Showing results for: {formatDate(currentLeaderboardDate)}
             </CardDescription>
           )}
-           <CardDescription className="text-xs mt-1">
+           {!IS_SERVICE_SUSPENDED && (
+             <CardDescription className="text-xs mt-1">
                 (Submissions: 6 AM - 2:55 PM daily. Results: 3 PM daily - 2:55 PM next day)
             </CardDescription>
+           )}
         </CardHeader>
         <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
-          {isLoading ? (
+          {IS_SERVICE_SUSPENDED ? (
+             <Alert variant="destructive" className="mb-6 mx-2 sm:mx-0">
+                <XCircle className="h-5 w-5" />
+                <AlertTitle>Leaderboard Temporarily Suspended</AlertTitle>
+                <AlertDescription>
+                  The LukuCheck leaderboard is currently unavailable due to service suspension. We appreciate your understanding and hope to have it back up soon.
+                </AlertDescription>
+            </Alert>
+          ) : isLoading ? (
             <div className="flex flex-col items-center justify-center py-10">
               <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 animate-spin text-primary mb-4" />
               <p className="text-base sm:text-lg text-muted-foreground">Fetching the latest rankings...</p>
@@ -326,19 +348,21 @@ function LeaderboardPage() {
         </CardContent>
       </Card>
 
-      <Alert variant="default" className="mt-8 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 border-primary/20 shadow-lg">
-        <Sparkles className="h-5 w-5 text-accent" />
-        <AlertTitle className="text-xl font-semibold text-primary">✨ Premium Feature Coming Soon: Private Leaderboards!</AlertTitle>
-        <AlertDescription className="text-muted-foreground mt-1">
-          Get ready to create your own private style challenges! Compete with up to 50 friends and showcase your unique fashion sense.
-          <div className="mt-3">
-            <Button variant="secondary" disabled>Learn More (Coming Soon)</Button>
-          </div>
-        </AlertDescription>
-      </Alert>
+      {!IS_SERVICE_SUSPENDED && (
+          <Alert variant="default" className="mt-8 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 border-primary/20 shadow-lg">
+            <Sparkles className="h-5 w-5 text-accent" />
+            <AlertTitle className="text-xl font-semibold text-primary">✨ Premium Feature Coming Soon: Private Leaderboards!</AlertTitle>
+            <AlertDescription className="text-muted-foreground mt-1">
+              Get ready to create your own private style challenges! Compete with up to 50 friends and showcase your unique fashion sense.
+              <div className="mt-3">
+                <Button variant="secondary" disabled>Learn More (Coming Soon)</Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+      )}
 
 
-      {selectedEntry && (
+      {selectedEntry && !IS_SERVICE_SUSPENDED && (
         <DialogContent className="sm:max-w-lg p-0">
           <DialogHeader className="p-6 pb-4 border-b">
             <div className="flex items-center space-x-3 mb-2">
@@ -430,6 +454,7 @@ function LeaderboardPageWrapper() {
     )
 }
 
+// Renaming original export to avoid conflict, and because Dialog needs to wrap it
 const LeaderboardPageActual = LeaderboardPage;
 export default LeaderboardPageWrapper;
 

@@ -130,7 +130,7 @@ export async function getTicketsForAdmin(callerUid: string): Promise<{ success: 
       const comments = (data.comments || []).map((comment: FirestoreTicketComment) => ({
         ...comment,
         createdAt: comment.createdAt.toDate().toISOString(),
-      })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort comments descending for list view preview
       
       return {
         id: doc.id,
@@ -147,7 +147,7 @@ export async function getTicketsForAdmin(callerUid: string): Promise<{ success: 
         assignedTo: data.assignedTo || null,
         resolution: data.resolution || null,
         closedAt: data.closedAt ? data.closedAt.toDate().toISOString() : null,
-        comments: comments,
+        comments: comments, // Include comments, even if empty
       };
     });
     return { success: true, tickets };
@@ -181,7 +181,7 @@ export async function getTicketByIdForAdmin(callerUid: string, ticketId: string)
     const comments = (data.comments || []).map((comment: FirestoreTicketComment) => ({
       ...comment,
       createdAt: comment.createdAt.toDate().toISOString(),
-    })).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // Sort comments ascending for display
+    })).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // Sort comments ascending for display in detail
 
     const ticket: Ticket = {
       id: ticketDocSnap.id,
@@ -210,7 +210,7 @@ export async function addCommentToTicketAdmin(
   callerUid: string,
   ticketId: string,
   commentText: string,
-  callerDisplayName: string // Pass the display name of the admin/manager making the comment
+  callerDisplayName: string 
 ): Promise<{ success: boolean; commentId?: string; error?: string }> {
   if (!adminInitialized || !adminDb) {
     return { success: false, error: "Admin SDK not configured." };
@@ -245,7 +245,7 @@ export async function addCommentToTicketAdmin(
   }
 }
 
-export async function updateTicketStatusAdmin(
+export async function updateTicketStatusAdmin( // Renamed for clarity, but logic is now for admin/manager
   callerUid: string,
   ticketId: string,
   newStatus: TicketStatus
@@ -257,9 +257,10 @@ export async function updateTicketStatusAdmin(
     return { success: false, error: "Ticket ID and new status are required." };
   }
 
-  const isAdmin = await verifyUserRole(callerUid, ['admin']);
-  if (!isAdmin) {
-    return { success: false, error: "Unauthorized: Only admins can change ticket status." };
+  // Allow both 'admin' and 'manager' to change status
+  const canUpdateStatus = await verifyUserRole(callerUid, ['admin', 'manager']);
+  if (!canUpdateStatus) {
+    return { success: false, error: "Unauthorized: Caller cannot change ticket status." };
   }
 
   try {
@@ -272,7 +273,13 @@ export async function updateTicketStatusAdmin(
     if (newStatus === 'Closed' || newStatus === 'Resolved') {
       updatePayload.closedAt = FieldValue.serverTimestamp();
     } else {
-      updatePayload.closedAt = null; // Explicitly set to null if reopening
+      // If reopening, ensure closedAt is cleared if it was set.
+      // It's important to check if the field exists before trying to set it to null,
+      // or to explicitly set it to null if the status implies it should not be closed.
+      const ticketSnap = await ticketDocRef.get();
+      if (ticketSnap.exists() && ticketSnap.data()?.closedAt) {
+         updatePayload.closedAt = null;
+      }
     }
 
     await ticketDocRef.update(updatePayload);

@@ -12,8 +12,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { createTicket, type TicketCategory, type CreateTicketInput } from '@/actions/ticketActions';
-import { Loader2, Send, AlertTriangle, Ticket as TicketIcon } from 'lucide-react';
+import { Loader2, Send, AlertTriangle, Ticket as TicketIcon, XCircle } from 'lucide-react';
 import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
+
+// --- Service Suspension Flag ---
+const IS_SERVICE_SUSPENDED = true;
+// --- End Service Suspension Flag ---
 
 export default function SubmitTicketPage() {
   const { user, userProfile } = useAuth();
@@ -27,6 +33,15 @@ export default function SubmitTicketPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (IS_SERVICE_SUSPENDED) {
+        toast({
+            title: "Service Suspended",
+            description: "Ticket submissions are temporarily unavailable.",
+            variant: "default",
+        });
+        return;
+    }
+
     if (!title.trim() || !description.trim()) {
       toast({
         title: "Missing Information",
@@ -82,6 +97,17 @@ export default function SubmitTicketPage() {
             Have a bug to report, feedback to share, or another issue? Let us know.
           </CardDescription>
         </CardHeader>
+        {IS_SERVICE_SUSPENDED && (
+            <CardContent>
+                 <Alert variant="destructive" className="mb-6">
+                    <XCircle className="h-5 w-5" />
+                    <AlertTitle>Submissions Temporarily Suspended</AlertTitle>
+                    <AlertDescription>
+                    Ticket submissions are currently unavailable due to service suspension. We apologize for any inconvenience.
+                    </AlertDescription>
+                </Alert>
+            </CardContent>
+        )}
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-6">
             <div className="space-y-2">
@@ -91,7 +117,7 @@ export default function SubmitTicketPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., Leaderboard not updating"
-                disabled={isSubmitting}
+                disabled={isSubmitting || IS_SERVICE_SUSPENDED}
                 required
               />
             </div>
@@ -104,7 +130,7 @@ export default function SubmitTicketPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Please provide as much detail as possible..."
                 rows={5}
-                disabled={isSubmitting}
+                disabled={isSubmitting || IS_SERVICE_SUSPENDED}
                 required
               />
             </div>
@@ -114,7 +140,7 @@ export default function SubmitTicketPage() {
               <Select
                 value={category}
                 onValueChange={(value: TicketCategory) => setCategory(value)}
-                disabled={isSubmitting}
+                disabled={isSubmitting || IS_SERVICE_SUSPENDED}
               >
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Select a category" />
@@ -132,13 +158,13 @@ export default function SubmitTicketPage() {
                 id="isAnonymous"
                 checked={isAnonymous}
                 onCheckedChange={(checked) => setIsAnonymous(checked as boolean)}
-                disabled={isSubmitting || !user}
+                disabled={isSubmitting || !user || IS_SERVICE_SUSPENDED}
               />
               <Label htmlFor="isAnonymous" className="text-sm font-normal">
                 Submit Anonymously { !user && "(Login to submit with your details)"}
               </Label>
             </div>
-             {isAnonymous && user && (
+             {isAnonymous && user && !IS_SERVICE_SUSPENDED && (
                 <div className="text-xs text-muted-foreground p-2 border border-dashed rounded-md">
                     Note: Submitting anonymously means your user details (email, username) will not be attached to this ticket. This may make it harder for us to follow up with you directly.
                 </div>
@@ -146,7 +172,7 @@ export default function SubmitTicketPage() {
 
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
+            <Button type="submit" className="w-full" disabled={isSubmitting || IS_SERVICE_SUSPENDED}>
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -165,3 +191,4 @@ export default function SubmitTicketPage() {
     </div>
   );
 }
+

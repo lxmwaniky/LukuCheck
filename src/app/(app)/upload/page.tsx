@@ -13,13 +13,17 @@ import { useToast } from '@/hooks/use-toast';
 import { processOutfitWithAI } from '@/actions/outfitActions';
 import type { StyleSuggestionsOutput } from '@/ai/flows/style-suggestions';
 import { handleLeaderboardSubmissionPerks } from '@/actions/userActions';
-import { UploadCloud, Sparkles, Send, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Ban, Clock, ShieldAlert, ImageOff, Eye } from 'lucide-react';
+import { UploadCloud, Sparkles, Send, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Ban, Clock, ShieldAlert, ImageOff, Eye, XCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/config/firebase';
 import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, where, getDocs as getFirestoreDocs } from 'firebase/firestore'; 
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { format, subDays, set, isBefore, isAfter, addDays, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+
+// --- Service Suspension Flag ---
+const IS_SERVICE_SUSPENDED = true;
+// --- End Service Suspension Flag ---
 
 interface ProcessedOutfitClient extends StyleSuggestionsOutput {
  outfitImageURL: string;
@@ -81,7 +85,7 @@ export default function UploadPage() {
 
 
   const fetchAIUsageOnClient = async () => {
-    if (!user) return;
+    if (!user || IS_SERVICE_SUSPENDED) return;
     const usageDateString = getAiUsageDateString();
     const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
     const usageRef = doc(db, usageDocPath);
@@ -95,12 +99,12 @@ export default function UploadPage() {
         setAiUsage({ count: 0, limitReached: false });
       }
     } catch (error) {
-      console.error("[UploadPage DEBUG] fetchAIUsageOnClient - Failed to fetch AI usage:", error);
+      // console.error("[UploadPage DEBUG] fetchAIUsageOnClient - Failed to fetch AI usage:", error);
     }
   };
 
   const clientIncrementAIUsage = async (): Promise<{ success: boolean; error?: string; limitReached?: boolean }> => {
-    if (!user) return { success: false, error: 'User ID is required.'};
+    if (!user || IS_SERVICE_SUSPENDED) return { success: false, error: 'Service suspended or User ID is required.'};
     const usageDateString = getAiUsageDateString();
     const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
     const usageRef = doc(db, usageDocPath);
@@ -126,7 +130,7 @@ export default function UploadPage() {
       if (error.message?.includes('PERMISSION_DENIED') || error.code === 'permission-denied') {
           errorMessage = "Permission denied to update AI usage. Check Firestore rules.";
       }
-      console.error("[UploadPage DEBUG] clientIncrementAIUsage - Error:", error, "Message:", errorMessage);
+      // console.error("[UploadPage DEBUG] clientIncrementAIUsage - Error:", error, "Message:", errorMessage);
       toast({ title: 'AI Usage Error', description: errorMessage, variant: 'destructive' });
       await fetchAIUsageOnClient();
       return { success: false, error: errorMessage };
@@ -135,7 +139,7 @@ export default function UploadPage() {
 
   useEffect(() => {
     const checkSubmissionStatusAndWindow = async () => {
-      if (!user) return;
+      if (!user || IS_SERVICE_SUSPENDED) return;
       const now = new Date();
       const submissionOpenTime = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
       const submissionCloseTime = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
@@ -153,7 +157,7 @@ export default function UploadPage() {
         const querySnapshot = await getFirestoreDocs(q);
         setHasSubmittedToday(!querySnapshot.empty);
       } catch (error) {
-        console.error("[UploadPage] Error checking for today's submission:", error);
+        // console.error("[UploadPage] Error checking for today's submission:", error);
         toast({ title: "Error", description: "Could not verify previous submissions.", variant: "destructive" });
       }
     };
@@ -163,6 +167,7 @@ export default function UploadPage() {
   }, [user, toast]); 
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (IS_SERVICE_SUSPENDED) return;
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
@@ -174,6 +179,10 @@ export default function UploadPage() {
   };
 
   const handleGetRating = async () => {
+    if (IS_SERVICE_SUSPENDED) {
+      toast({ title: 'Service Suspended', description: 'Outfit rating is temporarily unavailable.', variant: 'default' });
+      return;
+    }
     if (!imageFile || !imagePreview || !user) {
       toast({ title: 'Missing information', description: 'Please select an image and ensure you are logged in.', variant: 'destructive' });
       return;
@@ -217,10 +226,15 @@ export default function UploadPage() {
   };
 
   const handleSelectOutfitForDetails = (outfit: ProcessedOutfitClient) => {
+    if (IS_SERVICE_SUSPENDED) return;
     setSelectedOutfitForDetails(outfit);
   };
 
   const handleSubmitToLeaderboard = async () => {
+     if (IS_SERVICE_SUSPENDED) {
+      toast({ title: 'Service Suspended', description: 'Leaderboard submissions are temporarily unavailable.', variant: 'default' });
+      return;
+    }
     if (!user || !userProfile || !selectedOutfitForDetails || !selectedOutfitForDetails.outfitImageURL) {
       toast({ title: 'Error', description: 'No outfit selected or missing data for submission.', variant: 'destructive'});
       return;
@@ -291,17 +305,19 @@ export default function UploadPage() {
      return <div className="flex justify-center items-center h-full p-4"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading...</span></div>;
   }
 
-  const getRatingDisabled = !imageFile || isProcessingAIRating || aiUsage.limitReached;
-  const imageInputDisabled = aiUsage.limitReached;
+  const getRatingDisabled = !imageFile || isProcessingAIRating || aiUsage.limitReached || IS_SERVICE_SUSPENDED;
+  const imageInputDisabled = aiUsage.limitReached || isProcessingAIRating || IS_SERVICE_SUSPENDED;
 
   const submitToLeaderboardButtonDisabled = isSubmittingToLeaderboard || 
                                           !selectedOutfitForDetails || 
                                           selectedOutfitForDetails.submittedToLeaderboard || 
                                           hasSubmittedToday || 
                                           !isSubmissionWindowOpen || 
-                                          (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit);
+                                          (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit) ||
+                                          IS_SERVICE_SUSPENDED;
   let submitToLeaderboardButtonText = "Submit to Daily Leaderboard";
-  if (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit) submitToLeaderboardButtonText = "Cannot Submit (Invalid Image)";
+  if (IS_SERVICE_SUSPENDED) submitToLeaderboardButtonText = "Submissions Suspended";
+  else if (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit) submitToLeaderboardButtonText = "Cannot Submit (Invalid Image)";
   else if (hasSubmittedToday || selectedOutfitForDetails?.submittedToLeaderboard) submitToLeaderboardButtonText = "Submitted Today!";
   else if (!isSubmissionWindowOpen && !isSubmissionNotYetOpen) submitToLeaderboardButtonText = "Submission Window Closed";
   else if (isSubmissionNotYetOpen) submitToLeaderboardButtonText = `Submissions Open In: ${formatTimeLeft(timeLeftToSubmissionOpen)}`;
@@ -315,55 +331,67 @@ export default function UploadPage() {
           <CardDescription>Get feedback, then choose your best look for the leaderboard!</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6">
+          {IS_SERVICE_SUSPENDED && (
+            <Alert variant="destructive" className="mt-4">
+                <XCircle className="h-5 w-5" />
+                <AlertTitle>Service Temporarily Suspended</AlertTitle>
+                <AlertDescription>
+                Outfit uploads and AI ratings are currently unavailable. We apologize for any inconvenience and hope to be back soon!
+                </AlertDescription>
+            </Alert>
+          )}
           <div className="space-y-1 sm:space-y-2">
             <Label htmlFor="outfitImage" className="text-base sm:text-lg">Outfit Photo</Label>
-            <Input id="outfitImage" type="file" accept="image/*" onChange={handleImageChange} className="file:text-primary file:font-semibold" disabled={imageInputDisabled || isProcessingAIRating}/>
+            <Input id="outfitImage" type="file" accept="image/*" onChange={handleImageChange} className="file:text-primary file:font-semibold" disabled={imageInputDisabled}/>
           </div>
 
-          {imagePreview && (
+          {imagePreview && !IS_SERVICE_SUSPENDED && (
             <div className="mt-3 sm:mt-4 border rounded-lg overflow-hidden shadow-md">
               <Image src={imagePreview} alt="Outfit preview" width={500} height={500} className="object-contain w-full h-auto max-h-[300px] sm:max-h-[400px]" data-ai-hint="fashion clothing"/>
             </div>
           )}
 
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>AI Usage: {aiUsage.count}/{AI_USAGE_DAILY_LIMIT} Analyses Used Today</AlertTitle>
-            <AlertDescription className="text-xs sm:text-sm">
-              {aiUsage.limitReached ? `You've reached your daily AI analysis limit. Resets 6 AM local time.` : `Get up to ${AI_USAGE_DAILY_LIMIT} AI ratings per day (resets 6 AM local time).`}
-            </AlertDescription>
-          </Alert>
-
-           {!hasSubmittedToday && isSubmissionNotYetOpen && timeLeftToSubmissionOpen > 0 && (
-            <Alert variant="default" className="bg-secondary/50 border-secondary">
-                <Clock className="h-4 w-4" />
-                <AlertTitle>Submissions Open Soon</AlertTitle>
+          {!IS_SERVICE_SUSPENDED && (
+            <>
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertTitle>AI Usage: {aiUsage.count}/{AI_USAGE_DAILY_LIMIT} Analyses Used Today</AlertTitle>
                 <AlertDescription className="text-xs sm:text-sm">
-                  Today's submission window (6 AM - 2:55 PM) for the leaderboard opens in: <span className="font-semibold">{formatTimeLeft(timeLeftToSubmissionOpen)}</span>.
+                  {aiUsage.limitReached ? `You've reached your daily AI analysis limit. Resets 6 AM local time.` : `Get up to ${AI_USAGE_DAILY_LIMIT} AI ratings per day (resets 6 AM local time).`}
                 </AlertDescription>
-            </Alert>
-          )}
+              </Alert>
 
-          {!hasSubmittedToday && !isSubmissionWindowOpen && !isSubmissionNotYetOpen && (
-             <Alert variant="destructive">
-                <Ban className="h-4 w-4" />
-                <AlertTitle>Submissions Closed for Today</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                  The 2:55 PM deadline for today's leaderboard submissions has passed. Try again tomorrow from 6 AM!
-                </AlertDescription>
-            </Alert>
-          )}
+              {!hasSubmittedToday && isSubmissionNotYetOpen && timeLeftToSubmissionOpen > 0 && (
+                <Alert variant="default" className="bg-secondary/50 border-secondary">
+                    <Clock className="h-4 w-4" />
+                    <AlertTitle>Submissions Open Soon</AlertTitle>
+                    <AlertDescription className="text-xs sm:text-sm">
+                      Today's submission window (6 AM - 2:55 PM) for the leaderboard opens in: <span className="font-semibold">{formatTimeLeft(timeLeftToSubmissionOpen)}</span>.
+                    </AlertDescription>
+                </Alert>
+              )}
 
-          {hasSubmittedToday && (
-             <Alert variant="default" className="bg-secondary/50 border-secondary">
-                <Ban className="h-4 w-4" />
-                <AlertTitle>Submission Complete for Today</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                You've already submitted an outfit for today's leaderboard. Check back tomorrow!
-                </AlertDescription>
-            </Alert>
-          )}
+              {!hasSubmittedToday && !isSubmissionWindowOpen && !isSubmissionNotYetOpen && (
+                <Alert variant="destructive">
+                    <Ban className="h-4 w-4" />
+                    <AlertTitle>Submissions Closed for Today</AlertTitle>
+                    <AlertDescription className="text-xs sm:text-sm">
+                      The 2:55 PM deadline for today's leaderboard submissions has passed. Try again tomorrow from 6 AM!
+                    </AlertDescription>
+                </Alert>
+              )}
 
+              {hasSubmittedToday && (
+                <Alert variant="default" className="bg-secondary/50 border-secondary">
+                    <Ban className="h-4 w-4" />
+                    <AlertTitle>Submission Complete for Today</AlertTitle>
+                    <AlertDescription className="text-xs sm:text-sm">
+                    You've already submitted an outfit for today's leaderboard. Check back tomorrow!
+                    </AlertDescription>
+                </Alert>
+              )}
+            </>
+          )}
         </CardContent>
         <CardFooter>
           <Button onClick={handleGetRating} disabled={getRatingDisabled} className="w-full text-base sm:text-lg py-2.5 sm:py-3">
@@ -373,7 +401,22 @@ export default function UploadPage() {
         </CardFooter>
       </Card>
 
-      {todaysRatedOutfits.length > 0 && !selectedOutfitForDetails && (
+      {IS_SERVICE_SUSPENDED && todaysRatedOutfits.length === 0 && !selectedOutfitForDetails && (
+         <Card className="shadow-xl md:col-span-2">
+            <CardHeader>
+                <CardTitle className="text-2xl sm:text-3xl">Rated Outfits</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <Alert variant="default" className="bg-muted/50">
+                    <Info className="h-5 w-5" />
+                    <AlertTitle>Service Suspended</AlertTitle>
+                    <AlertDescription>Reviewing previously rated outfits is temporarily unavailable.</AlertDescription>
+                </Alert>
+            </CardContent>
+         </Card>
+      )}
+
+      {!IS_SERVICE_SUSPENDED && todaysRatedOutfits.length > 0 && !selectedOutfitForDetails && (
         <Card className="shadow-xl md:col-span-2 animate-in fade-in duration-500">
           <CardHeader>
             <CardTitle className="text-2xl sm:text-3xl">Today's Rated Outfits</CardTitle>
@@ -389,7 +432,7 @@ export default function UploadPage() {
                 </div>
                 <Button 
                   onClick={() => handleSelectOutfitForDetails(outfit)} 
-                  disabled={!outfit.isActualUserOutfit || outfit.submittedToLeaderboard}
+                  disabled={!outfit.isActualUserOutfit || outfit.submittedToLeaderboard || IS_SERVICE_SUSPENDED}
                   variant={outfit.submittedToLeaderboard ? "ghost" : "default"}
                   className="w-full sm:w-auto"
                 >
@@ -410,7 +453,7 @@ export default function UploadPage() {
         </Card>
       )}
       
-      {isProcessingAIRating && !selectedOutfitForDetails && todaysRatedOutfits.length === 0 && (
+      {!IS_SERVICE_SUSPENDED && isProcessingAIRating && !selectedOutfitForDetails && todaysRatedOutfits.length === 0 && (
          <div className="md:col-span-1 flex flex-col items-center justify-center space-y-4 p-6 sm:p-8 bg-card rounded-lg shadow-xl min-h-[300px]">
             <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin text-primary" />
             <p className="text-lg sm:text-xl font-semibold text-foreground">Our AI is analyzing your style...</p>
@@ -420,7 +463,7 @@ export default function UploadPage() {
       )}
 
 
-      {selectedOutfitForDetails && (
+      {!IS_SERVICE_SUSPENDED && selectedOutfitForDetails && (
         <Card className="shadow-xl md:col-span-2 animate-in fade-in duration-500"> {/* Make it span 2 cols on md+ if it's the only card in this 'row' */}
           <CardHeader>
             <CardTitle className="text-2xl sm:text-3xl flex items-center"><Sparkles className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:w-8 text-accent" /> AI Feedback for Selected Outfit</CardTitle>
@@ -493,3 +536,4 @@ export default function UploadPage() {
     </div>
   );
 }
+
