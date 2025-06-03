@@ -14,15 +14,11 @@ export interface AdminUserView extends Omit<UserProfile, 'createdAt' | 'lastLogi
   referralsMadeCount?: number;
 }
 
-// This function is crucial for security. Ensure it's robust.
-// It's also potentially needed by ticketActions.ts, so ensure it's exported.
 export async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]): Promise<boolean> {
   if (!adminInitialized || !adminDb) {
-    // console.error("[Admin VerifyRole] Admin SDK not configured.");
     return false;
   }
   if (!callerUid) {
-    // console.warn("[Admin VerifyRole] Caller UID is missing.");
     return false;
   }
   try {
@@ -30,15 +26,13 @@ export async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]
     const userDocSnap = await userDocRef.get();
     if (userDocSnap.exists) {
       const userData = userDocSnap.data() as UserProfile;
-      const userRole = userData.role || 'user'; // Default to 'user' if role is not set
+      const userRole = userData.role || 'user'; 
       if (allowedRoles.includes(userRole)) {
         return true;
       }
     }
-    // console.warn(`[Admin VerifyRole] User ${callerUid} does not have one of allowed roles: ${allowedRoles.join(', ')}`);
     return false;
   } catch (error) {
-    // console.error("[Admin VerifyRole] Error verifying user role:", error);
     return false;
   }
 }
@@ -102,8 +96,6 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
           referralsMadeCount: referralsCount,
         } as AdminUserView;
       } else {
-        // This case should ideally not happen if createUserProfileInFirestore is always called on signup.
-        // However, to be robust:
         return {
           uid: authUser.uid,
           email: authUser.email || null,
@@ -113,11 +105,11 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
           lukuPoints: 0,
           badges: [],
           currentStreak: 0,
-          role: 'user', // Default role if no profile
+          role: 'user', 
           firebaseAuthDisabled: authUser.disabled,
-          createdAt: null, // No Firestore profile, so no createdAt from there
-          lastLogin: null, // No Firestore profile
-          referralsMadeCount: referralsCount, // Referrals can still be counted
+          createdAt: null, 
+          lastLogin: null, 
+          referralsMadeCount: referralsCount,
         } as AdminUserView;
       }
     });
@@ -166,7 +158,7 @@ export async function adjustUserLukuPoints(
   if (!adminInitialized || !adminDb) {
     return { success: false, error: "Admin SDK not configured." };
   }
-  // Only Admins can adjust points
+
   const isCallerAdmin = await verifyUserRole(callerUid, ['admin']);
   if (!isCallerAdmin) {
     return { success: false, error: "Unauthorized: Only admins can adjust LukuPoints." };

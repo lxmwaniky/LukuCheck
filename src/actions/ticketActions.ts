@@ -2,9 +2,11 @@
 'use server';
 
 import { adminDb, adminInitialized } from '@/config/firebaseAdmin';
-import { FieldValue, Timestamp as AdminTimestamp } from 'firebase-admin/firestore'; // Renamed to avoid conflict if needed, though not strictly here
+import { FieldValue, Timestamp as AdminTimestamp } from 'firebase-admin/firestore';
 import { verifyUserRole } from '@/actions/adminActions';
 import type { UserRole } from '@/contexts/AuthContext';
+import { randomUUID } from 'crypto';
+
 
 export type TicketCategory = 'bug' | 'feedback' | 'other';
 export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
@@ -30,8 +32,8 @@ export interface Ticket {
 
 export interface TicketComment {
   id: string;
-  userId: string;
-  userDisplayName: string;
+  userId: string; // UID of the admin/manager who commented
+  userDisplayName: string; // Display name of the admin/manager
   comment: string;
   createdAt: string; // Dates are ISO strings for client
 }
@@ -89,26 +91,23 @@ export async function createTicket(input: CreateTicketInput): Promise<{ success:
     const newTicketRef = ticketsCollectionRef.doc();
     const now = FieldValue.serverTimestamp();
 
-    // Data written to Firestore uses AdminTimestamp where applicable implicitly or via serverTimestamp
-    const ticketDataForFirestore = {
+    const ticketDataForFirestore: Omit<FirestoreTicketData, 'createdAt' | 'updatedAt' | 'comments' | 'closedAt' | 'assignedTo' | 'resolution'> & { createdAt: FirebaseFirestore.FieldValue, updatedAt: FirebaseFirestore.FieldValue } = {
       title,
       description,
       category,
       status: 'Open' as TicketStatus,
-      createdAt: now, 
-      updatedAt: now, 
+      createdAt: now,
+      updatedAt: now,
       isAnonymous,
       userId: !isAnonymous && userId ? userId : null,
       userDisplayName: !isAnonymous && userDisplayName ? userDisplayName : null,
       userEmail: !isAnonymous && userEmail ? userEmail : null,
-      // Optional fields default to undefined/null server-side if not provided
     };
 
     await newTicketRef.set(ticketDataForFirestore);
 
     return { success: true, ticketId: newTicketRef.id };
   } catch (error: any) {
-    console.error("[TicketActions ERROR] Failed to create ticket:", error);
     return { success: false, error: `Failed to submit ticket: ${error.message || "Unknown error"}` };
   }
 }
@@ -124,15 +123,14 @@ export async function getTicketsForAdmin(callerUid: string): Promise<{ success: 
   }
 
   try {
-    const ticketsSnapshot = await adminDb.collection('tickets').orderBy('createdAt', 'desc').get();
+    const ticketsSnapshot = await adminDb.collection('tickets').orderBy('updatedAt', 'desc').get();
     const tickets = ticketsSnapshot.docs.map(doc => {
-      const data = doc.data() as FirestoreTicketData; // Assert as Firestore data type
+      const data = doc.data() as FirestoreTicketData; 
       
-      // Convert comments Timestamps
       const comments = (data.comments || []).map((comment: FirestoreTicketComment) => ({
         ...comment,
         createdAt: comment.createdAt.toDate().toISOString(),
-      }));
+      })).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       
       return {
         id: doc.id,
@@ -154,7 +152,133 @@ export async function getTicketsForAdmin(callerUid: string): Promise<{ success: 
     });
     return { success: true, tickets };
   } catch (error: any) {
-    console.error("[TicketActions ERROR] Failed to fetch tickets for admin:", error);
     return { success: false, error: `Failed to fetch tickets: ${error.message || "Unknown error"}` };
   }
 }
+
+export async function getTicketByIdForAdmin(callerUid: string, ticketId: string): Promise<{ success: boolean; ticket?: Ticket; error?: string }> {
+  if (!adminInitialized || !adminDb) {
+    return { success: false, error: "Admin SDK not configured." };
+  }
+  if (!ticketId) {
+    return { success: false, error: "Ticket ID is required." };
+  }
+
+  const canAccess = await verifyUserRole(callerUid, ['admin', 'manager']);
+  if (!canAccess) {
+    return { success: false, error: "Unauthorized: Caller does not have sufficient privileges." };
+  }
+
+  try {
+    const ticketDocRef = adminDb.collection('tickets').doc(ticketId);
+    const ticketDocSnap = await ticketDocRef.get();
+
+    if (!ticketDocSnap.exists) {
+      return { success: false, error: "Ticket not found." };
+    }
+
+    const data = ticketDocSnap.data() as FirestoreTicketData;
+    const comments = (data.comments || []).map((comment: FirestoreTicketComment) => ({
+      ...comment,
+      createdAt: comment.createdAt.toDate().toISOString(),
+    })).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()); // Sort comments ascending for display
+
+    const ticket: Ticket = {
+      id: ticketDocSnap.id,
+      title: data.title,
+      description: data.description,
+      category: data.category,
+      status: data.status,
+      createdAt: data.createdAt.toDate().toISOString(),
+      updatedAt: data.updatedAt.toDate().toISOString(),
+      userId: data.userId || null,
+      userDisplayName: data.userDisplayName || null,
+      userEmail: data.userEmail || null,
+      isAnonymous: data.isAnonymous,
+      assignedTo: data.assignedTo || null,
+      resolution: data.resolution || null,
+      closedAt: data.closedAt ? data.closedAt.toDate().toISOString() : null,
+      comments: comments,
+    };
+    return { success: true, ticket };
+  } catch (error: any) {
+    return { success: false, error: `Failed to fetch ticket: ${error.message || "Unknown error"}` };
+  }
+}
+
+export async function addCommentToTicketAdmin(
+  callerUid: string,
+  ticketId: string,
+  commentText: string,
+  callerDisplayName: string // Pass the display name of the admin/manager making the comment
+): Promise<{ success: boolean; commentId?: string; error?: string }> {
+  if (!adminInitialized || !adminDb) {
+    return { success: false, error: "Admin SDK not configured." };
+  }
+  if (!ticketId || !commentText || !callerDisplayName) {
+    return { success: false, error: "Ticket ID, comment text, and caller display name are required." };
+  }
+
+  const canComment = await verifyUserRole(callerUid, ['admin', 'manager']);
+  if (!canComment) {
+    return { success: false, error: "Unauthorized: Caller cannot add comments." };
+  }
+
+  try {
+    const ticketDocRef = adminDb.collection('tickets').doc(ticketId);
+    const newCommentId = randomUUID();
+    const newComment: FirestoreTicketComment = {
+      id: newCommentId,
+      userId: callerUid,
+      userDisplayName: callerDisplayName,
+      comment: commentText,
+      createdAt: AdminTimestamp.now(),
+    };
+
+    await ticketDocRef.update({
+      comments: FieldValue.arrayUnion(newComment),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { success: true, commentId: newCommentId };
+  } catch (error: any) {
+    return { success: false, error: `Failed to add comment: ${error.message || "Unknown error"}` };
+  }
+}
+
+export async function updateTicketStatusAdmin(
+  callerUid: string,
+  ticketId: string,
+  newStatus: TicketStatus
+): Promise<{ success: boolean; error?: string }> {
+  if (!adminInitialized || !adminDb) {
+    return { success: false, error: "Admin SDK not configured." };
+  }
+  if (!ticketId || !newStatus) {
+    return { success: false, error: "Ticket ID and new status are required." };
+  }
+
+  const isAdmin = await verifyUserRole(callerUid, ['admin']);
+  if (!isAdmin) {
+    return { success: false, error: "Unauthorized: Only admins can change ticket status." };
+  }
+
+  try {
+    const ticketDocRef = adminDb.collection('tickets').doc(ticketId);
+    const updatePayload: { status: TicketStatus; updatedAt: FirebaseFirestore.FieldValue; closedAt?: FirebaseFirestore.FieldValue | null } = {
+      status: newStatus,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    if (newStatus === 'Closed' || newStatus === 'Resolved') {
+      updatePayload.closedAt = FieldValue.serverTimestamp();
+    } else {
+      updatePayload.closedAt = null; // Explicitly set to null if reopening
+    }
+
+    await ticketDocRef.update(updatePayload);
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: `Failed to update ticket status: ${error.message || "Unknown error"}` };
+  }
+}
+
