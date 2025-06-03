@@ -9,11 +9,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, ArrowLeft, MessageSquare, Send, CheckCircle, Settings2, User, CalendarDays, Tag, Info } from 'lucide-react';
+import { Loader2, ArrowLeft, MessageSquare, Send, CheckCircle, Settings2, User, CalendarDays, Tag, Info, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label'; // Added Label import
 import { cn } from '@/lib/utils';
 
 interface AdminTicketDetailPageProps {
@@ -58,16 +59,17 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
   }, [user, userProfile, authLoading, router, fetchTicketDetails]);
 
   const handleAddComment = async () => {
-    if (!user?.uid || !userProfile?.username || !ticket || !newComment.trim()) {
+    if (!user?.uid || !userProfile || !ticket || !newComment.trim()) {
       toast({ title: "Error", description: "Cannot submit empty comment or user not identified.", variant: "destructive" });
       return;
     }
     setIsSubmittingComment(true);
-    const result = await addCommentToTicketAdmin(user.uid, ticket.id, newComment.trim(), userProfile.username);
+    const callerName = userProfile.username || (userProfile.role === 'admin' ? 'Admin User' : 'Manager User');
+    const result = await addCommentToTicketAdmin(user.uid, ticket.id, newComment.trim(), callerName);
     if (result.success) {
       toast({ title: "Comment Added", description: "Your comment has been posted." });
       setNewComment('');
-      fetchTicketDetails(); // Refresh ticket details to show new comment
+      fetchTicketDetails(); 
     } else {
       toast({ title: "Error", description: result.error || "Failed to add comment.", variant: "destructive" });
     }
@@ -83,7 +85,7 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
     const result = await updateTicketStatusAdmin(user.uid, ticket.id, newStatus);
     if (result.success) {
       toast({ title: "Status Updated", description: `Ticket status changed to ${newStatus}.` });
-      fetchTicketDetails(); // Refresh ticket details
+      fetchTicketDetails(); 
     } else {
       toast({ title: "Error", description: result.error || "Failed to update status.", variant: "destructive" });
     }
@@ -188,7 +190,7 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
               <Select
                 value={ticket.status}
                 onValueChange={(value: TicketStatus) => handleStatusChange(value)}
-                disabled={isUpdatingStatus}
+                disabled={isUpdatingStatus || userProfile?.role !== 'admin'}
               >
                 <SelectTrigger id="status" className="w-full sm:w-[200px]">
                   <SelectValue placeholder="Select status" />
@@ -202,6 +204,14 @@ export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageP
               </Select>
               {isUpdatingStatus && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin"/>Updating status...</p>}
             </div>
+          )}
+          {userProfile?.role === 'manager' && (
+             <div className="space-y-2 pt-2">
+                <Label className="font-semibold flex items-center"><Settings2 className="mr-2 h-4 w-4"/>Current Status:</Label>
+                <p className={cn("px-3 py-1.5 text-sm rounded-md border font-semibold inline-block", getStatusClass(ticket.status))}>
+                    {ticket.status}
+                </p>
+             </div>
           )}
         </CardContent>
       </Card>
