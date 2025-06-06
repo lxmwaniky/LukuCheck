@@ -9,7 +9,7 @@ import Stripe from 'stripe';
 const PREMIUM_STYLIST_BADGE = "PREMIUM_STYLIST";
 
 if (!process.env.STRIPE_SECRET_KEY) {
-  // console.error("CRITICAL: STRIPE_SECRET_KEY environment variable is not set in subscriptionActions.");
+  console.error("CRITICAL: STRIPE_SECRET_KEY environment variable is not set in subscriptionActions.");
 }
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2024-06-20', // Use the API version you are developing against
@@ -23,7 +23,7 @@ export async function createStripeCheckoutSession(
   priceId: string
 ): Promise<{ sessionId?: string; error?: string; url?: string }> {
   if (!process.env.STRIPE_SECRET_KEY || !process.env.NEXT_PUBLIC_APP_BASE_URL) {
-    // console.error("Stripe secret key or App Base URL not set for creating checkout session.");
+    console.error("Stripe secret key or App Base URL not set for creating checkout session.");
     return { error: "Server configuration error for payments." };
   }
   if (!userId || !userEmail || !priceId) {
@@ -58,7 +58,7 @@ export async function createStripeCheckoutSession(
     }
     return { sessionId: session.id, url: session.url };
   } catch (error: any) {
-    // console.error("Error creating Stripe Checkout session:", error);
+    console.error("Error creating Stripe Checkout session:", error);
     return { error: `Failed to create checkout session: ${error.message}` };
   }
 }

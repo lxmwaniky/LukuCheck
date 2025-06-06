@@ -21,18 +21,18 @@ function SignupForm() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-  const [email, setEmail = useState('');
-  const [username, setUsername = useState('');
-  const [password, setPassword = useState('');
-  const [confirmPassword, setConfirmPassword = useState('');
-  const [agreedToTerms, setAgreedToTerms = useState(false);
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
-  const [isSubmitting, setIsSubmitting = useState(false);
-  const [showPassword, setShowPassword = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const [usernameStatus, setUsernameStatus = useState<'idle' | 'checking' | 'available' | 'error'>('idle');
-  const [usernameError, setUsernameError = useState<string | null>(null);
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'error'>('idle');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const debouncedUsername = useDebounce(username, 500);
 
   const referrerUid = searchParams.get('ref');
@@ -123,7 +123,7 @@ function SignupForm() {
         }
 
         const actionCodeSettings = {
-          url: `${window.location.origin}/upload`, // Updated redirect
+          url: `${window.location.origin}/upload`,
           handleCodeInApp: true,
         };
         await sendEmailVerification(firebaseUser, actionCodeSettings);
@@ -320,4 +320,3 @@ export default function SignupPage() {
     </Suspense>
   )
 }
-

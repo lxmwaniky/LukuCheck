@@ -16,15 +16,15 @@ export default function LoginPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail = useState('');
-  const [password, setPassword = useState('');
-  const [isSubmitting, setIsSubmitting = useState(false);
-  const [showPassword, setShowPassword = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
       if (user.emailVerified) {
-        router.replace('/upload'); // Updated redirect
+        router.replace('/upload');
       } else {
         router.replace('/verify-email-notice');
       }
@@ -142,4 +142,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

@@ -30,7 +30,7 @@ export function SiteHeader() {
       await signOut(auth);
       router.push('/login');
     } catch (error) {
-      // console.error('Error signing out:', error);
+      console.error('Error signing out:', error);
     }
   };
 
