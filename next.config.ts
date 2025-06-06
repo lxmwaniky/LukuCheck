@@ -37,36 +37,7 @@ const nextConfig: NextConfig = {
       }
     ],
   },
-  webpack: (config, { isServer }) => {
-    // For server-side code, Genkit might try to optionally load Jaeger.
-    // We mark it as external to prevent Webpack from trying to bundle it
-    // if it's not explicitly installed as a dependency for tracing.
-    // This helps resolve "Module not found" warnings during the build.
-    if (isServer) {
-        config.externals = [
-            ...(config.externals || []),
-            { '@opentelemetry/exporter-jaeger': 'commonjs @opentelemetry/exporter-jaeger' },
-        ];
-    }
-
-    // Attempt to ignore Handlebars warnings about require.extensions
-    // These warnings are often benign but can be noisy or interfere with some build systems.
-    config.ignoreWarnings = [
-      ...(config.ignoreWarnings || []),
-      (warning) => {
-        return (
-          warning.module &&
-          warning.module.resource &&
-          typeof warning.module.resource === 'string' &&
-          warning.module.resource.includes('node_modules/handlebars/lib/index.js') &&
-          typeof warning.message === 'string' &&
-          warning.message.includes('require.extensions is not supported by webpack')
-        );
-      },
-    ];
-
-    return config;
-  },
+  // Removed webpack function to avoid potential conflicts with Turbopack
 };
 
 export default nextConfig;

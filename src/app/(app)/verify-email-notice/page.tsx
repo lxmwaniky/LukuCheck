@@ -21,7 +21,7 @@ export default function VerifyEmailNoticePage() {
 
   useEffect(() => {
     if (!loading && user && user.emailVerified) {
-      router.replace('/upload');
+      router.replace('/upload'); // Updated redirect
     }
     if (!loading && !user) {
       router.replace('/login');
@@ -36,19 +36,16 @@ export default function VerifyEmailNoticePage() {
           setIsCheckingStatus(true);
           try {
             await auth.currentUser.reload();
-            // refreshUserProfile will update the user object in AuthContext
             await refreshUserProfile();
-            // The main useEffect (above) will catch the change in user.emailVerified and redirect
           } catch (error) {
-            console.warn("Polling: Failed to reload user status", error);
-            // Don't toast on polling errors to avoid spamming user
+            // console.warn("Polling: Failed to reload user status", error);
           } finally {
             setIsCheckingStatus(false);
           }
         }
       }, POLLING_INTERVAL);
 
-      return () => clearInterval(intervalId); // Cleanup interval on component unmount
+      return () => clearInterval(intervalId);
     }
   }, [user, refreshUserProfile]);
 
@@ -60,13 +57,12 @@ export default function VerifyEmailNoticePage() {
     setIsResending(true);
     try {
       const actionCodeSettings = {
-        url: `${window.location.origin}/upload`, // Redirect here after verification
+        url: `${window.location.origin}/upload`, // Updated redirect
         handleCodeInApp: true,
       };
       await sendEmailVerification(user, actionCodeSettings);
       toast({ title: 'Verification Email Resent', description: 'Please check your inbox (and spam folder).' });
     } catch (error: any) {
-      console.error("Error resending verification email:", error);
       toast({ title: "Error", description: error.message || "Failed to resend verification email.", variant: "destructive" });
     } finally {
       setIsResending(false);
@@ -78,17 +74,15 @@ export default function VerifyEmailNoticePage() {
     setIsCheckingStatus(true);
     try {
       await user.reload();
-      await refreshUserProfile(); // This will update context and trigger re-render + useEffect for redirection if verified
+      await refreshUserProfile();
 
-      // Check local auth.currentUser after reload, before context fully updates
       if (auth.currentUser?.emailVerified) {
         toast({title: "Verified!", description: "Redirecting..."});
-        router.push('/upload'); // Explicit push in case context update is slightly delayed
+        router.push('/upload'); // Updated redirect
       } else {
         toast({title: "Still Pending", description: "Your email is not yet verified. Please check your inbox or try resending."});
       }
     } catch (error) {
-        console.error("Error during manual refresh:", error);
         toast({title: "Refresh Error", description: "Could not refresh status. Please try again.", variant: "destructive"});
     } finally {
         setIsCheckingStatus(false);
@@ -114,7 +108,7 @@ export default function VerifyEmailNoticePage() {
 
   return (
     <div className="flex min-h-[calc(100vh-10rem)] flex-col items-center justify-center p-4">
-      <Card className="w-full max-w-lg shadow-xl">
+      <Card className="w-full max-w-lg shadow-xl rounded-xl">
         <CardHeader className="text-center">
           <MailCheck className="h-16 w-16 text-primary mx-auto mb-4" />
           <CardTitle className="text-2xl sm:text-3xl font-bold">Verify Your Email Address</CardTitle>
@@ -128,7 +122,7 @@ export default function VerifyEmailNoticePage() {
             If you haven't received the email after a few minutes, please check your spam or junk folder.
             The page will automatically check your verification status.
           </p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <Button onClick={handleResendVerificationEmail} disabled={isResending} className="w-full sm:w-auto">
               {isResending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Resend Verification Email
@@ -143,3 +137,4 @@ export default function VerifyEmailNoticePage() {
     </div>
   );
 }
+

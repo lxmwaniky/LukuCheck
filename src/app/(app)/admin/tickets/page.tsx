@@ -11,12 +11,20 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, AlertTriangle, RotateCcw, Inbox, Filter, CalendarDays } from 'lucide-react';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+// Link component is no longer needed for the ID cell if the whole row is clickable.
+// import Link from 'next/link'; 
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 
 const ITEMS_PER_PAGE = 10;
+
+const statusOrder: Record<TicketStatus, number> = {
+  'Open': 1,
+  'In Progress': 2,
+  'Resolved': 3,
+  'Closed': 4,
+};
 
 export default function AdminTicketsPage() {
   const { user, userProfile, loading: authLoading } = useAuth();
@@ -54,21 +62,38 @@ export default function AdminTicketsPage() {
     }
   }, [user, userProfile, authLoading, router, fetchTickets]);
 
-  const filteredTickets = useMemo(() => {
-    return allTickets.filter(ticket => {
+  const filteredAndSortedTickets = useMemo(() => {
+    let processedTickets = [...allTickets];
+
+    // Filtering
+    processedTickets = processedTickets.filter(ticket => {
       const ticketCreatedAt = new Date(ticket.createdAt);
       const statusMatch = statusFilter === 'all' || ticket.status === statusFilter;
       const startDateMatch = !startDateFilter || ticketCreatedAt >= startOfDay(startDateFilter);
       const endDateMatch = !endDateFilter || ticketCreatedAt <= endOfDay(endDateFilter);
       return statusMatch && startDateMatch && endDateMatch;
     });
+
+    // Sorting: Closed/Resolved to bottom, then by updatedAt descending
+    processedTickets.sort((a, b) => {
+      const statusAOrder = statusOrder[a.status];
+      const statusBOrder = statusOrder[b.status];
+
+      if (statusAOrder !== statusBOrder) {
+        return statusAOrder - statusBOrder; // Open first, then In Progress, then Resolved, then Closed
+      }
+      // If statuses are in the same "bucket" (e.g., both open, or both closed), sort by last updated
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+
+    return processedTickets;
   }, [allTickets, statusFilter, startDateFilter, endDateFilter]);
 
-  const paginatedTickets = filteredTickets.slice(
+  const paginatedTickets = filteredAndSortedTickets.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
-  const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredAndSortedTickets.length / ITEMS_PER_PAGE);
 
   const getStatusClass = (status: Ticket['status']) => {
     switch (status) {
@@ -85,6 +110,10 @@ export default function AdminTicketsPage() {
     setStartDateFilter(undefined);
     setEndDateFilter(undefined);
     setCurrentPage(1);
+  };
+
+  const handleRowClick = (ticketId: string) => {
+    router.push(`/admin/tickets/${ticketId}`);
   };
 
   if (authLoading || (isLoading && allTickets.length === 0)) {
@@ -125,7 +154,7 @@ export default function AdminTicketsPage() {
           <Inbox className="h-7 w-7 text-primary" /> Ticket System
         </CardTitle>
         <CardDescription>
-          View and manage user-submitted tickets. Displaying {paginatedTickets.length} of {filteredTickets.length} (Total: {allTickets.length}).
+          View and manage user-submitted tickets. Displaying {paginatedTickets.length} of {filteredAndSortedTickets.length} (Total: {allTickets.length}).
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -161,7 +190,7 @@ export default function AdminTicketsPage() {
             </div>
         </div>
 
-        {filteredTickets.length === 0 && !isLoading ? (
+        {filteredAndSortedTickets.length === 0 && !isLoading ? (
           <Alert>
             <Inbox className="h-4 w-4" />
             <AlertTitle>No Tickets Match Criteria</AlertTitle>
@@ -186,11 +215,19 @@ export default function AdminTicketsPage() {
                 </TableHeader>
                 <TableBody>
                   {paginatedTickets.map((ticket) => (
-                    <TableRow key={ticket.id} className="hover:bg-muted/50">
-                      <TableCell className="font-mono text-xs truncate w-[100px] max-w-[100px]">
-                        <Link href={`/admin/tickets/${ticket.id}`} passHref>
-                           <span className="text-primary hover:underline cursor-pointer" title="View Ticket Details">{ticket.id.substring(0,8)}...</span>
-                        </Link>
+                    <TableRow 
+                        key={ticket.id} 
+                        className="hover:bg-muted/50 cursor-pointer"
+                        onClick={() => handleRowClick(ticket.id)}
+                        role="link" // For accessibility
+                        tabIndex={0} // For keyboard navigation
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleRowClick(ticket.id); }}
+                    >
+                      <TableCell 
+                        className="font-mono text-xs truncate w-[100px] max-w-[100px] text-primary hover:underline"
+                        title="View Ticket Details"
+                      >
+                        {ticket.id.substring(0,8)}...
                       </TableCell>
                       <TableCell className="font-medium truncate max-w-xs">{ticket.title}</TableCell>
                       <TableCell>
@@ -249,4 +286,3 @@ export default function AdminTicketsPage() {
     </Card>
   );
 }
-

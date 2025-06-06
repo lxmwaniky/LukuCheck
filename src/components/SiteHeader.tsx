@@ -1,7 +1,7 @@
 
 'use client';
 import Link from 'next/link';
-import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame, ShieldCheck, UserCog, ListChecks } from 'lucide-react'; // Added ListChecks
+import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Coffee, Flame, ShieldCheck, UserCog, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/config/firebase';
@@ -30,11 +30,11 @@ export function SiteHeader() {
       await signOut(auth);
       router.push('/login');
     } catch (error) {
-      console.error('Error signing out:', error);
+      // console.error('Error signing out:', error);
     }
   };
 
-  const navLinkClass = "w-full justify-start text-base py-3";
+  const navLinkClass = "w-full justify-start text-base py-3 px-3 hover:bg-accent/80 focus:bg-accent/90";
   const userDisplayName = userProfile?.username || userProfile?.email?.split('@')[0] || "User";
   const userAvatarInitial = (userProfile?.username || "L").charAt(0).toUpperCase();
   const userAvatarSrc = userProfile?.customPhotoURL || userProfile?.photoURL || undefined;
@@ -47,10 +47,10 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Shirt className="h-7 w-7 text-primary" />
-          <span className="text-xl font-bold">LukuCheck</span>
+      <div className="container flex h-16 items-center justify-between px-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2 group">
+          <Shirt className="h-7 w-7 text-primary group-hover:animate-pulse" />
+          <span className="text-xl font-bold tracking-tight">LukuCheck</span>
         </Link>
 
         {/* Desktop Navigation */}
@@ -59,7 +59,7 @@ export function SiteHeader() {
             <>
               <Link href="/upload" legacyBehavior passHref>
                 <Button variant="ghost" className="text-sm">
-                  <UploadCloud className="mr-2 h-4 w-4" /> Upload
+                  <UploadCloud className="mr-2 h-4 w-4" /> Submit Look
                 </Button>
               </Link>
               <Link href="/leaderboard" legacyBehavior passHref>
@@ -69,7 +69,7 @@ export function SiteHeader() {
               </Link>
               <Link href="/profile" legacyBehavior passHref>
                 <Button variant="ghost" className="text-sm flex items-center">
-                  <Avatar className="h-6 w-6 mr-2 border">
+                  <Avatar className="h-6 w-6 mr-2 border-2 border-primary/50">
                     <AvatarImage src={userAvatarSrc} alt={userDisplayName} />
                     <AvatarFallback>{userAvatarInitial}</AvatarFallback>
                   </Avatar>
@@ -79,7 +79,7 @@ export function SiteHeader() {
               {isAdminOrManager && (
                   <Link href="/admin" legacyBehavior passHref>
                     <Button variant="ghost" className="text-sm text-destructive hover:text-destructive hover:bg-destructive/10">
-                        <UserCog className="mr-2 h-4 w-4" /> Admin Panel
+                        <UserCog className="mr-2 h-4 w-4" /> Admin
                     </Button>
                   </Link>
               )}
@@ -160,24 +160,25 @@ export function SiteHeader() {
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-[250px] sm:w-[300px] p-4">
-              <SheetHeader>
-                <VisuallyHidden asChild>
-                  <SheetTitle>Mobile Navigation Menu</SheetTitle>
-                </VisuallyHidden>
+            <SheetContent side="right" className="w-[280px] sm:w-[320px] p-0 flex flex-col">
+              <SheetHeader className="p-4 border-b">
+                 <Link href="/" className="flex items-center gap-2 mb-2 group" onClick={() => document.dispatchEvent(new KeyboardEvent('keydown', {'key': 'Escape'}))}>
+                    <Shirt className="h-7 w-7 text-primary group-hover:animate-pulse" />
+                    <SheetTitle className="text-xl font-bold tracking-tight">LukuCheck</SheetTitle>
+                </Link>
               </SheetHeader>
-              <nav className="flex flex-col space-y-3 mt-6">
+              <nav className="flex flex-col space-y-2 p-4 flex-grow">
                 {user && user.emailVerified && (
                   <>
-                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
+                   <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3 border-b pb-3">
                       {userProfile && userProfile.lukuPoints !== undefined && userProfile.lukuPoints >= 20 &&(
-                         <LukuBadge lukuPoints={userProfile.lukuPoints} size="sm" className="mr-1" />
+                         <LukuBadge lukuPoints={userProfile.lukuPoints} size="default" className="mr-1" />
                       )}
                       <TooltipProvider delayDuration={100}>
                         {typeof userProfile?.lukuPoints === 'number' && (
                            <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="flex items-center text-base font-medium text-primary px-2 py-1.5 rounded-md bg-primary/10 cursor-default">
+                              <div className="flex items-center text-base font-medium text-primary px-2.5 py-1.5 rounded-lg bg-primary/10 cursor-default">
                                 <Coins className="h-5 w-5 mr-2 text-yellow-500" />
                                 {userProfile.lukuPoints}
                               </div>
@@ -190,7 +191,7 @@ export function SiteHeader() {
                         {typeof userProfile?.currentStreak === 'number' && userProfile.currentStreak > 0 && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <div className="flex items-center text-base font-medium text-destructive px-2 py-1.5 rounded-md bg-destructive/10 cursor-default">
+                              <div className="flex items-center text-base font-medium text-destructive px-2.5 py-1.5 rounded-lg bg-destructive/10 cursor-default">
                                 <Flame className="h-5 w-5 mr-1" />
                                 {userProfile.currentStreak}
                               </div>
@@ -205,7 +206,7 @@ export function SiteHeader() {
                     <SheetClose asChild>
                       <Link href="/upload" legacyBehavior passHref>
                         <Button variant="ghost" className={navLinkClass}>
-                          <UploadCloud className="mr-2 h-5 w-5" /> Upload
+                          <UploadCloud className="mr-2 h-5 w-5" /> Submit Look
                         </Button>
                       </Link>
                     </SheetClose>
@@ -219,7 +220,7 @@ export function SiteHeader() {
                     <SheetClose asChild>
                       <Link href="/profile" legacyBehavior passHref>
                         <Button variant="ghost" className={navLinkClass}>
-                           <Avatar className="h-6 w-6 mr-2 border">
+                           <Avatar className="h-7 w-7 mr-2 border-2 border-primary/50">
                             <AvatarImage src={userAvatarSrc} alt={userDisplayName} />
                             <AvatarFallback>{userAvatarInitial}</AvatarFallback>
                           </Avatar>
@@ -238,7 +239,7 @@ export function SiteHeader() {
                     )}
                   </>
                 )}
-                <div className="border-t pt-3 space-y-3">
+                <div className="border-t pt-3 mt-auto space-y-2"> {/* Push to bottom */}
                  <SheetClose asChild>
                     <Link href="/submit-ticket" legacyBehavior passHref>
                       <Button variant="outline" className={navLinkClass}>
@@ -247,7 +248,7 @@ export function SiteHeader() {
                     </Link>
                   </SheetClose>
                   <SheetClose asChild>
-                    <a href={paypalDonationUrl} target="_blank" rel="noopener noreferrer" className="w-full">
+                    <a href={paypalDonationUrl} target="_blank" rel="noopener noreferrer" className="w-full block">
                       <Button variant="outline" className={navLinkClass}>
                         <Coffee className="mr-2 h-5 w-5 text-destructive" /> Donate
                       </Button>
@@ -257,7 +258,7 @@ export function SiteHeader() {
                   {!loading && (
                     user ? (
                        <SheetClose asChild>
-                        <Button variant="outline" className={navLinkClass} onClick={handleLogout}>
+                        <Button variant="destructive" className={navLinkClass} onClick={handleLogout}>
                           <LogOut className="mr-2 h-5 w-5" /> Logout
                         </Button>
                       </SheetClose>
@@ -280,3 +281,4 @@ export function SiteHeader() {
     </header>
   );
 }
+

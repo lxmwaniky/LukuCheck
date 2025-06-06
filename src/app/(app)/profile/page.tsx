@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { updateUserProfileInFirestore, deleteUserData, getUserProfileStats, type UserProfileStats } from '@/actions/userActions';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIcon, Trophy, Gift, Copy, Coins, CropIcon, XIcon, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, Flame } from 'lucide-react';
+import { Camera, User as UserIcon, Mail, Save, Loader2, Trash2, ShieldAlert, Link as LinkIconProp, Instagram, ListChecks, Star as StarIconProp, Trophy, Gift, Copy, CropIcon, XIcon, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, Flame, Coins } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { signOut, deleteUser as deleteFirebaseAuthUser, EmailAuthProvider, reauthenticateWithCredential, updateProfile as updateFirebaseAuthProfile } from 'firebase/auth';
+import { signOut, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '@/config/firebase';
 import { useRouter } from 'next/navigation';
 import { Separator } from '@/components/ui/separator';
@@ -31,7 +31,6 @@ import Link from 'next/link';
 import ReactCrop, { type Crop, type PixelCrop, centerCrop, makeAspectCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
 
 // Helper function to generate a centered crop
 function centerAspectCrop(
@@ -105,21 +104,21 @@ interface BadgeDetails {
   name: string;
   description: string;
   icon: React.ElementType;
+  colorClass?: string;
 }
 
 const BADGE_DEFINITIONS: Record<string, BadgeDetails> = {
-  PROFILE_PRO: { id: "PROFILE_PRO", name: "Profile Pro", description: "Completed profile with custom photo and social links.", icon: UserIcon },
-  FIRST_SUBMISSION: { id: "FIRST_SUBMISSION", name: "First Submission", description: "Submitted first outfit to the leaderboard.", icon: Award },
-  REFERRAL_ROCKSTAR: { id: "REFERRAL_ROCKSTAR", name: "Referral Rockstar", description: "Successfully referred 3 new stylists!", icon: Gift },
-  STREAK_STARTER_3: { id: "STREAK_STARTER_3", name: "Streak Starter (3 Days)", description: "Submitted outfits for 3 consecutive days.", icon: Flame },
-  STREAK_KEEPER_7: { id: "STREAK_KEEPER_7", name: "Streak Keeper (7 Days)", description: "Submitted outfits for 7 consecutive days.", icon: Flame },
-  TOP_3_FINISHER: { id: "TOP_3_FINISHER", name: "Top 3 Finisher", description: "Achieved a Top 3 rank on the daily leaderboard!", icon: Trophy },
-  PERFECT_SCORE: { id: "PERFECT_SCORE", name: "Perfect Score!", description: "Achieved a 10/10 AI rating on an outfit.", icon: StarIcon },
-  CENTURY_CLUB: { id: "CENTURY_CLUB", name: "Century Club", description: "Earned 100 LukuPoints!", icon: Users },
-  LEGEND_STATUS: { id: "LEGEND_STATUS", name: "Legend Status", description: "Reached 250 LukuPoints - truly legendary!", icon: LegendIcon },
+  PROFILE_PRO: { id: "PROFILE_PRO", name: "Profile Pro", description: "Completed profile with custom photo and social links.", icon: UserIcon, colorClass: "text-blue-500" },
+  FIRST_SUBMISSION: { id: "FIRST_SUBMISSION", name: "First Submission", description: "Submitted first outfit to the leaderboard.", icon: Award, colorClass: "text-green-500" },
+  REFERRAL_ROCKSTAR: { id: "REFERRAL_ROCKSTAR", name: "Referral Rockstar", description: "Successfully referred 3 new stylists!", icon: Gift, colorClass: "text-purple-500" },
+  STREAK_STARTER_3: { id: "STREAK_STARTER_3", name: "Streak Starter", description: "Submitted outfits for 3 consecutive days.", icon: Flame, colorClass: "text-orange-500" },
+  STREAK_KEEPER_7: { id: "STREAK_KEEPER_7", name: "Streak Keeper (7 Days)", description: "Submitted outfits for 7 consecutive days.", icon: Flame, colorClass: "text-red-500" },
+  TOP_3_FINISHER: { id: "TOP_3_FINISHER", name: "Top 3 Finisher", description: "Achieved a Top 3 rank on the daily leaderboard!", icon: Trophy, colorClass: "text-yellow-500" },
+  PERFECT_SCORE: { id: "PERFECT_SCORE", name: "Perfect Score!", description: "Achieved a 10/10 AI rating on an outfit.", icon: StarIconProp, colorClass: "text-yellow-400" },
+  CENTURY_CLUB: { id: "CENTURY_CLUB", name: "Century Club", description: "Earned 100 LukuPoints!", icon: Users, colorClass: "text-teal-500" },
+  LEGEND_STATUS: { id: "LEGEND_STATUS", name: "Legend Status", description: "Reached 250 LukuPoints - truly legendary!", icon: LegendIcon, colorClass: "text-indigo-500" },
 };
 
-// Define constants for display text, mirroring those in userActions.ts
 const POINTS_PER_REFERRAL = 2;
 const REFERRALS_FOR_ROCKSTAR_BADGE = 3;
 const POINTS_REFERRAL_ROCKSTAR = 10;
@@ -146,13 +145,12 @@ export default function ProfilePage() {
   const [profileStats, setProfileStats] = useState<UserProfileStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // Image Cropper State
   const [showCropDialog, setShowCropDialog] = useState(false);
   const [crop, setCrop] = useState<Crop>();
   const [completedCrop, setCompletedCrop] = useState<PixelCrop>();
   const imgRef = useRef<HTMLImageElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
-  const aspect = 1 / 1; 
+  const aspect = 1 / 1;
 
   useEffect(() => {
     if (userProfile) {
@@ -167,8 +165,6 @@ export default function ProfilePage() {
             .then(result => {
                 if (result.success && result.data) {
                     setProfileStats(result.data);
-                } else {
-                    console.error("Failed to fetch profile stats:", result.error);
                 }
             })
             .finally(() => setStatsLoading(false));
@@ -178,9 +174,9 @@ export default function ProfilePage() {
   const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setNewPhotoDataUrlForUpload(null); 
-      setCompletedCrop(undefined); 
-      setCrop(undefined); 
+      setNewPhotoDataUrlForUpload(null);
+      setCompletedCrop(undefined);
+      setCrop(undefined);
 
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -209,14 +205,13 @@ export default function ProfilePage() {
     const canvas = previewCanvasRef.current;
     await canvasPreview(image, canvas, completedCrop);
 
-    const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.9); 
-    setPhotoPreview(croppedDataUrl); 
-    setNewPhotoDataUrlForUpload(croppedDataUrl); 
+    const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    setPhotoPreview(croppedDataUrl);
+    setNewPhotoDataUrlForUpload(croppedDataUrl);
     setShowCropDialog(false);
-    setImageSrcToCrop(null); 
+    setImageSrcToCrop(null);
     toast({ title: "Crop Saved", description: "New profile photo is ready to be uploaded."});
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,19 +231,18 @@ export default function ProfilePage() {
         username: currentUsername !== (userProfile?.username || user.displayName) ? currentUsername : undefined,
         photoDataUrl: newPhotoDataUrlForUpload ? newPhotoDataUrlForUpload : undefined,
         currentPhotoUrl: userProfile?.customPhotoURL || userProfile?.photoURL,
-        tiktokUrl: tiktokUrl, 
-        instagramUrl: instagramUrl, 
+        tiktokUrl: tiktokUrl,
+        instagramUrl: instagramUrl,
       });
 
       if (result.success) {
         toast({ title: 'Success', description: result.message || 'Profile updated successfully!' });
-        setNewPhotoDataUrlForUpload(null); 
+        setNewPhotoDataUrlForUpload(null);
         await refreshUserProfile();
       } else {
         toast({ title: 'Error updating profile', description: result.error || 'An unknown error occurred.', variant: 'destructive' });
       }
     } catch (error: any) {
-      console.error("Error submitting profile update:", error);
       toast({ title: 'Error updating profile', description: error.message || "An unexpected error occurred.", variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
@@ -263,13 +257,10 @@ export default function ProfilePage() {
     if (auth.currentUser?.providerData.some(provider => provider.providerId === 'password')) {
        setShowReauthDialog(true);
     } else {
-       // For non-password providers (e.g. Google), re-authentication is more complex and might involve re-popup.
-       // For simplicity, we'll proceed to confirmation, but a real app might force re-auth via popup.
-       setShowReauthDialog(true); 
+       setShowReauthDialog(true);
     }
-    setIsDeleting(true); // Set deleting to true when dialog is triggered.
+    setIsDeleting(true);
   };
-
 
   const proceedWithDeletion = async () => {
     if (!user || !user.email) {
@@ -294,40 +285,32 @@ export default function ProfilePage() {
             await reauthenticateWithCredential(auth.currentUser, credential);
             toast({ title: 'Re-authentication Successful', description: 'Proceeding with account deletion...' });
         } else {
-            // For social providers, no password re-auth here. Just confirming the intent.
              toast({ title: 'Confirmation Received', description: 'Proceeding with account deletion...' });
         }
 
-        // Call server action to delete user data (Firestore, Storage, Auth)
         const dataDeletionResult = await deleteUserData(user.uid);
         if (!dataDeletionResult.success) {
           throw new Error(dataDeletionResult.error || 'Server action failed to delete account data.');
         }
-        
-        // Firebase Auth user is now deleted by the server action using Admin SDK
-        // await deleteFirebaseAuthUser(auth.currentUser); // No longer needed client-side
 
         toast({ title: 'Account Deleted', description: 'Your account and all associated data have been permanently deleted.' });
-        
-        // Sign out on client (AuthContext will handle redirect via onAuthStateChanged)
-        await signOut(auth); 
-        // Router push is a fallback in case AuthContext doesn't redirect immediately
-        router.push('/signup'); 
+
+        await signOut(auth);
+        router.push('/signup');
 
     } catch (error: any) {
       errorOccurred = true;
       caughtError = error;
-      console.error("Account Deletion Error:", error);
       let desc = error.message;
       if (error.code === 'auth/wrong-password') {
         desc = "Incorrect password for re-authentication. Please try again.";
-        setReauthPassword(''); // Clear password field on wrong password
+        setReauthPassword('');
       } else if (error.code === 'auth/too-many-requests') {
         desc = "Too many re-authentication attempts. Please try again later.";
-        setShowReauthDialog(false); // Close dialog on too many requests
+        setShowReauthDialog(false);
       } else if (error.code === 'auth/requires-recent-login') {
         desc = "This operation is sensitive and requires recent authentication. Please log out and log back in, then try again.";
-        setShowReauthDialog(false); // Close dialog
+        setShowReauthDialog(false);
       } else {
         desc = `Account deletion failed: ${error.message || "Unknown error"}`;
       }
@@ -335,31 +318,26 @@ export default function ProfilePage() {
     } finally {
       setIsReauthenticating(false);
       if (errorOccurred && !(caughtError?.code === 'auth/wrong-password')) {
-         // If error occurred and it wasn't a wrong password, close dialog & reset isDeleting
          setShowReauthDialog(false);
          setIsDeleting(false);
       } else if (!errorOccurred) {
-         // If successful, close dialog and reset isDeleting
          setShowReauthDialog(false);
          setIsDeleting(false);
       }
-      // If it was a wrong password, dialog remains open for user to retry.
     }
   };
 
-
   if (authLoading) {
-    return <div className="flex justify-center items-center h-full p-4"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading profile...</span></div>;
+    return <div className="flex justify-center items-center min-h-[calc(100vh-10rem)] p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2 text-muted-foreground">Loading profile...</span></div>;
   }
 
-  if (!user) { // Should be caught by AppLayout, but as a fallback
-    return <div className="text-center p-4">Please log in to view your profile. Redirecting...</div>;
-  }
-  
-  if (!userProfile) { // User is logged in, but profile hasn't loaded yet
-    return <div className="text-center p-4">Loading user profile details. If this persists, please try again or re-login.</div>;
+  if (!user) {
+    return <div className="text-center p-4 text-muted-foreground">Please log in to view your profile. Redirecting...</div>;
   }
 
+  if (!userProfile) {
+    return <div className="text-center p-4 text-muted-foreground">Loading user profile details. If this persists, please try again or re-login.</div>;
+  }
 
   const avatarDisplayName = currentUsername || userProfile?.email?.split('@')[0] || 'L';
   const isPasswordProvider = auth.currentUser?.providerData.some(provider => provider.providerId === 'password');
@@ -373,7 +351,6 @@ export default function ProfilePage() {
           toast({ title: "Link Copied!", description: "Referral link copied to clipboard." });
         })
         .catch(err => {
-          console.error('Failed to copy referral link: ', err);
           toast({ title: "Copy Failed", description: "Could not copy link. Please try manually.", variant: "destructive" });
         });
     } else {
@@ -384,25 +361,25 @@ export default function ProfilePage() {
   const userBadges = userProfile?.badges?.map(badgeId => BADGE_DEFINITIONS[badgeId]).filter(Boolean) || [];
 
   return (
-    <div className="max-w-2xl mx-auto p-2 sm:p-0">
-      <Card className="shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl sm:text-3xl flex items-center">
-            <UserIcon className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:w-8 text-primary" />
+    <div className="max-w-2xl mx-auto py-6 sm:py-8 px-2 sm:px-0">
+      <Card className="shadow-xl rounded-xl">
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-2xl sm:text-3xl flex items-center text-primary">
+            <UserIcon className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:h-8" />
             Edit Your Profile
           </CardTitle>
-          <CardDescription>Keep your LukuCheck profile up-to-date.</CardDescription>
+          <CardDescription>Keep your LukuCheck profile up-to-date and shine!</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4 sm:space-y-6">
+          <CardContent className="space-y-5 sm:space-y-6 pt-6">
             <div className="flex flex-col items-center space-y-3 sm:space-y-4">
-              <Avatar className="w-24 h-24 sm:w-32 sm:h-32 border-4 border-primary shadow-md">
+              <Avatar className="w-28 h-28 sm:w-32 sm:h-32 border-4 border-primary/50 shadow-lg ring-2 ring-primary/20">
                 <AvatarImage src={photoPreview || undefined} alt={currentUsername} className="object-cover" />
-                <AvatarFallback className="text-3xl sm:text-4xl">
+                <AvatarFallback className="text-3xl sm:text-4xl bg-muted text-muted-foreground">
                   {avatarDisplayName.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <Button type="button" variant="outline" size="sm" className="relative">
+              <Button type="button" variant="outline" size="sm" className="relative shadow-sm hover:shadow-md transition-shadow">
                 <Camera className="mr-2 h-4 w-4" />
                 Change Photo
                 <input
@@ -416,9 +393,9 @@ export default function ProfilePage() {
               </Button>
             </div>
 
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="username" className="flex items-center text-base sm:text-lg mb-1.5">
-                <UserIcon className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+            <div className="space-y-1.5">
+              <Label htmlFor="username" className="flex items-center text-md sm:text-lg mb-1">
+                <UserIcon className="mr-2 h-4 w-4 sm:h-5 sm:h-5 text-muted-foreground" />
                 Display Name
               </Label>
               <Input
@@ -432,9 +409,9 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="tiktokUrl" className="flex items-center text-base sm:text-lg mb-1.5">
-                <LinkIconProp className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+            <div className="space-y-1.5">
+              <Label htmlFor="tiktokUrl" className="flex items-center text-md sm:text-lg mb-1">
+                <LinkIconProp className="mr-2 h-4 w-4 sm:h-5 sm:h-5 text-muted-foreground" />
                 TikTok URL (Optional)
               </Label>
               <Input
@@ -447,9 +424,9 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="instagramUrl" className="flex items-center text-base sm:text-lg mb-1.5">
-                <Instagram className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+            <div className="space-y-1.5">
+              <Label htmlFor="instagramUrl" className="flex items-center text-md sm:text-lg mb-1">
+                <Instagram className="mr-2 h-4 w-4 sm:h-5 sm:h-5 text-muted-foreground" />
                 Instagram URL (Optional)
               </Label>
               <Input
@@ -462,10 +439,9 @@ export default function ProfilePage() {
               />
             </div>
 
-
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="email" className="flex items-center text-base sm:text-lg mb-1.5">
-                <Mail className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="flex items-center text-md sm:text-lg mb-1">
+                <Mail className="mr-2 h-4 w-4 sm:h-5 sm:h-5 text-muted-foreground" />
                 Email
               </Label>
               <Input
@@ -473,161 +449,115 @@ export default function ProfilePage() {
                 type="email"
                 value={userProfile?.email || ''}
                 disabled
-                className="text-sm sm:text-base bg-muted/50"
+                className="text-sm sm:text-base bg-muted/60 cursor-not-allowed"
               />
               <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
             </div>
           </CardContent>
-          <CardFooter>
-            <Button type="submit" className="w-full text-base sm:text-lg py-2.5 sm:py-3" disabled={isSubmitting || isDeleting}>
+          <CardFooter className="border-t pt-6">
+            <Button type="submit" className="w-full text-base sm:text-lg py-3 rounded-lg shadow-md hover:shadow-lg transition-shadow" disabled={isSubmitting || isDeleting}>
               {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:h-5 animate-spin" />
               ) : (
-                <Save className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                <Save className="mr-2 h-4 w-4 sm:h-5 sm:h-5" />
               )}
               Save Changes
             </Button>
           </CardFooter>
         </form>
+      </Card>
 
-        <Separator className="my-4 sm:my-6" />
-
-        <CardContent className="space-y-4">
-            <div>
-                <h3 className="text-xl font-semibold mb-3">Your Social Links</h3>
-                <div className="flex items-center space-x-3">
-                    {userProfile?.tiktokUrl ? (
-                         <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Link href={userProfile.tiktokUrl} target="_blank" rel="noopener noreferrer" aria-label="TikTok Profile">
-                                        <Button variant="outline" size="icon" className="rounded-full h-10 w-10 sm:h-12 sm:w-12">
-                                            <LinkIconProp className="h-5 w-5 sm:h-6 sm:w-6" />
-                                        </Button>
-                                    </Link>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                <p>TikTok: {userProfile.tiktokUrl}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    ) : null}
-
-                    {userProfile?.instagramUrl ? (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Link href={userProfile.instagramUrl} target="_blank" rel="noopener noreferrer" aria-label="Instagram Profile">
-                                        <Button variant="outline" size="icon" className="rounded-full h-10 w-10 sm:h-12 sm:w-12">
-                                            <Instagram className="h-5 w-5 sm:h-6 sm:w-6" />
-                                        </Button>
-                                    </Link>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                <p>Instagram: {userProfile.instagramUrl}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                         </TooltipProvider>
-                    ) : null}
-                </div>
-                 {(!userProfile?.tiktokUrl && !userProfile?.instagramUrl) && (
-                    <p className="text-sm text-muted-foreground mt-2">You haven't added any social media links yet. Edit your profile to add them!</p>
-                )}
-            </div>
-        </CardContent>
-
-        <Separator className="my-4 sm:my-6" />
-
-        <CardContent className="space-y-6">
-            <div>
-                <h3 className="text-xl font-semibold mb-3 flex items-center">
-                  <Coins className="mr-2 h-6 w-6 text-yellow-500" />
-                  LukuPoints
-                </h3>
-                <p className="text-3xl font-bold text-primary">
-                  {userProfile?.lukuPoints ?? 0}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+        <Card className="shadow-lg rounded-xl">
+            <CardHeader>
+                <CardTitle className="text-xl flex items-center"><Coins className="mr-2 h-6 w-6 text-yellow-500"/>Your LukuPoints</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-4xl font-bold text-primary">{userProfile?.lukuPoints ?? 0}</p>
+            </CardContent>
+        </Card>
+        <Card className="shadow-lg rounded-xl">
+            <CardHeader>
+                <CardTitle className="text-xl flex items-center"><Flame className="mr-2 h-6 w-6 text-destructive"/>Your LukuStreak</CardTitle>
+            </CardHeader>
+            <CardContent>
+                 <p className="text-4xl font-bold text-primary">
+                    {userProfile.currentStreak ?? 0} Day{userProfile.currentStreak === 1 ? '' : 's'}
                 </p>
-              </div>
-              
-            {userProfile?.currentStreak !== undefined && userProfile.currentStreak > 0 && (
-                <div>
-                    <h3 className="text-xl font-semibold mb-2 flex items-center">
-                        <Flame className="mr-2 h-6 w-6 text-destructive" />
-                        LukuStreak
-                    </h3>
-                    <p className="text-2xl font-bold text-primary">
-                        {userProfile.currentStreak} Day{userProfile.currentStreak > 1 ? 's' : ''}!
-                    </p>
-                    {userProfile.lastSubmissionDate && <p className="text-xs text-muted-foreground">Last submission: {new Date(userProfile.lastSubmissionDate).toLocaleDateString()}</p>}
-                </div>
-            )}
+                {userProfile.lastSubmissionDate && <p className="text-xs text-muted-foreground mt-1">Last submission: {new Date(userProfile.lastSubmissionDate).toLocaleDateString()}</p>}
+            </CardContent>
+        </Card>
+      </div>
 
-            {userBadges.length > 0 && (
-                 <div>
-                    <h3 className="text-xl font-semibold mb-3 flex items-center">
-                        <BadgeCheck className="mr-2 h-6 w-6 text-primary" />
-                        Your Badges
-                    </h3>
-                    <div className="flex flex-wrap gap-3">
-                        <TooltipProvider>
-                        {userBadges.map(badge => (
-                            <Tooltip key={badge.id}>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon" className="h-12 w-12 rounded-full border-2 border-accent hover:bg-accent/10">
-                                        <badge.icon className="h-6 w-6 text-accent" />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p className="font-semibold">{badge.name}</p>
-                                    <p className="text-xs text-muted-foreground">{badge.description}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        ))}
-                        </TooltipProvider>
+
+      {userBadges.length > 0 && (
+        <Card className="mt-8 shadow-lg rounded-xl">
+            <CardHeader>
+                <CardTitle className="text-xl flex items-center"><BadgeCheck className="mr-2 h-6 w-6 text-primary"/>Your Badges</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="flex flex-wrap gap-3 sm:gap-4">
+                    <TooltipProvider>
+                    {userBadges.map(badge => (
+                        <Tooltip key={badge.id}>
+                            <TooltipTrigger asChild>
+                                <div className="flex flex-col items-center p-2 rounded-md hover:bg-accent/10 w-24 text-center cursor-default">
+                                    <badge.icon className={`h-8 w-8 sm:h-10 sm:w-10 ${badge.colorClass || 'text-accent'}`} />
+                                    <span className="text-xs mt-1.5 font-medium truncate">{badge.name}</span>
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                                <p className="font-semibold">{badge.name}</p>
+                                <p className="text-xs text-muted-foreground">{badge.description}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    ))}
+                    </TooltipProvider>
+                </div>
+            </CardContent>
+        </Card>
+      )}
+
+      <Card className="mt-8 shadow-lg rounded-xl">
+        <CardHeader>
+            <CardTitle className="text-xl flex items-center"><ListChecks className="mr-2 h-6 w-6 text-primary"/>Your LukuCheck Stats</CardTitle>
+        </CardHeader>
+        <CardContent>
+            {statsLoading ? (
+                <div className="flex items-center space-x-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Loading stats...</span>
+                </div>
+            ) : profileStats ? (
+                <div className="space-y-3 text-sm sm:text-base">
+                    <div className="flex items-center">
+                        <ListChecks className="mr-2 h-5 w-5 text-primary" />
+                        <span>Total Submissions: <strong>{profileStats.totalSubmissions}</strong></span>
+                    </div>
+                    <div className="flex items-center">
+                        <StarIconProp className="mr-2 h-5 w-5 text-accent fill-accent" />
+                        <span>Average Rating: <strong>{profileStats.averageRating !== null ? profileStats.averageRating.toFixed(1) : 'N/A'}</strong></span>
+                    </div>
+                    <div className="flex items-center">
+                        <Trophy className="mr-2 h-5 w-5 text-yellow-500" />
+                        <span>Highest Rating: <strong>{profileStats.highestRating !== null ? profileStats.highestRating.toFixed(1) : 'N/A'}</strong></span>
                     </div>
                 </div>
+            ) : (
+                <p className="text-sm text-muted-foreground">No stats available yet. Start submitting outfits!</p>
             )}
-
-            <div>
-                <h3 className="text-xl font-semibold mb-3">Your LukuCheck Stats</h3>
-                {statsLoading ? (
-                    <div className="flex items-center space-x-2">
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        <span>Loading stats...</span>
-                    </div>
-                ) : profileStats ? (
-                    <div className="space-y-2 text-sm sm:text-base">
-                        <div className="flex items-center">
-                            <ListChecks className="mr-2 h-5 w-5 text-primary" />
-                            <span>Total Submissions: <strong>{profileStats.totalSubmissions}</strong></span>
-                        </div>
-                        <div className="flex items-center">
-                            <StarIcon className="mr-2 h-5 w-5 text-accent fill-accent" />
-                            <span>Average Rating: <strong>{profileStats.averageRating !== null ? profileStats.averageRating.toFixed(1) : 'N/A'}</strong></span>
-                        </div>
-                        <div className="flex items-center">
-                            <Trophy className="mr-2 h-5 w-5 text-yellow-500" />
-                            <span>Highest Rating: <strong>{profileStats.highestRating !== null ? profileStats.highestRating.toFixed(1) : 'N/A'}</strong></span>
-                        </div>
-                    </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">No stats available yet. Start submitting outfits!</p>
-                )}
-            </div>
         </CardContent>
+      </Card>
 
-        <Separator className="my-4 sm:my-6" />
-
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <h3 className="text-xl font-semibold flex items-center">
-              <Gift className="mr-2 h-6 w-6 text-primary" />
-              Refer a Stylist & Earn LukuPoints!
-            </h3>
+      <Card className="mt-8 shadow-lg rounded-xl">
+        <CardHeader>
+            <CardTitle className="text-xl flex items-center"><Gift className="mr-2 h-6 w-6 text-primary"/>Refer & Earn!</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Share your unique referral link with friends. For every friend who signs up and verifies their email, you'll earn <strong className="text-accent">{POINTS_PER_REFERRAL} LukuPoints!</strong> If you refer {REFERRALS_FOR_ROCKSTAR_BADGE} friends, you'll earn the "Referral Rockstar" badge and a bonus <strong className="text-accent">{POINTS_REFERRAL_ROCKSTAR} LukuPoints!</strong> (Plus, they get 5 LukuPoints on signup!)
+              Share your unique referral link. For every friend who signs up & verifies, you get <strong className="text-accent">{POINTS_PER_REFERRAL} LukuPoints!</strong> Refer {REFERRALS_FOR_ROCKSTAR_BADGE} friends for the "Referral Rockstar" badge & a <strong className="text-accent">{POINTS_REFERRAL_ROCKSTAR} LukuPoint</strong> bonus! (They get 5 LukuPoints on signup!)
             </p>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 border rounded-md bg-secondary/30">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 p-3 border rounded-lg bg-muted/30">
               <Input
                 id="referralLink"
                 type="text"
@@ -641,88 +571,86 @@ export default function ProfilePage() {
                 variant="outline"
                 size="sm"
                 onClick={handleCopyReferralLink}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto shadow-sm hover:shadow-md"
               >
                 <Copy className="mr-2 h-4 w-4" />
                 Copy Link
               </Button>
             </div>
-          </div>
         </CardContent>
+      </Card>
 
-        <Separator className="my-4 sm:my-6" />
-
-        <CardContent>
-            <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-destructive">Danger Zone</h3>
-                <p className="text-sm text-muted-foreground">
-                    Deleting your account is permanent and cannot be undone. All your data, including profile information, outfit submissions, LukuPoints, and AI usage history, will be removed.
-                    {isPasswordProvider ? " This action requires you to re-enter your password." : " Please confirm you wish to proceed."}
-                </p>
-                 <AlertDialog open={showReauthDialog} onOpenChange={(open) => {
-                    setShowReauthDialog(open);
-                    if (!open) { 
-                        setIsDeleting(false); 
-                        setReauthPassword('');
-                    }
-                 }}>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="destructive" className="w-full sm:w-auto" disabled={isSubmitting || (isDeleting && isReauthenticating)} onClick={handleDeleteAccountRequest}>
-                            {(isDeleting && isReauthenticating) || (isDeleting && !isReauthenticating && showReauthDialog) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-                            Delete My Account
-                        </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                        <AlertDialogTitle className="flex items-center">
-                            <ShieldAlert className="mr-2 h-5 w-5 text-destructive"/>
-                            {isPasswordProvider ? "Re-authentication Required" : "Confirm Account Deletion"}
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {isPasswordProvider
-                               ? "For your security, please re-enter your password to confirm account deletion. This action cannot be undone."
-                               : "Are you sure you want to permanently delete your account and all associated data? This action cannot be undone."
-                            }
-                        </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        {isPasswordProvider && (
-                            <div className="space-y-2 py-2">
-                                <Label htmlFor="reauth-password">Password</Label>
-                                <Input
-                                    id="reauth-password"
-                                    type="password"
-                                    value={reauthPassword}
-                                    onChange={(e) => setReauthPassword(e.target.value)}
-                                    placeholder="Enter your password"
-                                    disabled={isReauthenticating}
-                                />
-                            </div>
-                        )}
-                        <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isReauthenticating} onClick={() => { setIsDeleting(false); setReauthPassword(''); }}>Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            onClick={proceedWithDeletion}
-                            disabled={isReauthenticating || (isPasswordProvider && !reauthPassword)}
-                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                        >
-                            {isReauthenticating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                            Confirm Deletion
-                        </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </div>
+      <Card className="mt-8 shadow-xl rounded-xl border-destructive/50">
+        <CardHeader className="border-b border-destructive/30 pb-4">
+            <CardTitle className="text-xl flex items-center text-destructive"><ShieldAlert className="mr-2 h-6 w-6"/>Danger Zone</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-3">
+            <p className="text-sm text-muted-foreground">
+                Deleting your account is permanent and cannot be undone. All your data, including profile information, outfit submissions, LukuPoints, and AI usage history, will be removed.
+                {isPasswordProvider ? " This action requires you to re-enter your password." : " Please confirm you wish to proceed."}
+            </p>
+             <AlertDialog open={showReauthDialog} onOpenChange={(open) => {
+                setShowReauthDialog(open);
+                if (!open) {
+                    setIsDeleting(false);
+                    setReauthPassword('');
+                }
+             }}>
+                <AlertDialogTrigger asChild>
+                    <Button variant="destructive" className="w-full sm:w-auto" disabled={isSubmitting || (isDeleting && isReauthenticating)} onClick={handleDeleteAccountRequest}>
+                        {(isDeleting && isReauthenticating) || (isDeleting && !isReauthenticating && showReauthDialog) ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                        Delete My Account
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="rounded-lg">
+                    <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center">
+                        <ShieldAlert className="mr-2 h-5 w-5 text-destructive"/>
+                        {isPasswordProvider ? "Re-authentication Required" : "Confirm Account Deletion"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {isPasswordProvider
+                           ? "For your security, please re-enter your password to confirm account deletion. This action cannot be undone."
+                           : "Are you sure you want to permanently delete your account and all associated data? This action cannot be undone."
+                        }
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    {isPasswordProvider && (
+                        <div className="space-y-2 py-2">
+                            <Label htmlFor="reauth-password">Password</Label>
+                            <Input
+                                id="reauth-password"
+                                type="password"
+                                value={reauthPassword}
+                                onChange={(e) => setReauthPassword(e.target.value)}
+                                placeholder="Enter your password"
+                                disabled={isReauthenticating}
+                            />
+                        </div>
+                    )}
+                    <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isReauthenticating} onClick={() => { setIsDeleting(false); setReauthPassword(''); }}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                        onClick={proceedWithDeletion}
+                        disabled={isReauthenticating || (isPasswordProvider && !reauthPassword)}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    >
+                        {isReauthenticating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Confirm Deletion
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </CardContent>
-        <CardFooter />
       </Card>
 
       <Dialog open={showCropDialog} onOpenChange={(isOpen) => {
           setShowCropDialog(isOpen);
           if (!isOpen) {
-            setImageSrcToCrop(null); 
+            setImageSrcToCrop(null);
           }
       }}>
-        <DialogContent className="sm:max-w-md p-0 flex flex-col max-h-[85vh]">
+        <DialogContent className="sm:max-w-md p-0 flex flex-col max-h-[85vh] rounded-lg">
           <DialogHeader className="p-4 border-b shrink-0">
             <DialogTitle className="flex items-center"><CropIcon className="mr-2 h-5 w-5"/>Crop Your Photo</DialogTitle>
           </DialogHeader>
@@ -764,3 +692,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

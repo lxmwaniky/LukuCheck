@@ -21,8 +21,8 @@ interface AdminTicketDetailPageProps {
   params: { ticketId: string };
 }
 
-export default function AdminTicketDetailPage({ params }: AdminTicketDetailPageProps) {
-  const { ticketId } = params;
+export default function AdminTicketDetailPage({ params: { ticketId } }: AdminTicketDetailPageProps) {
+  // const { ticketId } = params; // Removed this line, ticketId is now directly from props
   const { user, userProfile, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();

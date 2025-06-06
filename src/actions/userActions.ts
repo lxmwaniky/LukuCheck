@@ -19,6 +19,7 @@ const TOP_3_FINISHER_BADGE = "TOP_3_FINISHER";
 const PERFECT_SCORE_BADGE = "PERFECT_SCORE";
 const CENTURY_CLUB_BADGE = "CENTURY_CLUB";
 const LEGEND_STATUS_BADGE = "LEGEND_STATUS";
+const PREMIUM_STYLIST_BADGE = "PREMIUM_STYLIST";
 
 
 const POINTS_PROFILE_PRO = 5;
@@ -51,7 +52,7 @@ export async function createUserProfileInFirestore(
   referrerUid?: string | null
 ): Promise<{ success: boolean; error?: string }> {
   if (!adminInitialized || !adminDb) {
-    console.error("[UserActions ERROR] Admin SDK not initialized. Cannot create Firestore user profile.");
+    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot create Firestore user profile.");
     return { success: false, error: "Server error: Admin SDK not configured. Profile creation failed." };
   }
   const userRef = adminDb.collection('users').doc(userId);
@@ -86,6 +87,11 @@ export async function createUserProfileInFirestore(
       currentStreak: 0,
       lastSubmissionDate: null,
       lastTop3BonusDate: null,
+      role: 'user', // Default role
+      isPremium: false, // Default premium status
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      stripeSubscriptionStatus: null,
     });
 
     const adminAuth = getAdminAuth();
@@ -93,7 +99,7 @@ export async function createUserProfileInFirestore(
 
     return { success: true };
   } catch (error: any) {
-    console.error(`[UserActions ERROR] Failed to create Firestore user profile for UID ${userId}:`, error);
+    // console.error(`[UserActions ERROR] Failed to create Firestore user profile for UID ${userId}:`, error);
     return { success: false, error: `Failed to create Firestore user profile: ${error.message || "Unknown error"}` };
   }
 }
@@ -108,7 +114,7 @@ export async function updateUserProfileInFirestore({
   instagramUrl,
 }: UpdateProfileArgs): Promise<{ success: boolean; message?: string; error?: string; newPhotoURL?: string }> {
   if (!adminInitialized || !adminDb) {
-    console.error("[UserActions ERROR] Admin SDK not initialized. Cannot update profile.");
+    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot update profile.");
     return { success: false, error: "Server error: Admin SDK not configured. Profile update failed." };
   }
   const adminAuth = getAdminAuth();
@@ -178,7 +184,7 @@ export async function updateUserProfileInFirestore({
             await adminBucket.file(filePath).delete({ ignoreNotFound: true });
           }
         } catch (e: any) {
-          console.warn(`[UserActions WARN] Failed to delete old profile photo from Storage (non-critical): ${currentUserData.customPhotoURL}`, e.message);
+          // console.warn(`[UserActions WARN] Failed to delete old profile photo from Storage (non-critical): ${currentUserData.customPhotoURL}`, e.message);
         }
       }
 
@@ -225,7 +231,7 @@ export async function updateUserProfileInFirestore({
     return { success: true, message: 'Profile updated successfully.', newPhotoURL: newPublicPhotoURL };
 
   } catch (error: any) {
-    console.error("[UserActions ERROR] Profile update failed (Admin SDK or Photo):", error);
+    // console.error("[UserActions ERROR] Profile update failed (Admin SDK or Photo):", error);
     let errorMessage = `Profile update failed: ${error.message || "Unknown error"}`;
     if (error.code === 'auth/user-not-found') errorMessage = "User not found in Firebase Authentication.";
     if (error.code === 'storage/unauthorized' || (error.errors && error.errors.some((e:any) => e.reason === 'forbidden'))) {
@@ -238,7 +244,7 @@ export async function updateUserProfileInFirestore({
 
 export async function deleteUserData(userId: string): Promise<{ success: boolean; error?: string }> {
   if (!adminInitialized || !adminDb) {
-    console.error("[UserActions ERROR] Admin SDK not initialized. Cannot delete user data.");
+    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot delete user data.");
     return { success: false, error: "Server error: Admin SDK not configured. Account deletion failed." };
   }
   const adminAuthInstance = getAdminAuth();
@@ -269,7 +275,7 @@ export async function deleteUserData(userId: string): Promise<{ success: boolean
       const [outfitFiles] = await adminBucket.getFiles({ prefix: outfitsPrefix });
       await Promise.all(outfitFiles.map(file => file.delete()));
     } else {
-      console.warn("[UserActions WARN] Admin Storage bucket not available. Skipping Storage file deletion.");
+      // console.warn("[UserActions WARN] Admin Storage bucket not available. Skipping Storage file deletion.");
     }
 
     await adminAuthInstance.deleteUser(userId);
@@ -280,7 +286,7 @@ export async function deleteUserData(userId: string): Promise<{ success: boolean
     return { success: true };
 
   } catch (error: any) {
-    console.error(`[UserActions ERROR] User data deletion failed for ${userId} (Admin SDK):`, error);
+    // console.error(`[UserActions ERROR] User data deletion failed for ${userId} (Admin SDK):`, error);
     let errorMessage = `User data deletion failed: ${error.message || "Unknown error"}`;
      if (error.code === 'auth/user-not-found') {
         errorMessage = "User not found in Firebase Authentication, but data deletion may have partially proceeded.";
@@ -314,7 +320,7 @@ export interface UserProfileStats {
 
 export async function getUserProfileStats(userId: string): Promise<{ success: boolean; data?: UserProfileStats; error?: string }> {
   if (!adminInitialized || !adminDb) {
-    console.error("[UserActions ERROR] Admin SDK not initialized. Cannot fetch profile stats.");
+    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot fetch profile stats.");
     return { success: false, error: "Server error: Admin SDK not configured." };
   }
   if (!userId) {
@@ -357,7 +363,7 @@ export async function getUserProfileStats(userId: string): Promise<{ success: bo
     };
 
   } catch (error: any) {
-    console.error(`[UserActions ERROR] Failed to fetch profile stats for UID ${userId} using Admin SDK:`, error);
+    // console.error(`[UserActions ERROR] Failed to fetch profile stats for UID ${userId} using Admin SDK:`, error);
     return { success: false, error: `Failed to fetch profile stats: ${error.message || "Unknown error"}` };
   }
 }
@@ -365,7 +371,7 @@ export async function getUserProfileStats(userId: string): Promise<{ success: bo
 
 export async function processReferral(newlyRegisteredUserId: string): Promise<{ success: boolean; message?: string; error?: string }> {
   if (!adminInitialized || !adminDb) {
-    console.error("[UserActions ERROR] Admin SDK not initialized. Cannot process referral.");
+    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot process referral.");
     return { success: false, error: "Server error: Admin SDK not configured." };
   }
 
@@ -450,11 +456,11 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
     return { success: true, message: "Referral points processing attempted." };
 
   } catch (error: any) {
-    console.error(`[UserActions ERROR] Failed to process referral for ${newlyRegisteredUserId}:`, error);
+    // console.error(`[UserActions ERROR] Failed to process referral for ${newlyRegisteredUserId}:`, error);
     try {
         await adminDb.collection('users').doc(newlyRegisteredUserId).update({ referralPointsAwarded: true });
     } catch (updateError) {
-        console.error(`[UserActions CRITICAL] Failed to mark referralPointsAwarded for ${newlyRegisteredUserId} after an error:`, updateError);
+        // console.error(`[UserActions CRITICAL] Failed to mark referralPointsAwarded for ${newlyRegisteredUserId} after an error:`, updateError);
     }
     return { success: false, error: `Failed to process referral: ${error.message || "Unknown error"}` };
   }
@@ -462,7 +468,7 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
 
 export async function handleLeaderboardSubmissionPerks(userId: string, submittedOutfitRating: number): Promise<{ success: boolean; message?: string; error?: string }> {
     if (!adminInitialized || !adminDb) {
-        console.error("[UserActions ERROR] Admin SDK not initialized. Cannot process submission perks.");
+        // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot process submission perks.");
         return { success: false, error: "Server error: Admin SDK not configured." };
     }
     if (!userId) {
@@ -556,7 +562,7 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
                         }
                     }
                 } catch (e: any) {
-                   console.warn(`[UserActions WARN] Could not fetch or process yesterday's leaderboard for Top 3 perks for user ${userId}: ${e.message}`);
+                   // console.warn(`[UserActions WARN] Could not fetch or process yesterday's leaderboard for Top 3 perks for user ${userId}: ${e.message}`);
                 }
             }
 
@@ -591,7 +597,8 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
         return { success: true, message: "Leaderboard submission perks processed." };
 
     } catch (error: any) {
-        console.error(`[UserActions ERROR] Failed to process submission perks for ${userId}:`, error);
+        // console.error(`[UserActions ERROR] Failed to process submission perks for ${userId}:`, error);
         return { success: false, error: `Failed to process submission perks: ${error.message || "Unknown error"}` };
     }
 }
+

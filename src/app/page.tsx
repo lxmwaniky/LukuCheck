@@ -7,12 +7,11 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
-import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users as UsersIconProp, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, UploadCloud, Send, BarChart3, Coins, User as UserIcon } from 'lucide-react'; 
+import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users as UsersIconProp, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, UploadCloud, Send, BarChart3, Coins, User as UserIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { format, subDays, addDays, set, isBefore, isAfter, isToday, differenceInMilliseconds, isValid, parseISO } from 'date-fns';
+import { format, subDays, addDays, set, isBefore, isAfter, differenceInMilliseconds, isValid } from 'date-fns';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
@@ -34,7 +33,6 @@ export default function HomePage() {
   const [isLeaderboardReleasedForViewing, setIsLeaderboardReleasedForViewing] = useState(false);
   const [currentViewableLeaderboardDate, setCurrentViewableLeaderboardDate] = useState<Date | null>(null);
 
-
   useEffect(() => {
     setIsClient(true);
 
@@ -49,50 +47,50 @@ export default function HomePage() {
 
       if (isBefore(now, submissionOpenTimeToday)) {
         const timeLeft = differenceInMilliseconds(submissionOpenTimeToday, now);
-        setSubmissionStatusMessage(`Submissions open 6 AM - 2:55 PM. Opens in: ${formatTimeLeft(timeLeft)}`);
+        setSubmissionStatusMessage(`Opens in: ${formatTimeLeft(timeLeft)}`);
       } else if (currentIsSubmissionWindowOpen) {
         const timeLeft = differenceInMilliseconds(submissionCloseTimeToday, now);
-        setSubmissionStatusMessage(`Submissions open! Closes in: ${formatTimeLeft(timeLeft)}`);
-      } else { 
+        setSubmissionStatusMessage(`Submissions Open! Closes in: ${formatTimeLeft(timeLeft)}`);
+      } else {
         const submissionOpenTimeTomorrow = set(addDays(now, 1), { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
         const timeLeft = differenceInMilliseconds(submissionOpenTimeTomorrow, now);
-        setSubmissionStatusMessage(`Submissions closed. Opens tomorrow at 6 AM (in ${formatTimeLeft(timeLeft)})`);
+        setSubmissionStatusMessage(`Opens tomorrow in ${formatTimeLeft(timeLeft)}`);
       }
-      
+
       let leaderboardDateToView: Date;
-      const leaderboardViewingDeadlineToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); 
+      const leaderboardViewingDeadlineToday = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
 
       if (isBefore(now, leaderboardViewingDeadlineToday)) {
-        leaderboardDateToView = subDays(now, 1); 
+        leaderboardDateToView = subDays(now, 1);
       } else {
-        leaderboardDateToView = new Date(now); 
+        leaderboardDateToView = new Date(now);
       }
-      
+
       if (isValid(leaderboardDateToView)) {
         setCurrentViewableLeaderboardDate(leaderboardDateToView);
-        const releaseTimeForDateToView = set(leaderboardDateToView, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 }); 
-        const viewingEndTimeForDateToView = set(addDays(leaderboardDateToView, 1), { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); 
+        const releaseTimeForDateToView = set(leaderboardDateToView, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 });
+        const viewingEndTimeForDateToView = set(addDays(leaderboardDateToView, 1), { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
 
         const isReleased = isAfter(now, releaseTimeForDateToView);
         const isStillViewable = isBefore(now, viewingEndTimeForDateToView);
-        
+
         setIsLeaderboardReleasedForViewing(isReleased && isStillViewable);
 
-        if (!isReleased) { 
+        if (!isReleased) {
           const timeLeftToRelease = differenceInMilliseconds(releaseTimeForDateToView, now);
-          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} release in: ${formatTimeLeft(timeLeftToRelease)} (at 3 PM)`);
-        } else if (isReleased && isStillViewable) { 
+          setLeaderboardStatusMessage(`${format(leaderboardDateToView, "MMM d")} results release in: ${formatTimeLeft(timeLeftToRelease)}`);
+        } else if (isReleased && isStillViewable) {
           const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForDateToView, now);
-          setLeaderboardStatusMessage(`Results for ${format(leaderboardDateToView, "MMM d")} are LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)} (until 2:55 PM next day)`);
-        } else { 
+          setLeaderboardStatusMessage(`${format(leaderboardDateToView, "MMM d")} results LIVE! Viewable for: ${formatTimeLeft(timeLeftToCloseViewing)}`);
+        } else {
             const nextDayCandidate = isAfter(now, viewingEndTimeForDateToView) ? addDays(leaderboardDateToView, 1) : leaderboardDateToView;
             const nextReleaseTime = set(nextDayCandidate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0});
-            
+
             if (isValid(nextDayCandidate)){
                 const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
-                setLeaderboardStatusMessage(`Results for ${format(nextDayCandidate, "MMM d")} release in: ${formatTimeLeft(timeLeft)} (at 3 PM)`);
+                setLeaderboardStatusMessage(`${format(nextDayCandidate, "MMM d")} results release in: ${formatTimeLeft(timeLeft)}`);
                 setCurrentViewableLeaderboardDate(nextDayCandidate);
-                setIsLeaderboardReleasedForViewing(false); 
+                setIsLeaderboardReleasedForViewing(false);
             } else {
                 setLeaderboardStatusMessage("Leaderboard status unavailable.");
             }
@@ -109,7 +107,6 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-
   if (loading && !isClient) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -122,7 +119,27 @@ export default function HomePage() {
   const faqs = [
     {
       question: "How often can I submit an outfit for AI rating?",
-      answer: "You can get AI feedback on your outfits up to 5 times per day, as per your daily AI usage limit (resets at 6 AM local time)."
+      answer: (
+        <div>
+          <p>All users can get AI feedback on up to <strong>2 outfits per day</strong>.</p>
+          <p className="text-xs text-muted-foreground mt-1">Daily AI usage limits reset at 6 AM local time.</p>
+        </div>
+      )
+    },
+    {
+      question: "What are the benefits of LukuCheck?",
+      answer: (
+        <div className="space-y-2">
+          <p>LukuCheck offers a fun way to get AI-powered style feedback and engage with a community:</p>
+          <ul className="list-disc list-inside pl-2 space-y-1 text-sm">
+            <li><strong className="text-accent">AI Outfit Ratings:</strong> Get scores and suggestions for your outfits.</li>
+            <li><strong className="text-accent">Daily Leaderboard:</strong> Compete with others and see top styles.</li>
+            <li><strong className="text-accent">LukuPoints & Badges:</strong> Earn rewards for participation and achievements.</li>
+            <li><strong className="text-accent">LukuStreak:</strong> Build your submission streak for extra points.</li>
+          </ul>
+           <p className="text-sm">We are always looking to improve and add more features in the future!</p>
+        </div>
+      )
     },
     {
       question: "How do I earn LukuPoints?",
@@ -206,7 +223,7 @@ export default function HomePage() {
     {
       icon: Sparkles,
       title: "AI Style Analysis",
-      description: "Our AI scores your outfit (0-10) and provides color, look suggestions, plus a direct critique."
+      description: "Our AI scores your outfit (0-10) and provides color, look suggestions, plus a direct critique. All users get 2 AI ratings per day!"
     },
     {
       icon: Send,
@@ -225,55 +242,60 @@ export default function HomePage() {
     }
   ];
 
-
   return (
     <>
       <SiteHeader />
-      <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-12 md:py-10 px-4 sm:px-6 lg:px-8">
-        
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4">Welcome to LukuCheck!</h1>
-        <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl">
-          Get your outfits rated by AI, receive style suggestions, earn LukuPoints & Badges, and compete on the daily leaderboard.
-        </p>
+      <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 sm:mb-10">
+            {/* Hero Image Removed */}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-4 tracking-tight">
+                Welcome!
+            </h1>
+            <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+                Get your outfits rated by AI, receive style suggestions, earn LukuPoints & Badges, and compete on the daily leaderboard.
+            </p>
 
-        {!user ? (
-          <Link href="/login" passHref legacyBehavior>
-            <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground text-base sm:text-lg">
-              Get Started
-            </Button>
-          </Link>
-        ) : (
-           <Link href="/upload" passHref legacyBehavior>
-            <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground text-base sm:text-lg">
-              Rate Your Style
-            </Button>
-          </Link>
-        )}
+            {!user ? (
+            <Link href="/login" passHref legacyBehavior>
+                <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground text-base sm:text-lg px-8 py-3 rounded-lg shadow-md transition-transform hover:scale-105">
+                Get Started
+                </Button>
+            </Link>
+            ) : (
+            <Link href="/upload" passHref legacyBehavior>
+                <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground text-base sm:text-lg px-8 py-3 rounded-lg shadow-md transition-transform hover:scale-105">
+                Rate Your Style
+                </Button>
+            </Link>
+            )}
+        </div>
 
         {isClient && (
-          <Card className="mt-10 max-w-2xl w-full shadow-md">
-            <CardHeader>
-              <CardTitle className="text-2xl flex items-center justify-center"><CalendarCheck2 className="mr-3 h-7 w-7 text-primary"/>Daily Challenge Cycle</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-               <p className="text-sm text-muted-foreground px-2 text-center">
+          <Card className="mt-10 mb-12 sm:mb-16 max-w-3xl w-full shadow-xl rounded-xl border-primary/20">
+            <CardHeader className="bg-primary/5 rounded-t-xl">
+              <CardTitle className="text-2xl sm:text-3xl flex items-center justify-center text-primary">
+                <CalendarCheck2 className="mr-3 h-7 w-7 sm:h-8 sm:w-8"/>Daily Challenge Cycle
+              </CardTitle>
+              <CardDescription className="text-sm sm:text-base text-center pt-1">
                 Submissions: Daily <strong>6 AM - 2:55 PM</strong>.
-                Leaderboard: Results released <strong>3 PM daily</strong> (viewable until <strong>2:55 PM next day</strong>).
-              </p>
+                Leaderboard Results: <strong>3 PM daily</strong> (viewable until <strong>2:55 PM next day</strong>).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg border bg-card/50">
-                  <h4 className="text-lg font-semibold flex items-center">
-                    <PlayCircle className={`mr-2 h-5 w-5 ${isSubmissionWindowOpen ? 'text-green-500' : 'text-destructive'}`}/>
+                <div className="p-4 rounded-lg border-2 border-dashed border-primary/30 bg-card hover:shadow-md transition-shadow">
+                  <h4 className="text-lg font-semibold flex items-center mb-1">
+                    <PlayCircle className={`mr-2 h-5 w-5 ${isSubmissionWindowOpen ? 'text-green-500 animate-pulse' : 'text-destructive'}`}/>
                     Outfit Submissions:
                   </h4>
                   <p className="text-sm sm:text-base font-medium">
                     {submissionStatusMessage}
                   </p>
                 </div>
-                <Link href="/leaderboard" passHref className="h-full">
-                  <div className="p-4 rounded-lg border bg-card/50 hover:bg-secondary/70 transition-colors cursor-pointer h-full flex flex-col justify-center">
-                    <h4 className="text-lg font-semibold flex items-center">
-                      <UsersIconProp className={`mr-2 h-5 w-5 ${isLeaderboardReleasedForViewing ? 'text-accent' : 'text-primary/70'}`}/>
+                <Link href="/leaderboard" passHref className="h-full block group">
+                  <div className="p-4 rounded-lg border-2 border-dashed border-accent/30 bg-card hover:shadow-md transition-shadow h-full flex flex-col justify-center group-hover:border-accent">
+                    <h4 className="text-lg font-semibold flex items-center mb-1">
+                      <UsersIconProp className={`mr-2 h-5 w-5 ${isLeaderboardReleasedForViewing ? 'text-accent' : 'text-muted-foreground'}`}/>
                       Leaderboard:
                     </h4>
                     <p className="text-sm sm:text-base font-medium">{leaderboardStatusMessage}</p>
@@ -281,10 +303,10 @@ export default function HomePage() {
                 </Link>
               </div>
               {isClient && isLeaderboardReleasedForViewing && !user && currentViewableLeaderboardDate && (
-                <Alert variant="default" className="mt-4 bg-secondary/70">
-                  <Info className="h-5 w-5" />
-                  <AlertTitle>Leaderboard is Active!</AlertTitle>
-                  <AlertDescription className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                <Alert variant="default" className="mt-4 bg-secondary/50 border-secondary">
+                  <Info className="h-5 w-5 text-secondary-foreground" />
+                  <AlertTitle className="font-semibold">Leaderboard is Active!</AlertTitle>
+                  <AlertDescription className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
                     <span>Log in to view the top styles for {format(currentViewableLeaderboardDate, "MMM d")}.</span>
                     <Link href="/login" passHref legacyBehavior>
                       <Button size="sm" className="mt-2 sm:mt-0 sm:ml-auto shrink-0">
@@ -298,41 +320,42 @@ export default function HomePage() {
           </Card>
         )}
 
-        <section className="mt-12 sm:mt-16 w-full max-w-4xl">
-            <h2 className="text-3xl font-bold mb-6 flex items-center justify-center">
-                <Shirt className="mr-3 h-8 w-8 text-primary"/>
+        <section className="my-12 sm:my-16 w-full max-w-5xl">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-8 sm:mb-10 flex items-center justify-center">
+                <Shirt className="mr-3 h-8 w-8 sm:h-9 sm:w-9 text-primary"/>
                 How LukuCheck Works
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
                 {gameplaySteps.map((step, index) => (
-                    <Card key={index} className="shadow-lg hover:shadow-xl transition-shadow duration-300">
-                        <CardHeader className="items-center text-center">
-                            <step.icon className="w-10 h-10 text-accent mb-3" />
-                            <CardTitle className="text-xl">{step.title}</CardTitle>
+                    <Card key={index} className="shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-xl flex flex-col text-left">
+                        <CardHeader className="items-start">
+                            <div className="p-3 rounded-full bg-accent/10 mb-3 inline-block">
+                                <step.icon className="w-8 h-8 text-accent" />
+                            </div>
+                            <CardTitle className="text-xl sm:text-2xl">{step.title}</CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <p className="text-muted-foreground text-sm text-center">{step.description}</p>
+                        <CardContent className="flex-grow">
+                            <p className="text-muted-foreground text-sm sm:text-base">{step.description}</p>
                         </CardContent>
                     </Card>
                 ))}
             </div>
         </section>
 
-
-        <section className="mt-12 sm:mt-16 w-full max-w-3xl">
-            <h2 className="text-3xl font-bold mb-6 flex items-center justify-center">
-                <HelpCircle className="mr-3 h-8 w-8 text-primary"/>
+        <section className="my-12 sm:my-16 w-full max-w-3xl">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-8 sm:mb-10 flex items-center justify-center">
+                <HelpCircle className="mr-3 h-8 w-8 sm:h-9 sm:w-9 text-primary"/>
                 Frequently Asked Questions
             </h2>
-            <Accordion type="single" collapsible className="w-full">
+            <Accordion type="single" collapsible className="w-full bg-card p-4 sm:p-6 rounded-xl shadow-lg border border-primary/10">
                 {faqs.map((faq, index) => (
-                <AccordionItem value={`item-${index}`} key={index}>
+                <AccordionItem value={`item-${index}`} key={index} className="border-b border-primary/10 last:border-b-0">
                     <AccordionTrigger
-                        className="text-lg hover:no-underline text-left justify-start gap-2 sm:justify-between"
+                        className="text-lg sm:text-xl hover:no-underline text-left justify-between py-4 sm:py-5 font-medium text-foreground hover:text-primary"
                     >
                         {faq.question}
                     </AccordionTrigger>
-                    <AccordionContent className="text-base text-muted-foreground text-left">
+                    <AccordionContent className="text-base text-muted-foreground text-left pb-4 sm:pb-5 pl-1 pr-1">
                     {typeof faq.answer === 'string' ? <p>{faq.answer}</p> : faq.answer}
                     </AccordionContent>
                 </AccordionItem>

@@ -1,6 +1,6 @@
 
 'use client';
-import { useState, type ChangeEvent, useEffect } from 'react';
+import { useState, type ChangeEvent, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -13,25 +13,24 @@ import { useToast } from '@/hooks/use-toast';
 import { processOutfitWithAI } from '@/actions/outfitActions';
 import type { StyleSuggestionsOutput } from '@/ai/flows/style-suggestions';
 import { handleLeaderboardSubmissionPerks } from '@/actions/userActions';
-import { UploadCloud, Sparkles, Send, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Ban, Clock, ShieldAlert, ImageOff, Eye, XCircle } from 'lucide-react';
+import { UploadCloud, Sparkles, Send, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Ban, Clock, ShieldAlert, ImageOff, Eye, XCircle, RefreshCw } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { db, storage } from '@/config/firebase';
-import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, where, getDocs as getFirestoreDocs } from 'firebase/firestore'; 
+import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, where, getDocs as getFirestoreDocs } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { format, subDays, set, isBefore, isAfter, addDays, parseISO } from 'date-fns';
+import { format, set, isBefore, isAfter, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-// --- Service Suspension Flag ---
-const IS_SERVICE_SUSPENDED = true;
-// --- End Service Suspension Flag ---
+// AI Usage Limits
+const FREE_TIER_AI_LIMIT = 2;
 
 interface ProcessedOutfitClient extends StyleSuggestionsOutput {
- outfitImageURL: string;
- submittedToLeaderboard?: boolean;
- localId: string; // For React key prop
+  outfitImageBase64: string; // Store base64 for AI and pre-submission
+  outfitImageURLForDisplay: string; // Could be base64 or Firebase URL post-submission
+  outfitImageFirebaseURL?: string; // Firebase URL after submission
+  submittedToLeaderboard?: boolean;
+  localId: string;
 }
-
-const AI_USAGE_DAILY_LIMIT = 5; 
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
@@ -53,14 +52,51 @@ function getAiUsageDateString(): string {
   const now = new Date();
   const currentHour = now.getHours();
   let targetDate = new Date(now);
-  if (currentHour < 6) {
+  if (currentHour < 6) { // AI usage resets at 6 AM
     targetDate.setDate(now.getDate() - 1);
   }
   const year = targetDate.getFullYear();
   const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-  const dayString = String(targetDate.getDate()).padStart(2, '0'); 
+  const dayString = String(targetDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${dayString}`;
 }
+
+// Placeholder for client-side image compression
+// You would typically use a library like 'browser-image-compression'
+// async function compressImage(file: File): Promise<string> {
+//   // console.log(`Original file size: ${file.size / 1024 / 1024} MB`);
+//   // const options = {
+//   //   maxSizeMB: 0.5, // Max 0.5MB
+//   //   maxWidthOrHeight: 1024, // Max 1024px
+//   //   useWebWorker: true,
+//   // };
+//   // try {
+//   //   // const compressedFile = await imageCompression(file, options);
+//   //   // console.log(`Compressed file size: ${compressedFile.size / 1024 / 1024} MB`);
+//   //   // const reader = new FileReader();
+//   //   // return new Promise((resolve, reject) => {
+//   //   //   reader.onloadend = () => resolve(reader.result as string);
+//   //   //   reader.onerror = reject;
+//   //   //   reader.readAsDataURL(compressedFile);
+//   //   // });
+//   //   // For now, without the library, just return original base64
+//   //   return new Promise((resolve, reject) => {
+//   //      const reader = new FileReader();
+//   //      reader.onloadend = () => resolve(reader.result as string);
+//   //      reader.onerror = reject;
+//   //      reader.readAsDataURL(file);
+//   //   });
+//   // } catch (error) {
+//   //   console.error('Error compressing image:', error);
+//   //   // Fallback to original if compression fails
+//   //   return new Promise((resolve, reject) => {
+//   //      const reader = new FileReader();
+//   //      reader.onloadend = () => resolve(reader.result as string);
+//   //      reader.onerror = reject;
+//   //      reader.readAsDataURL(file);
+//   //   });
+//   // }
+// }
 
 
 export default function UploadPage() {
@@ -68,13 +104,14 @@ export default function UploadPage() {
   const { toast } = useToast();
 
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageBase64Preview, setImageBase64Preview] = useState<string | null>(null); // For current upload preview
   const [isProcessingAIRating, setIsProcessingAIRating] = useState(false);
-  
+
   const [todaysRatedOutfits, setTodaysRatedOutfits] = useState<ProcessedOutfitClient[]>([]);
   const [selectedOutfitForDetails, setSelectedOutfitForDetails] = useState<ProcessedOutfitClient | null>(null);
 
   const [aiUsage, setAiUsage] = useState({ count: 0, limitReached: false });
+  const currentAiLimit = FREE_TIER_AI_LIMIT;
   const [isSubmittingToLeaderboard, setIsSubmittingToLeaderboard] = useState(false);
   const [hasSubmittedToday, setHasSubmittedToday] = useState(false);
 
@@ -83,39 +120,44 @@ export default function UploadPage() {
   const [timeLeftToSubmissionOpen, setTimeLeftToSubmissionOpen] = useState(0);
   const [timeLeftToSubmissionClose, setTimeLeftToSubmissionClose] = useState(0);
 
-
-  const fetchAIUsageOnClient = async () => {
-    if (!user || IS_SERVICE_SUSPENDED) return;
+  const fetchAIUsageOnClient = useCallback(async () => {
+    if (!user || !db) return;
     const usageDateString = getAiUsageDateString();
     const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
     const usageRef = doc(db, usageDocPath);
     try {
       const usageSnap = await getDoc(usageRef);
+      const effectiveLimit = FREE_TIER_AI_LIMIT;
+
       if (usageSnap.exists()) {
         const data = usageSnap.data();
         const count = data.count || 0;
-        setAiUsage({ count, limitReached: count >= AI_USAGE_DAILY_LIMIT });
+        setAiUsage({ count, limitReached: count >= effectiveLimit });
       } else {
         setAiUsage({ count: 0, limitReached: false });
       }
     } catch (error) {
-      // console.error("[UploadPage DEBUG] fetchAIUsageOnClient - Failed to fetch AI usage:", error);
+      setAiUsage({ count: 0, limitReached: false });
     }
-  };
+  }, [user]);
 
-  const clientIncrementAIUsage = async (): Promise<{ success: boolean; error?: string; limitReached?: boolean }> => {
-    if (!user || IS_SERVICE_SUSPENDED) return { success: false, error: 'Service suspended or User ID is required.'};
+  const clientIncrementAIUsage = useCallback(async (): Promise<{ success: boolean; error?: string; limitReached?: boolean }> => {
+    if (!user || !db) return { success: false, error: 'User ID or DB is required.' };
     const usageDateString = getAiUsageDateString();
     const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
     const usageRef = doc(db, usageDocPath);
+
+    const effectiveLimit = FREE_TIER_AI_LIMIT;
+
     try {
       const usageSnap = await getDoc(usageRef);
       let currentCount = 0;
       if (usageSnap.exists()) currentCount = usageSnap.data()?.count || 0;
-      if (currentCount >= AI_USAGE_DAILY_LIMIT) {
+
+      if (currentCount >= effectiveLimit) {
         setAiUsage({ count: currentCount, limitReached: true });
-        toast({ title: 'Usage Limit Reached', description: `AI usage limit (${AI_USAGE_DAILY_LIMIT}/day) reached. Resets 6 AM local time.`, variant: 'default' });
-        return { success: false, error: `AI usage limit (${AI_USAGE_DAILY_LIMIT}/day) reached.`, limitReached: true };
+        toast({ title: 'Usage Limit Reached', description: `AI usage limit (${effectiveLimit}/day) reached. Resets 6 AM local time.`, variant: 'default' });
+        return { success: false, error: `AI usage limit (${effectiveLimit}/day) reached.`, limitReached: true };
       }
       const newCount = currentCount + 1;
       if (!usageSnap.exists()) {
@@ -123,23 +165,22 @@ export default function UploadPage() {
       } else {
         await updateDoc(usageRef, { count: newCount, lastUsed: Timestamp.now() });
       }
-      setAiUsage({ count: newCount, limitReached: newCount >= AI_USAGE_DAILY_LIMIT });
-      return { success: true, limitReached: newCount >= AI_USAGE_DAILY_LIMIT };
+      setAiUsage({ count: newCount, limitReached: newCount >= effectiveLimit });
+      return { success: true, limitReached: newCount >= effectiveLimit };
     } catch (error: any) {
       let errorMessage = `AI usage update failed: ${error.message || "Unknown error"}`;
       if (error.message?.includes('PERMISSION_DENIED') || error.code === 'permission-denied') {
-          errorMessage = "Permission denied to update AI usage. Check Firestore rules.";
+        errorMessage = "Permission denied to update AI usage. Check Firestore rules.";
       }
-      // console.error("[UploadPage DEBUG] clientIncrementAIUsage - Error:", error, "Message:", errorMessage);
       toast({ title: 'AI Usage Error', description: errorMessage, variant: 'destructive' });
       await fetchAIUsageOnClient();
       return { success: false, error: errorMessage };
     }
-  };
+  }, [user, fetchAIUsageOnClient, toast]);
 
   useEffect(() => {
     const checkSubmissionStatusAndWindow = async () => {
-      if (!user || IS_SERVICE_SUSPENDED) return;
+      if (!user) return;
       const now = new Date();
       const submissionOpenTime = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
       const submissionCloseTime = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
@@ -149,118 +190,127 @@ export default function UploadPage() {
       setIsSubmissionNotYetOpen(currentSubmissionNotYetOpen);
       setTimeLeftToSubmissionOpen(submissionOpenTime.getTime() - now.getTime());
       setTimeLeftToSubmissionClose(submissionCloseTime.getTime() - now.getTime());
-      fetchAIUsageOnClient();
+
+      await fetchAIUsageOnClient();
+
       const todaysDateStr = toYYYYMMDD(now);
-      const outfitsCollectionRef = collection(db, 'outfits');
-      const q = query(outfitsCollectionRef, where('userId', '==', user.uid), where('leaderboardDate', '==', todaysDateStr));
-      try {
-        const querySnapshot = await getFirestoreDocs(q);
-        setHasSubmittedToday(!querySnapshot.empty);
-      } catch (error) {
-        // console.error("[UploadPage] Error checking for today's submission:", error);
-        toast({ title: "Error", description: "Could not verify previous submissions.", variant: "destructive" });
+      if (db) {
+        const outfitsCollectionRef = collection(db, 'outfits');
+        const q = query(outfitsCollectionRef, where('userId', '==', user.uid), where('leaderboardDate', '==', todaysDateStr));
+        try {
+          const querySnapshot = await getFirestoreDocs(q);
+          setHasSubmittedToday(!querySnapshot.empty);
+        } catch (error) {
+           // Error reading submission status, handled by UI defaults
+        }
       }
     };
     if (user) checkSubmissionStatusAndWindow();
     const interval = setInterval(() => { if (user) checkSubmissionStatusAndWindow(); }, 60000);
     return () => clearInterval(interval);
-  }, [user, toast]); 
+  }, [user, fetchAIUsageOnClient]);
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (IS_SERVICE_SUSPENDED) return;
+  const handleImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
-      setSelectedOutfitForDetails(null); // Clear selection if new image is chosen
+      setSelectedOutfitForDetails(null);
+      
+      // Read the file as base64 for preview
+      // In a real scenario with compression, you'd call compressImage(file) here
+      // For now, just reading the original file:
       const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result as string);
+      reader.onloadend = () => {
+        setImageBase64Preview(reader.result as string);
+      };
       reader.readAsDataURL(file);
     }
   };
 
   const handleGetRating = async () => {
-    if (IS_SERVICE_SUSPENDED) {
-      toast({ title: 'Service Suspended', description: 'Outfit rating is temporarily unavailable.', variant: 'default' });
-      return;
-    }
-    if (!imageFile || !imagePreview || !user) {
+    if (!imageFile || !imageBase64Preview || !user || !storage) {
       toast({ title: 'Missing information', description: 'Please select an image and ensure you are logged in.', variant: 'destructive' });
       return;
     }
     setIsProcessingAIRating(true);
     setSelectedOutfitForDetails(null);
+
     try {
+      // const compressedBase64 = await compressImage(imageFile); // Call your compression function
+      // For production, you should implement client-side compression here
+      // For now, we use the original base64 preview. Replace with compressed version.
+      const processedBase64ForAI = imageBase64Preview; 
+
       const incrementResult = await clientIncrementAIUsage();
       if (!incrementResult.success) {
         setIsProcessingAIRating(false);
-        return; 
+        return;
       }
-      const imageFileName = `outfits/${user.uid}/${Date.now()}_${imageFile.name}`;
-      const imageRef = ref(storage, imageFileName);
-      await uploadString(imageRef, imagePreview, 'data_url');
-      const uploadedOutfitImageURL = await getDownloadURL(imageRef);
-      if (!uploadedOutfitImageURL) throw new Error("Failed to upload image or get download URL.");
-      const aiProcessingResult = await processOutfitWithAI({ photoDataUri: imagePreview });
+
+      const aiProcessingResult = await processOutfitWithAI({ photoDataUri: processedBase64ForAI });
 
       if (aiProcessingResult.success && aiProcessingResult.data) {
         const newRatedOutfit: ProcessedOutfitClient = {
           ...aiProcessingResult.data,
-          outfitImageURL: uploadedOutfitImageURL,
+          outfitImageBase64: processedBase64ForAI, // Store the (potentially compressed) base64
+          outfitImageURLForDisplay: processedBase64ForAI, // Initially display base64
           submittedToLeaderboard: false,
-          localId: Date.now().toString() + Math.random().toString(36).substring(2,9) // Unique local ID
+          localId: Date.now().toString() + Math.random().toString(36).substring(2, 9)
         };
-        setTodaysRatedOutfits(prev => [...prev, newRatedOutfit]);
+        setTodaysRatedOutfits(prev => [newRatedOutfit, ...prev].slice(0, 5)); // Keep max 5 recent local previews
         setImageFile(null);
-        setImagePreview(null);
+        setImageBase64Preview(null);
         toast({ title: 'AI Analysis Complete!', description: `Outfit rated ${aiProcessingResult.data.rating.toFixed(1)}/10. Ready for review.` });
       } else {
         toast({ title: 'AI Analysis Failed', description: aiProcessingResult.error || 'Unknown error during AI processing.', variant: 'destructive' });
       }
     } catch (error: any) {
-      let errorMessage = error.message || 'An unexpected error occurred.';
-      if (error.code === 'storage/unauthorized') errorMessage = "Permission denied to upload image. Check Storage rules.";
-      toast({ title: 'Error', description: errorMessage, variant: 'destructive' });
+      toast({ title: 'Error', description: error.message || 'An unexpected error occurred.', variant: 'destructive' });
     } finally {
       setIsProcessingAIRating(false);
     }
   };
 
   const handleSelectOutfitForDetails = (outfit: ProcessedOutfitClient) => {
-    if (IS_SERVICE_SUSPENDED) return;
     setSelectedOutfitForDetails(outfit);
   };
 
   const handleSubmitToLeaderboard = async () => {
-     if (IS_SERVICE_SUSPENDED) {
-      toast({ title: 'Service Suspended', description: 'Leaderboard submissions are temporarily unavailable.', variant: 'default' });
+    if (!user || !userProfile || !selectedOutfitForDetails || !selectedOutfitForDetails.outfitImageBase64 || !db || !storage) {
+      toast({ title: 'Error', description: 'No outfit selected or missing data for submission.', variant: 'destructive' });
       return;
     }
-    if (!user || !userProfile || !selectedOutfitForDetails || !selectedOutfitForDetails.outfitImageURL) {
-      toast({ title: 'Error', description: 'No outfit selected or missing data for submission.', variant: 'destructive'});
-      return;
-    }
-     if (!selectedOutfitForDetails.isActualUserOutfit) {
-      toast({ title: "Invalid Submission", description: selectedOutfitForDetails.validityCritique || "This outfit cannot be submitted due to AI validation.", variant: "destructive"});
+    if (!selectedOutfitForDetails.isActualUserOutfit) {
+      toast({ title: "Invalid Submission", description: selectedOutfitForDetails.validityCritique || "This outfit cannot be submitted due to AI validation.", variant: "destructive" });
       return;
     }
     if (hasSubmittedToday) {
-      toast({ title: "Already Submitted", description: "You've already submitted an outfit today.", variant: "default"});
+      toast({ title: "Already Submitted", description: "You've already submitted an outfit today.", variant: "default" });
       return;
     }
     if (!isSubmissionWindowOpen) {
-       toast({ title: "Submissions Closed", description: `Submissions are ${isSubmissionNotYetOpen ? `not open yet (opens in ${formatTimeLeft(timeLeftToSubmissionOpen)})` : 'closed for today.'}`, variant: "default"});
+      toast({ title: "Submissions Closed", description: `Submissions are ${isSubmissionNotYetOpen ? `not open yet (opens in ${formatTimeLeft(timeLeftToSubmissionOpen)})` : 'closed for today.'}`, variant: "default" });
       return;
     }
 
     setIsSubmittingToLeaderboard(true);
     try {
+      const imageFileName = `outfits/${user.uid}/${Date.now()}_${selectedOutfitForDetails.localId}.jpg`;
+      const imageRef = ref(storage, imageFileName);
+      
+      // IMPORTANT: Here you'd ideally upload a compressed version if you implemented it.
+      // For now, uploading the stored base64.
+      await uploadString(imageRef, selectedOutfitForDetails.outfitImageBase64, 'data_url', { contentType: 'image/jpeg' });
+      const uploadedOutfitFirebaseURL = await getDownloadURL(imageRef);
+      if (!uploadedOutfitFirebaseURL) throw new Error("Failed to upload image to Firebase Storage or get download URL.");
+
       const leaderboardDateStr = toYYYYMMDD(new Date());
       const outfitsCollectionRef = collection(db, 'outfits');
       const outfitData = {
         userId: user.uid,
         username: userProfile.username,
         userPhotoURL: userProfile.customPhotoURL || userProfile.photoURL,
-        outfitImageURL: selectedOutfitForDetails.outfitImageURL,
+        outfitImageURL: uploadedOutfitFirebaseURL,
         rating: selectedOutfitForDetails.rating,
         colorSuggestions: selectedOutfitForDetails.colorSuggestions,
         lookSuggestions: selectedOutfitForDetails.lookSuggestions,
@@ -272,26 +322,27 @@ export default function UploadPage() {
       };
       await addDoc(outfitsCollectionRef, outfitData);
       toast({ title: 'Success!', description: 'Outfit submitted to the leaderboard.' });
-      
-      setHasSubmittedToday(true);
-      setTodaysRatedOutfits(prevOutfits => 
-        prevOutfits.map(o => o.localId === selectedOutfitForDetails.localId ? {...o, submittedToLeaderboard: true } : o)
-      );
-      setSelectedOutfitForDetails(prev => prev ? {...prev, submittedToLeaderboard: true} : null);
 
+      setHasSubmittedToday(true);
+      setTodaysRatedOutfits(prevOutfits =>
+        prevOutfits.map(o => o.localId === selectedOutfitForDetails.localId ? { ...o, submittedToLeaderboard: true, outfitImageURLForDisplay: uploadedOutfitFirebaseURL, outfitImageFirebaseURL: uploadedOutfitFirebaseURL } : o)
+      );
+      setSelectedOutfitForDetails(prev => prev ? { ...prev, submittedToLeaderboard: true, outfitImageURLForDisplay: uploadedOutfitFirebaseURL, outfitImageFirebaseURL: uploadedOutfitFirebaseURL } : null);
 
       const perksResult = await handleLeaderboardSubmissionPerks(user.uid, selectedOutfitForDetails.rating);
       if (perksResult.success) {
-        toast({ title: 'Perks Updated!', description: perksResult.message || 'Points & badges processed.', duration: 2000});
+        toast({ title: 'Perks Updated!', description: perksResult.message || 'Points & badges processed.', duration: 2000 });
         await refreshUserProfile();
       } else {
-        toast({ title: 'Perks Error', description: perksResult.error, variant: 'destructive'});
+        toast({ title: 'Perks Error', description: perksResult.error, variant: 'destructive' });
       }
 
     } catch (error: any) {
       let errorMessage = 'Failed to submit to leaderboard.';
-      if (error.code === 'permission-denied' || error.message?.toLowerCase().includes('permission denied')) {
-          errorMessage = 'Permission denied to submit to leaderboard. Check Firestore security rules.';
+      if (error.code === 'storage/unauthorized' || error.message?.toLowerCase().includes('permission denied to access object')) {
+          errorMessage = 'Permission denied to upload image to Firebase Storage. Check Storage rules.';
+      } else if (error.code === 'permission-denied' || error.message?.toLowerCase().includes('permission denied')) {
+          errorMessage = 'Permission denied to submit to leaderboard (Firestore). Check Firestore security rules.';
       } else if (error.message) {
           errorMessage = error.message;
       }
@@ -302,237 +353,223 @@ export default function UploadPage() {
   };
 
   if (authLoading) {
-     return <div className="flex justify-center items-center h-full p-4"><Loader2 className="h-8 w-8 animate-spin" /> <span className="ml-2">Loading...</span></div>;
+    return <div className="flex justify-center items-center h-full p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2 text-muted-foreground">Loading Your Style Studio...</span></div>;
   }
 
-  const getRatingDisabled = !imageFile || isProcessingAIRating || aiUsage.limitReached || IS_SERVICE_SUSPENDED;
-  const imageInputDisabled = aiUsage.limitReached || isProcessingAIRating || IS_SERVICE_SUSPENDED;
+  const getRatingDisabled = !imageFile || isProcessingAIRating || aiUsage.limitReached;
+  const imageInputDisabled = aiUsage.limitReached || isProcessingAIRating;
 
-  const submitToLeaderboardButtonDisabled = isSubmittingToLeaderboard || 
-                                          !selectedOutfitForDetails || 
-                                          selectedOutfitForDetails.submittedToLeaderboard || 
-                                          hasSubmittedToday || 
-                                          !isSubmissionWindowOpen || 
-                                          (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit) ||
-                                          IS_SERVICE_SUSPENDED;
+  const submitToLeaderboardButtonDisabled = isSubmittingToLeaderboard ||
+    !selectedOutfitForDetails ||
+    selectedOutfitForDetails.submittedToLeaderboard ||
+    hasSubmittedToday ||
+    !isSubmissionWindowOpen ||
+    (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit);
+
   let submitToLeaderboardButtonText = "Submit to Daily Leaderboard";
-  if (IS_SERVICE_SUSPENDED) submitToLeaderboardButtonText = "Submissions Suspended";
-  else if (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit) submitToLeaderboardButtonText = "Cannot Submit (Invalid Image)";
+  if (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit) submitToLeaderboardButtonText = "Cannot Submit (Invalid Image)";
   else if (hasSubmittedToday || selectedOutfitForDetails?.submittedToLeaderboard) submitToLeaderboardButtonText = "Submitted Today!";
   else if (!isSubmissionWindowOpen && !isSubmissionNotYetOpen) submitToLeaderboardButtonText = "Submission Window Closed";
   else if (isSubmissionNotYetOpen) submitToLeaderboardButtonText = `Submissions Open In: ${formatTimeLeft(timeLeftToSubmissionOpen)}`;
 
-
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
-      <Card className="shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl sm:text-3xl flex items-center"><UploadCloud className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:w-8 text-primary" /> Upload Your Outfit</CardTitle>
-          <CardDescription>Get feedback, then choose your best look for the leaderboard!</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 sm:space-y-6">
-          {IS_SERVICE_SUSPENDED && (
-            <Alert variant="destructive" className="mt-4">
-                <XCircle className="h-5 w-5" />
-                <AlertTitle>Service Temporarily Suspended</AlertTitle>
-                <AlertDescription>
-                Outfit uploads and AI ratings are currently unavailable. We apologize for any inconvenience and hope to be back soon!
-                </AlertDescription>
-            </Alert>
-          )}
-          <div className="space-y-1 sm:space-y-2">
-            <Label htmlFor="outfitImage" className="text-base sm:text-lg">Outfit Photo</Label>
-            <Input id="outfitImage" type="file" accept="image/*" onChange={handleImageChange} className="file:text-primary file:font-semibold" disabled={imageInputDisabled}/>
-          </div>
-
-          {imagePreview && !IS_SERVICE_SUSPENDED && (
-            <div className="mt-3 sm:mt-4 border rounded-lg overflow-hidden shadow-md">
-              <Image src={imagePreview} alt="Outfit preview" width={500} height={500} className="object-contain w-full h-auto max-h-[300px] sm:max-h-[400px]" data-ai-hint="fashion clothing"/>
-            </div>
-          )}
-
-          {!IS_SERVICE_SUSPENDED && (
-            <>
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertTitle>AI Usage: {aiUsage.count}/{AI_USAGE_DAILY_LIMIT} Analyses Used Today</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                  {aiUsage.limitReached ? `You've reached your daily AI analysis limit. Resets 6 AM local time.` : `Get up to ${AI_USAGE_DAILY_LIMIT} AI ratings per day (resets 6 AM local time).`}
-                </AlertDescription>
-              </Alert>
-
-              {!hasSubmittedToday && isSubmissionNotYetOpen && timeLeftToSubmissionOpen > 0 && (
-                <Alert variant="default" className="bg-secondary/50 border-secondary">
-                    <Clock className="h-4 w-4" />
-                    <AlertTitle>Submissions Open Soon</AlertTitle>
-                    <AlertDescription className="text-xs sm:text-sm">
-                      Today's submission window (6 AM - 2:55 PM) for the leaderboard opens in: <span className="font-semibold">{formatTimeLeft(timeLeftToSubmissionOpen)}</span>.
-                    </AlertDescription>
-                </Alert>
-              )}
-
-              {!hasSubmittedToday && !isSubmissionWindowOpen && !isSubmissionNotYetOpen && (
-                <Alert variant="destructive">
-                    <Ban className="h-4 w-4" />
-                    <AlertTitle>Submissions Closed for Today</AlertTitle>
-                    <AlertDescription className="text-xs sm:text-sm">
-                      The 2:55 PM deadline for today's leaderboard submissions has passed. Try again tomorrow from 6 AM!
-                    </AlertDescription>
-                </Alert>
-              )}
-
-              {hasSubmittedToday && (
-                <Alert variant="default" className="bg-secondary/50 border-secondary">
-                    <Ban className="h-4 w-4" />
-                    <AlertTitle>Submission Complete for Today</AlertTitle>
-                    <AlertDescription className="text-xs sm:text-sm">
-                    You've already submitted an outfit for today's leaderboard. Check back tomorrow!
-                    </AlertDescription>
-                </Alert>
-              )}
-            </>
-          )}
-        </CardContent>
-        <CardFooter>
-          <Button onClick={handleGetRating} disabled={getRatingDisabled} className="w-full text-base sm:text-lg py-2.5 sm:py-3">
-            {isProcessingAIRating ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-            Get AI Rating & Suggestions
-          </Button>
-        </CardFooter>
-      </Card>
-
-      {IS_SERVICE_SUSPENDED && todaysRatedOutfits.length === 0 && !selectedOutfitForDetails && (
-         <Card className="shadow-xl md:col-span-2">
-            <CardHeader>
-                <CardTitle className="text-2xl sm:text-3xl">Rated Outfits</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Alert variant="default" className="bg-muted/50">
-                    <Info className="h-5 w-5" />
-                    <AlertTitle>Service Suspended</AlertTitle>
-                    <AlertDescription>Reviewing previously rated outfits is temporarily unavailable.</AlertDescription>
-                </Alert>
-            </CardContent>
-         </Card>
-      )}
-
-      {!IS_SERVICE_SUSPENDED && todaysRatedOutfits.length > 0 && !selectedOutfitForDetails && (
-        <Card className="shadow-xl md:col-span-2 animate-in fade-in duration-500">
+    <div className="container mx-auto py-6 sm:py-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
+        <Card className="shadow-xl rounded-lg">
           <CardHeader>
-            <CardTitle className="text-2xl sm:text-3xl">Today's Rated Outfits</CardTitle>
-            <CardDescription>Review your outfits and choose one to submit to the daily leaderboard.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {todaysRatedOutfits.map((outfit) => (
-              <Card key={outfit.localId} className={cn("p-4 flex flex-col sm:flex-row items-center gap-4", outfit.submittedToLeaderboard && "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700")}>
-                <Image src={outfit.outfitImageURL} alt="Rated outfit" width={80} height={80} className="rounded-md aspect-square object-cover border" data-ai-hint="fashion clothing thumbnail"/>
-                <div className="flex-grow text-center sm:text-left">
-                  <p className="text-2xl font-bold text-primary">{outfit.rating.toFixed(1)}<span className="text-lg text-muted-foreground">/10</span></p>
-                  {!outfit.isActualUserOutfit && <p className="text-xs text-destructive mt-1">{outfit.validityCritique || "AI flagged this image."}</p>}
-                </div>
-                <Button 
-                  onClick={() => handleSelectOutfitForDetails(outfit)} 
-                  disabled={!outfit.isActualUserOutfit || outfit.submittedToLeaderboard || IS_SERVICE_SUSPENDED}
-                  variant={outfit.submittedToLeaderboard ? "ghost" : "default"}
-                  className="w-full sm:w-auto"
-                >
-                  {outfit.submittedToLeaderboard ? <><Star className="mr-2 h-4 w-4 text-green-500 fill-green-500"/>Submitted!</> : <><Eye className="mr-2 h-4 w-4"/>Review & Prepare</>}
-                </Button>
-              </Card>
-            ))}
-             {hasSubmittedToday && (
-                <Alert variant="default" className="mt-4 bg-green-50 dark:bg-green-800/30 border-green-600">
-                    <ShieldAlert className="h-5 w-5 text-green-700 dark:text-green-400" />
-                    <AlertTitle>Leaderboard Submission Sent!</AlertTitle>
-                    <AlertDescription>
-                        You've successfully submitted an outfit for today. Check the leaderboard later!
-                    </AlertDescription>
-                </Alert>
-            )}
-          </CardContent>
-        </Card>
-      )}
-      
-      {!IS_SERVICE_SUSPENDED && isProcessingAIRating && !selectedOutfitForDetails && todaysRatedOutfits.length === 0 && (
-         <div className="md:col-span-1 flex flex-col items-center justify-center space-y-4 p-6 sm:p-8 bg-card rounded-lg shadow-xl min-h-[300px]">
-            <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin text-primary" />
-            <p className="text-lg sm:text-xl font-semibold text-foreground">Our AI is analyzing your style...</p>
-            <Progress value={50} className="w-full" />
-            <p className="text-xs sm:text-sm text-muted-foreground">This might take a few moments.</p>
-        </div>
-      )}
-
-
-      {!IS_SERVICE_SUSPENDED && selectedOutfitForDetails && (
-        <Card className="shadow-xl md:col-span-2 animate-in fade-in duration-500"> {/* Make it span 2 cols on md+ if it's the only card in this 'row' */}
-          <CardHeader>
-            <CardTitle className="text-2xl sm:text-3xl flex items-center"><Sparkles className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:w-8 text-accent" /> AI Feedback for Selected Outfit</CardTitle>
-            <CardDescription>Here's what our fashion AI thinks. You can submit this one to the leaderboard.</CardDescription>
+            <CardTitle className="text-2xl sm:text-3xl flex items-center text-primary">
+              <UploadCloud className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:w-8" /> Submit Your Look
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">Get feedback, then choose your best look for the leaderboard!</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 sm:space-y-6">
+            <div className="space-y-1 sm:space-y-2">
+              <Label htmlFor="outfitImage" className="text-base sm:text-lg font-medium">Outfit Photo</Label>
+              <Input id="outfitImage" type="file" accept="image/*" onChange={handleImageChange} className="file:text-primary file:font-semibold file:mr-2" disabled={imageInputDisabled} />
+              <p className="text-xs text-muted-foreground">Tip: Clear, well-lit photos get better AI feedback. Max 0.5MB recommended after compression.</p>
+            </div>
 
-            {selectedOutfitForDetails.validityCritique && !selectedOutfitForDetails.isActualUserOutfit && (
-                <Alert variant="destructive" className="mt-4">
-                    <ImageOff className="h-5 w-5" />
-                    <AlertTitle>Image Validity Issue</AlertTitle>
-                    <AlertDescription>{selectedOutfitForDetails.validityCritique}</AlertDescription>
-                </Alert>
-            )}
-
-            <div className="text-center">
-              <p className="text-5xl sm:text-6xl font-bold text-primary">{selectedOutfitForDetails.rating.toFixed(1)}<span className="text-2xl sm:text-3xl text-muted-foreground">/10</span></p>
-              <div className="flex justify-center mt-1 sm:mt-2">
-                {[...Array(10)].map((_, i) => (
-                  <Star key={i} className={`h-6 w-6 sm:h-7 sm:w-7 ${i < Math.round(selectedOutfitForDetails.rating) ? 'text-accent fill-accent' : 'text-muted-foreground/50'}`} />
-                ))}
+            {imageBase64Preview && (
+              <div className="mt-3 sm:mt-4 border-2 border-dashed border-primary/30 rounded-lg overflow-hidden shadow-inner p-2 bg-muted/20">
+                <Image src={imageBase64Preview} alt="Outfit preview" width={500} height={500} className="object-contain w-full h-auto max-h-[300px] sm:max-h-[400px] rounded-md" data-ai-hint="fashion clothing detail" />
               </div>
-            </div>
-
-            <Separator className="my-4 sm:my-6" />
-
-            <div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-1 sm:mb-2 flex items-center"><MessageSquareQuote className="mr-2 h-5 w-5 text-primary"/>Stylist's Verdict:</h3>
-              <p className="text-sm sm:text-base text-foreground/90 italic">{selectedOutfitForDetails.complimentOrCritique || "No specific verdict provided."}</p>
-            </div>
-
-            <div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-1 sm:mb-2 flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Color Suggestions:</h3>
-              {selectedOutfitForDetails.colorSuggestions && selectedOutfitForDetails.colorSuggestions.length > 0 ? (
-                <ul className="list-disc list-inside space-y-1 text-sm sm:text-base text-foreground/90 pl-2">
-                  {selectedOutfitForDetails.colorSuggestions.map((color, index) => <li key={index}>{color}</li>)}
-                </ul>
-              ): (<p className="text-sm sm:text-base text-muted-foreground">No specific color suggestions provided.</p>)}
-            </div>
-
-            <div>
-              <h3 className="text-lg sm:text-xl font-semibold mb-1 sm:mb-2 flex items-center"><Shirt className="mr-2 h-5 w-5 text-primary"/>Look Suggestions:</h3>
-              <p className="text-sm sm:text-base text-foreground/90">{selectedOutfitForDetails.lookSuggestions || "No specific look suggestions provided."}</p>
-            </div>
-
-            {selectedOutfitForDetails.outfitImageURL && (
-                <div className="mt-3 sm:mt-4 border rounded-lg overflow-hidden shadow-inner">
-                    <Image src={selectedOutfitForDetails.outfitImageURL} alt="Processed outfit" width={300} height={300} className="object-contain w-full h-auto max-h-[200px] sm:max-h-[250px]" data-ai-hint="fashion model"/>
-                </div>
             )}
-            
-            <Button variant="outline" onClick={() => setSelectedOutfitForDetails(null)} className="w-full sm:w-auto">
-                Back to Rated Outfits List
-            </Button>
 
+            <Alert variant="default" className="bg-secondary/30 border-secondary">
+              <Info className="h-4 w-4 text-secondary-foreground" />
+              <AlertTitle className="font-semibold">AI Usage: {aiUsage.count}/{currentAiLimit} Analyses Used Today</AlertTitle>
+              <AlertDescription className="text-xs sm:text-sm">
+                {aiUsage.limitReached ? `You've reached your daily AI analysis limit. Resets 6 AM local time.` : `Get up to ${currentAiLimit} AI ratings per day (resets 6 AM).`}
+              </AlertDescription>
+            </Alert>
 
+            {!hasSubmittedToday && isSubmissionNotYetOpen && timeLeftToSubmissionOpen > 0 && (
+              <Alert variant="default" className="bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300">
+                <Clock className="h-4 w-4" />
+                <AlertTitle>Submissions Open Soon</AlertTitle>
+                <AlertDescription className="text-xs sm:text-sm">
+                  Today's submission window (6 AM - 2:55 PM) for the leaderboard opens in: <span className="font-semibold">{formatTimeLeft(timeLeftToSubmissionOpen)}</span>.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {!hasSubmittedToday && !isSubmissionWindowOpen && !isSubmissionNotYetOpen && (
+              <Alert variant="destructive">
+                <Ban className="h-4 w-4" />
+                <AlertTitle>Submissions Closed for Today</AlertTitle>
+                <AlertDescription className="text-xs sm:text-sm">
+                  The 2:55 PM deadline for today's leaderboard submissions has passed. Try again tomorrow from 6 AM!
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {hasSubmittedToday && (
+              <Alert variant="default" className="bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400">
+                <ShieldAlert className="h-4 w-4" />
+                <AlertTitle>Submission Complete for Today</AlertTitle>
+                <AlertDescription className="text-xs sm:text-sm">
+                  You've already submitted an outfit for today's leaderboard. Check back tomorrow!
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
           <CardFooter>
-            <Button
-              onClick={handleSubmitToLeaderboard}
-              disabled={submitToLeaderboardButtonDisabled}
-              className="w-full text-base sm:text-lg py-2.5 sm:py-3 bg-accent hover:bg-accent/90 text-accent-foreground"
-            >
-              {isSubmittingToLeaderboard ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-              {submitToLeaderboardButtonText}
+            <Button onClick={handleGetRating} disabled={getRatingDisabled} className="w-full text-base sm:text-lg py-3">
+              {isProcessingAIRating ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
+              Get AI Rating & Suggestions
             </Button>
           </CardFooter>
         </Card>
-      )}
+
+        <div className="md:col-span-1 space-y-6 sm:space-y-8">
+          {isProcessingAIRating && !selectedOutfitForDetails && todaysRatedOutfits.length === 0 && (
+            <Card className="shadow-xl rounded-lg animate-pulse">
+              <CardHeader className="items-center">
+                <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin text-primary" />
+                <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mt-3">Our AI is analyzing your style...</CardTitle>
+              </CardHeader>
+              <CardContent className="text-center">
+                <Progress value={50} className="w-3/4 mx-auto" />
+                <p className="text-xs sm:text-sm text-muted-foreground mt-2">This might take a few moments.</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {todaysRatedOutfits.length > 0 && !selectedOutfitForDetails && (
+            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500">
+              <CardHeader>
+                <CardTitle className="text-xl sm:text-2xl">Today's Rated Looks</CardTitle>
+                <CardDescription className="text-sm sm:text-base">Review your outfits and choose one to submit.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 sm:space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                {todaysRatedOutfits.map((outfit) => (
+                  <Card key={outfit.localId} className={cn("p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 transition-all hover:shadow-md", outfit.submittedToLeaderboard ? "bg-green-500/10 border-green-500/30" : "bg-card hover:bg-muted/50", !outfit.isActualUserOutfit && "border-destructive/50")}>
+                    <Image src={outfit.outfitImageURLForDisplay} alt="Rated outfit" width={72} height={72} className="rounded-md aspect-square object-cover border-2 border-primary/20 shadow-sm" data-ai-hint="fashion clothing item"/>
+                    <div className="flex-grow text-center sm:text-left">
+                      <p className="text-2xl sm:text-3xl font-bold text-primary">{outfit.rating.toFixed(1)}<span className="text-lg text-muted-foreground">/10</span></p>
+                      {!outfit.isActualUserOutfit && <p className="text-xs text-destructive mt-0.5">{outfit.validityCritique || "AI flagged this image."}</p>}
+                    </div>
+                    <Button
+                      onClick={() => handleSelectOutfitForDetails(outfit)}
+                      disabled={!outfit.isActualUserOutfit || outfit.submittedToLeaderboard}
+                      variant={outfit.submittedToLeaderboard ? "ghost" : "default"}
+                      size="sm"
+                      className="w-full sm:w-auto mt-2 sm:mt-0"
+                    >
+                      {outfit.submittedToLeaderboard ? <><Star className="mr-2 h-4 w-4 text-green-600 fill-green-600"/>Submitted!</> : <><Eye className="mr-2 h-4 w-4"/>Review & Prepare</>}
+                    </Button>
+                  </Card>
+                ))}
+              </CardContent>
+               {hasSubmittedToday && (
+                  <CardFooter>
+                    <Alert variant="default" className="mt-4 bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400 w-full">
+                        <ShieldAlert className="h-5 w-5" />
+                        <AlertTitle>Leaderboard Submission Sent!</AlertTitle>
+                        <AlertDescription>
+                            You've successfully submitted an outfit for today. Check the leaderboard later!
+                        </AlertDescription>
+                    </Alert>
+                  </CardFooter>
+                )}
+            </Card>
+          )}
+
+          {selectedOutfitForDetails && (
+            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500">
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle className="text-xl sm:text-2xl flex items-center text-accent">
+                            <Sparkles className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" /> AI Feedback
+                        </CardTitle>
+                        <CardDescription className="text-sm sm:text-base">Here's what our fashion AI thinks.</CardDescription>
+                    </div>
+                     <Button variant="ghost" size="icon" onClick={() => setSelectedOutfitForDetails(null)} className="ml-auto -mt-2 -mr-2 sm:mt-0 sm:mr-0">
+                        <XCircle className="h-5 w-5 text-muted-foreground hover:text-destructive" />
+                        <span className="sr-only">Close details</span>
+                    </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3 sm:space-y-4">
+                {!selectedOutfitForDetails.isActualUserOutfit && (
+                  <Alert variant="destructive">
+                    <ImageOff className="h-5 w-5" />
+                    <AlertTitle>Image Validity Issue</AlertTitle>
+                    <AlertDescription>{selectedOutfitForDetails.validityCritique}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="text-center py-2">
+                  <p className="text-4xl sm:text-5xl font-bold text-primary">{selectedOutfitForDetails.rating.toFixed(1)}<span className="text-xl sm:text-2xl text-muted-foreground">/10</span></p>
+                  <div className="flex justify-center mt-1">
+                    {[...Array(10)].map((_, i) => (
+                      <Star key={i} className={`h-5 w-5 sm:h-6 sm:w-6 ${i < Math.round(selectedOutfitForDetails.rating) ? 'text-accent fill-accent' : 'text-muted-foreground/30'}`} />
+                    ))}
+                  </div>
+                </div>
+
+                <Separator className="my-3 sm:my-4" />
+
+                <div>
+                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><MessageSquareQuote className="mr-2 h-5 w-5 text-primary"/>Stylist's Verdict:</h3>
+                  <p className="text-sm sm:text-base text-foreground/90 italic bg-muted/30 p-2 rounded-md border">{selectedOutfitForDetails.complimentOrCritique || "No specific verdict provided."}</p>
+                </div>
+
+                <div>
+                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Color Suggestions:</h3>
+                  {selectedOutfitForDetails.colorSuggestions && selectedOutfitForDetails.colorSuggestions.length > 0 ? (
+                    <ul className="list-disc list-inside space-y-0.5 text-sm sm:text-base text-foreground/90 pl-3">
+                      {selectedOutfitForDetails.colorSuggestions.map((color, index) => <li key={index}>{color}</li>)}
+                    </ul>
+                  ) : (<p className="text-sm sm:text-base text-muted-foreground italic">No specific color suggestions provided.</p>)}
+                </div>
+
+                <div>
+                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><Shirt className="mr-2 h-5 w-5 text-primary"/>Look Suggestions:</h3>
+                  <p className="text-sm sm:text-base text-foreground/90">{selectedOutfitForDetails.lookSuggestions || "No specific look suggestions provided."}</p>
+                </div>
+
+                {selectedOutfitForDetails.outfitImageURLForDisplay && (
+                  <div className="mt-3 border-2 border-dashed border-primary/30 rounded-lg overflow-hidden shadow-inner p-1 bg-muted/20">
+                    <Image src={selectedOutfitForDetails.outfitImageURLForDisplay} alt="Processed outfit" width={300} height={300} className="object-contain w-full h-auto max-h-[200px] sm:max-h-[250px] rounded" data-ai-hint="model clothing detail"/>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button
+                  onClick={handleSubmitToLeaderboard}
+                  disabled={submitToLeaderboardButtonDisabled}
+                  className="w-full text-base sm:text-lg py-3 bg-accent hover:bg-accent/90 text-accent-foreground"
+                >
+                  {isSubmittingToLeaderboard ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
+                  {submitToLeaderboardButtonText}
+                </Button>
+              </CardFooter>
+            </Card>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

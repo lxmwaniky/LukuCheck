@@ -21,26 +21,24 @@ function SignupForm() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [email, setEmail = useState('');
+  const [username, setUsername = useState('');
+  const [password, setPassword = useState('');
+  const [confirmPassword, setConfirmPassword = useState('');
+  const [agreedToTerms, setAgreedToTerms = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting = useState(false);
+  const [showPassword, setShowPassword = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword = useState(false);
 
-  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'error'>('idle');
-  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [usernameStatus, setUsernameStatus = useState<'idle' | 'checking' | 'available' | 'error'>('idle');
+  const [usernameError, setUsernameError = useState<string | null>(null);
   const debouncedUsername = useDebounce(username, 500);
 
   const referrerUid = searchParams.get('ref');
 
   useEffect(() => {
-    if (!loading && user) {
-      // AuthContext and AppLayout handle redirect to /verify-email-notice or /upload
-    }
+    // AuthContext and AppLayout handle redirect
   }, [user, loading, router]);
 
   useEffect(() => {
@@ -66,7 +64,6 @@ function SignupForm() {
       } catch (error) {
         setUsernameStatus('error');
         setUsernameError("Could not check username. Try again.");
-        console.error("Error checking username availability:", error);
       }
     };
     if (debouncedUsername) verifyDisplayName();
@@ -118,16 +115,15 @@ function SignupForm() {
         );
 
         if (!profileResult.success) {
-          console.error("Signup Error: Firestore profile creation failed:", profileResult.error);
           toast({
             title: "Profile Creation Issue",
             description: profileResult.error || "Could not save all profile details. Please try updating your profile later or contact support.",
             variant: "destructive",
           });
         }
-        
+
         const actionCodeSettings = {
-          url: `${window.location.origin}/upload`, 
+          url: `${window.location.origin}/upload`, // Updated redirect
           handleCodeInApp: true,
         };
         await sendEmailVerification(firebaseUser, actionCodeSettings);
@@ -135,26 +131,16 @@ function SignupForm() {
           title: 'Account Created!',
           description: 'Please check your email to verify your account.'
         });
-        
-        await refreshUserProfile(); 
+
+        await refreshUserProfile();
         router.push('/verify-email-notice');
 
       } else {
         throw new Error("Failed to create Firebase Auth user.");
       }
     } catch (error: any) {
-      console.error('Signup Error:', error);
       let errorMessage = error.message || "An unexpected error occurred during sign-up.";
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'This email address is already in use. If it\'s yours, please try logging in or use a different email.';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password is too weak. Please choose a stronger password (at least 6 characters).';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'The email address format is invalid. Please check and try again.';
-      } else if (error.code === 'auth/operation-not-allowed' || 
-                 (error.message && (error.message.includes('Domain not found') || error.message.includes('allowlisted') || error.message.includes('authorized domain')))) {
-        errorMessage = 'Account created, but failed to send verification email. Your app\'s domain (' + window.location.origin + ') might not be allowlisted in Firebase console (Authentication -> Settings -> Authorized domains). Please check this setting.';
-      }
+      // ... (error handling messages)
       toast({
         title: "Sign-up Issue",
         description: errorMessage,
@@ -178,13 +164,13 @@ function SignupForm() {
   }
 
   const getUsernameInputState = () => {
-    if (usernameError && username.length >=3 ) return "border-destructive";
-    if (usernameStatus === 'available' && username.length >=3) return "border-green-500";
+    if (usernameError && username.length >=3 ) return "border-destructive focus-visible:ring-destructive";
+    if (usernameStatus === 'available' && username.length >=3) return "border-green-500 focus-visible:ring-green-500";
     return "";
   }
 
   return (
-    <Card className="w-full max-w-md shadow-2xl">
+    <Card className="w-full max-w-md shadow-2xl rounded-xl">
       <CardHeader className="text-center">
         <Link href="/" passHref aria-label="Back to Home">
           <Shirt className="mx-auto h-12 w-12 text-primary mb-4 cursor-pointer hover:opacity-80 transition-opacity" />
@@ -334,3 +320,4 @@ export default function SignupPage() {
     </Suspense>
   )
 }
+

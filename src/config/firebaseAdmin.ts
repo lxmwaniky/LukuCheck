@@ -1,6 +1,5 @@
 
 // This file initializes the Firebase Admin SDK for server-side operations.
-
 import admin from 'firebase-admin';
 
 let adminInitialized = false;
@@ -9,40 +8,41 @@ let adminAuth: admin.auth.Auth | null = null;
 let adminStorageService: admin.storage.Storage | null = null;
 
 const serviceAccountBase64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
-const storageBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+let storageBucketName = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
 
-// console.log("--- [ADMIN_SDK_CONFIG] Attempting to initialize Firebase Admin SDK ---");
-// console.log("--- [ADMIN_SDK_CONFIG] Environment Variable Check ---");
+let criticalAdminConfigError = false;
 
 if (!serviceAccountBase64) {
-  console.error("[ADMIN_SDK_CONFIG] CRITICAL: FIREBASE_SERVICE_ACCOUNT_BASE64 environment variable is not set.");
-} 
-// else {
-//   console.log("[ADMIN_SDK_CONFIG] Raw FIREBASE_SERVICE_ACCOUNT_BASE64 (first 10 chars):", serviceAccountBase64.substring(0, 10) + "...");
-// }
+  console.error("[ADMIN_SDK_CONFIG_ERROR] CRITICAL: FIREBASE_SERVICE_ACCOUNT_BASE64 environment variable is not set.");
+  criticalAdminConfigError = true;
+}
 
 if (!storageBucketName) {
-  console.error("[ADMIN_SDK_CONFIG] CRITICAL: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET environment variable is not set.");
-} 
-// else {
-//   console.log("[ADMIN_SDK_CONFIG] Raw NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:", storageBucketName);
-// }
+  console.error("[ADMIN_SDK_CONFIG_ERROR] CRITICAL: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET environment variable is not set.");
+  criticalAdminConfigError = true;
+}
 
 
-if (serviceAccountBase64 && storageBucketName) {
+if (!criticalAdminConfigError) {
   try {
-    const serviceAccountJsonString = Buffer.from(serviceAccountBase64, 'base64').toString('utf-8');
+    const serviceAccountJsonString = Buffer.from(serviceAccountBase64!, 'base64').toString('utf-8');
     const serviceAccount = JSON.parse(serviceAccountJsonString);
+
+    if (storageBucketName!.endsWith('.firebasestorage.app')) {
+      // Let's assume the user provides what the Admin SDK expects for `storageBucket` property.
+    } else if (!storageBucketName!.endsWith('.appspot.com') && !storageBucketName!.includes('.')) {
+        storageBucketName = `${storageBucketName}.appspot.com`;
+    }
 
     if (admin.apps.length === 0) {
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
         storageBucket: storageBucketName, 
       });
-      // console.log("[ADMIN_SDK_CONFIG] Firebase Admin SDK initialized successfully.");
       adminInitialized = true;
     } else {
-      // console.log("[ADMIN_SDK_CONFIG] Firebase Admin SDK was already initialized.");
+      // If already initialized (e.g. in a previous serverless function invocation), use existing app.
+      // Ensure our modules are set if this path is taken and they weren't on first init.
       adminInitialized = true; 
     }
     
@@ -53,28 +53,21 @@ if (serviceAccountBase64 && storageBucketName) {
     }
 
   } catch (error: any) {
-    console.error("[ADMIN_SDK_CONFIG] Firebase Admin SDK initialization error during admin.initializeApp():", error.message);
-    if (error.message.includes("JSON.parse")) {
-        console.error("[ADMIN_SDK_CONFIG] This often means the FIREBASE_SERVICE_ACCOUNT_BASE64 string is not a valid base64 encoding of the service account JSON, or the JSON itself is malformed.");
-    } else if (error.message.includes("storageBucket")) {
-        console.error("[ADMIN_SDK_CONFIG] This might be related to the storageBucket name format or permissions.");
-    }
-    // console.error("[ADMIN_SDK_CONFIG] Full error object:", error);
+    console.error("[ADMIN_SDK_CONFIG_ERROR] Firebase Admin SDK initialization error:", error.message);
     adminInitialized = false;
   }
 } else {
-  console.error("[ADMIN_SDK_CONFIG] Admin SDK not initialized due to missing environment variables.");
+  // Error messages already printed above.
   adminInitialized = false;
 }
-// console.log(`[ADMIN_SDK_CONFIG] Final adminInitialized status when module loaded: ${adminInitialized}`);
-
 
 export async function getAdminStorageBucket() {
   if (adminStorageService && adminInitialized) {
     return adminStorageService.bucket();
   }
-  console.warn("[ADMIN_SDK_CONFIG] Admin Storage not initialized or Admin SDK init failed, cannot get bucket.");
   return null;
 }
 
 export { adminDb, adminAuth, adminInitialized };
+
+    

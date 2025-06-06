@@ -13,18 +13,18 @@ import { Mail, Lock, LogIn, Loader2, Eye, EyeOff, ArrowLeft, Shirt } from 'lucid
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
-  const { user, loading } = useAuth(); 
+  const { user, loading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail = useState('');
+  const [password, setPassword = useState('');
+  const [isSubmitting, setIsSubmitting = useState(false);
+  const [showPassword, setShowPassword = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
       if (user.emailVerified) {
-        router.replace('/upload');
+        router.replace('/upload'); // Updated redirect
       } else {
         router.replace('/verify-email-notice');
       }
@@ -36,10 +36,8 @@ export default function LoginPage() {
     setIsSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // AuthContext will handle user state update and redirection via useEffect
       toast({ title: 'Login Successful!', description: 'Welcome back!' });
     } catch (error: any) {
-      console.error('Login Error:', error);
       let errorMessage = "An unexpected error occurred during sign-in.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         errorMessage = "Invalid email or password. Please try again.";
@@ -69,14 +67,14 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-background to-secondary p-4">
-      <Card className="w-full max-w-md shadow-2xl">
+      <Card className="w-full max-w-md shadow-2xl rounded-xl">
         <CardHeader className="text-center">
           <Link href="/" passHref aria-label="Back to Home">
             <Shirt className="mx-auto h-12 w-12 text-primary mb-4 cursor-pointer hover:opacity-80 transition-opacity" />
           </Link>
-          <CardTitle className="text-3xl font-bold text-primary">Welcome Back to LukuCheck!</CardTitle>
+          <CardTitle className="text-3xl font-bold text-primary">Welcome Back!</CardTitle>
           <CardDescription className="text-md">
-            Sign in to continue your style journey.
+            Sign in to continue your LukuCheck journey.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
@@ -144,3 +142,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

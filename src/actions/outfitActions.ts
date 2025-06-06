@@ -28,7 +28,7 @@ export async function processOutfitWithAI(
     };
 
   } catch (error: any) {
-    console.error('Error processing outfit with AI:', error);
+    // console.error('Error processing outfit with AI:', error);
     let errorMessage = 'Failed to process outfit with AI.';
     if (error.message) {
       errorMessage = error.message;
@@ -141,7 +141,7 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
     return { date: leaderboardDate, entries, message };
 
   } catch (error: any) {
-    console.error('Error fetching leaderboard data:', error);
+    // console.error('Error fetching leaderboard data:', error);
     let errorMessage = 'Failed to fetch leaderboard data.';
     if (error.code === 'permission-denied') {
         errorMessage = 'Permission denied to fetch leaderboard data. Check Firestore rules.';

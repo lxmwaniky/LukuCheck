@@ -1,6 +1,6 @@
 
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
 import { getLeaderboardData } from '@/actions/outfitActions';
 import type { LeaderboardEntry as ServerLeaderboardEntry } from '@/actions/outfitActions';
@@ -8,8 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Trophy, CalendarDays, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Clock, Users, ChevronLeft, ChevronRight, Instagram, Link as LinkIcon, Sparkles, Flame, XCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogClose } from '@/components/ui/dialog';
+import { Trophy, CalendarDays, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Clock, Users, ChevronLeft, ChevronRight, Instagram, Link as LinkIcon, Sparkles, Flame, XCircle, RefreshCw } from 'lucide-react';
 import { format, subDays, set, isBefore, isAfter, addDays } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -19,14 +19,10 @@ import Link from 'next/link';
 import { LukuBadge } from '@/components/LukuBadge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-// --- Service Suspension Flag ---
-const IS_SERVICE_SUSPENDED = true;
-// --- End Service Suspension Flag ---
-
-
-type LeaderboardEntry = ServerLeaderboardEntry; 
+type LeaderboardEntry = ServerLeaderboardEntry;
 
 const ITEMS_PER_PAGE = 10;
+const LEADERBOARD_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
@@ -46,79 +42,73 @@ function LeaderboardPage() {
   const [allEntries, setAllEntries] = useState<LeaderboardEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | undefined>('Initializing...');
   const [isLoading, setIsLoading] = useState(true);
+  const [isManuallyRefreshing, setIsManuallyRefreshing] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
-  const [currentLeaderboardDate, setCurrentLeaderboardDate] = useState<string>(''); 
-  const [timeLeftToRelease, setTimeLeftToRelease] = useState<number>(0); 
+  const [currentLeaderboardDate, setCurrentLeaderboardDate] = useState<string>('');
+  const [timeLeftToRelease, setTimeLeftToRelease] = useState<number>(0);
 
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    if (IS_SERVICE_SUSPENDED) {
-      setIsLoading(false);
-      setStatusMessage('Leaderboard is temporarily suspended.');
-      setAllEntries([]);
-      return;
+  const determineLeaderboardStateAndFetch = useCallback(async (isManualRefresh = false) => {
+    if (!isManualRefresh) setIsLoading(true); else setIsManuallyRefreshing(true);
+
+    const now = new Date();
+    let dateStringToFetch: string;
+    let displayDate: Date;
+
+    const endOfViewingPrevDayLeaderboard = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
+
+    if (isBefore(now, endOfViewingPrevDayLeaderboard)) {
+      displayDate = subDays(now, 1);
+    } else {
+      displayDate = new Date(now);
     }
+    dateStringToFetch = toYYYYMMDD(displayDate);
+    setCurrentLeaderboardDate(dateStringToFetch);
 
-    const determineLeaderboardStateAndFetch = async () => {
-      setIsLoading(true);
-      const now = new Date();
-      let dateStringToFetch: string;
-      let displayDate: Date;
+    const releaseDateTimeForFetchedDate = set(displayDate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 });
 
-      const endOfViewingPrevDayLeaderboard = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 }); // 2:55 PM today
-
-      if (isBefore(now, endOfViewingPrevDayLeaderboard)) {
-        displayDate = subDays(now, 1);
-      } else {
-        displayDate = new Date(now);
-      }
-      dateStringToFetch = toYYYYMMDD(displayDate);
-      setCurrentLeaderboardDate(dateStringToFetch);
-
-      const releaseDateTimeForFetchedDate = set(displayDate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 }); 
-
-      if (isAfter(now, releaseDateTimeForFetchedDate)) {
-        try {
-          const data = await getLeaderboardData({ leaderboardDate: dateStringToFetch });
-          setAllEntries(data.entries);
-          setCurrentPage(1);
-          if (data.error) {
-            setStatusMessage(data.error);
-          } else if (data.entries.length === 0) {
-            setStatusMessage(`No submissions found for ${formatDate(dateStringToFetch)}.`);
-          } else {
-            setStatusMessage(`Displaying top ${data.entries.length} entries for ${formatDate(dateStringToFetch)}.`);
-          }
-        } catch (error) {
-          // console.error('Failed to fetch leaderboard data:', error);
-          setStatusMessage('Could not load leaderboard data. Please try again later.');
+    if (isAfter(now, releaseDateTimeForFetchedDate)) {
+      try {
+        const data = await getLeaderboardData({ leaderboardDate: dateStringToFetch });
+        setAllEntries(data.entries);
+        setCurrentPage(1);
+        if (data.error) {
+          setStatusMessage(data.error);
+        } else if (data.entries.length === 0) {
+          setStatusMessage(`No submissions found for ${formatDate(dateStringToFetch)}.`);
+        } else {
+          setStatusMessage(`Displaying top ${data.entries.length} entries for ${formatDate(dateStringToFetch)}.`);
         }
-         setTimeLeftToRelease(0);
-      } else {
-        setTimeLeftToRelease(releaseDateTimeForFetchedDate.getTime() - now.getTime());
-        setStatusMessage(`Leaderboard for ${formatDate(dateStringToFetch)} will be available at 3 PM.`);
-        setAllEntries([]);
+      } catch (error) {
+        setStatusMessage('Could not load leaderboard data. Please try again later.');
       }
-      setIsLoading(false);
-    };
-
-    determineLeaderboardStateAndFetch();
-    const interval = setInterval(determineLeaderboardStateAndFetch, 60000);
-
-    return () => clearInterval(interval);
+       setTimeLeftToRelease(0);
+    } else {
+      setTimeLeftToRelease(releaseDateTimeForFetchedDate.getTime() - now.getTime());
+      setStatusMessage(`Leaderboard for ${formatDate(dateStringToFetch)} will be available at 3 PM.`);
+      setAllEntries([]);
+    }
+    if (!isManualRefresh) setIsLoading(false); else setIsManuallyRefreshing(false);
   }, []);
 
+
   useEffect(() => {
-    if (IS_SERVICE_SUSPENDED) return;
+    determineLeaderboardStateAndFetch();
+     const intervalId = setInterval(() => {
+        determineLeaderboardStateAndFetch();
+    }, LEADERBOARD_REFRESH_INTERVAL);
+    return () => clearInterval(intervalId);
+  }, [determineLeaderboardStateAndFetch]);
+
+  useEffect(() => {
     let timerInterval: NodeJS.Timeout | null = null;
     if (timeLeftToRelease > 0 && statusMessage?.includes('will be available')) {
         timerInterval = setInterval(() => {
             setTimeLeftToRelease(prevTime => {
                 if (prevTime <= 1000) {
                     if(timerInterval) clearInterval(timerInterval);
-                    setIsLoading(true);
-                    setTimeout(() => setIsLoading(false), 50);
+                    determineLeaderboardStateAndFetch();
                     return 0;
                 }
                 return prevTime - 1000;
@@ -128,12 +118,12 @@ function LeaderboardPage() {
     return () => {
         if (timerInterval) clearInterval(timerInterval);
     };
-  }, [timeLeftToRelease, statusMessage]);
+  }, [timeLeftToRelease, statusMessage, determineLeaderboardStateAndFetch]);
 
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
-    const date = new Date(dateString + 'T00:00:00Z'); 
+    const date = new Date(dateString + 'T00:00:00Z'); // Ensure UTC interpretation for consistency
     return format(date, "MMMM d, yyyy");
   };
 
@@ -153,67 +143,67 @@ function LeaderboardPage() {
     setCurrentPage((prev) => Math.min(totalPages, prev + 1));
   };
 
+  const handleManualRefresh = () => {
+    determineLeaderboardStateAndFetch(true);
+  }
+
   const getRank = (index: number) => {
     return (currentPage - 1) * ITEMS_PER_PAGE + index + 1;
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <Card className="shadow-xl mb-6">
-        <CardHeader className="text-center px-4 py-6 sm:px-6 sm:py-8">
-          <Users className="h-12 w-12 sm:h-16 sm:w-16 text-accent mx-auto mb-3 sm:mb-4" />
+    <div className="max-w-4xl mx-auto py-6 sm:py-8">
+      <Card className="shadow-xl rounded-xl mb-6 sm:mb-8">
+        <CardHeader className="text-center px-4 py-6 sm:px-6 sm:py-8 bg-primary/5 rounded-t-xl">
+            <div className="flex items-center justify-center mb-3 sm:mb-4">
+                <Users className="h-12 w-12 sm:h-16 sm:w-16 text-accent animate-bounce" />
+            </div>
           <CardTitle className="text-3xl sm:text-4xl font-bold">Daily Style Leaderboard</CardTitle>
-          {currentLeaderboardDate && !IS_SERVICE_SUSPENDED && (
+          {currentLeaderboardDate && (
             <CardDescription className="text-base sm:text-lg text-muted-foreground flex items-center justify-center mt-1">
               <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Showing results for: {formatDate(currentLeaderboardDate)}
             </CardDescription>
           )}
-           {!IS_SERVICE_SUSPENDED && (
-             <CardDescription className="text-xs mt-1">
-                (Submissions: 6 AM - 2:55 PM daily. Results: 3 PM daily - 2:55 PM next day)
-            </CardDescription>
-           )}
+           <CardDescription className="text-xs mt-1">
+              (Submissions: 6 AM - 2:55 PM daily. Results: 3 PM daily - 2:55 PM next day)
+          </CardDescription>
+          <Button onClick={handleManualRefresh} variant="outline" size="sm" className="mt-4 mx-auto shadow-sm hover:shadow-md transition-shadow" disabled={isManuallyRefreshing || isLoading}>
+            {isManuallyRefreshing || isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
+            Refresh Leaderboard
+          </Button>
         </CardHeader>
         <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
-          {IS_SERVICE_SUSPENDED ? (
-             <Alert variant="destructive" className="mb-6 mx-2 sm:mx-0">
-                <XCircle className="h-5 w-5" />
-                <AlertTitle>Leaderboard Temporarily Suspended</AlertTitle>
-                <AlertDescription>
-                  The LukuCheck leaderboard is currently unavailable due to service suspension. We appreciate your understanding and hope to have it back up soon.
-                </AlertDescription>
-            </Alert>
-          ) : isLoading ? (
+          {isLoading && !isManuallyRefreshing ? (
             <div className="flex flex-col items-center justify-center py-10">
               <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 animate-spin text-primary mb-4" />
               <p className="text-base sm:text-lg text-muted-foreground">Fetching the latest rankings...</p>
             </div>
           ) : !isLeaderboardReleased && timeLeftToRelease > 0 ? (
-             <Alert variant="default" className="mb-6 bg-secondary mx-2 sm:mx-0">
+             <Alert variant="default" className="mb-6 bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300 mx-2 sm:mx-0 rounded-lg">
               <Clock className="h-5 w-5" />
-              <AlertTitle>Leaderboard Not Yet Released</AlertTitle>
+              <AlertTitle className="font-semibold">Leaderboard Not Yet Released</AlertTitle>
               <AlertDescription>
                 Leaderboard for {formatDate(currentLeaderboardDate)} will be available at 3 PM.
                 Releases in: <span className="font-semibold">{formatTimeLeft(timeLeftToRelease)}</span>.
               </AlertDescription>
             </Alert>
           ) : statusMessage && displayedEntries.length === 0 && !statusMessage.toLowerCase().includes("error") && isLeaderboardReleased ? (
-             <Alert variant="default" className="mb-6 bg-secondary mx-2 sm:mx-0">
+             <Alert variant="default" className="mb-6 bg-secondary/50 border-secondary mx-2 sm:mx-0 rounded-lg">
               <Info className="h-5 w-5" />
-              <AlertTitle>Leaderboard Status</AlertTitle>
+              <AlertTitle className="font-semibold">Leaderboard Status</AlertTitle>
               <AlertDescription>{statusMessage}</AlertDescription>
             </Alert>
           ) : statusMessage && statusMessage.toLowerCase().includes("error") ? (
-             <Alert variant="destructive" className="mb-6 mx-2 sm:mx-0">
+             <Alert variant="destructive" className="mb-6 mx-2 sm:mx-0 rounded-lg">
               <Info className="h-5 w-5" />
-              <AlertTitle>Error Loading Leaderboard</AlertTitle>
+              <AlertTitle className="font-semibold">Error Loading Leaderboard</AlertTitle>
               <AlertDescription>{statusMessage}</AlertDescription>
             </Alert>
           ): displayedEntries.length === 0 && isLeaderboardReleased ? (
-            <Alert variant="default" className="mb-6 mx-2 sm:mx-0">
+            <Alert variant="default" className="mb-6 bg-secondary/50 border-secondary mx-2 sm:mx-0 rounded-lg">
               <Info className="h-5 w-5" />
-              <AlertTitle>No Submissions Found</AlertTitle>
+              <AlertTitle className="font-semibold">No Submissions Found</AlertTitle>
               <AlertDescription>
                 No outfits have been submitted for {formatDate(currentLeaderboardDate)} yet, or results are still processing.
               </AlertDescription>
@@ -221,21 +211,21 @@ function LeaderboardPage() {
           ) : (
             <>
             {statusMessage && !statusMessage.toLowerCase().includes("error") && (
-                <Alert variant="default" className="mb-6 bg-secondary/50 border-secondary mx-2 sm:mx-0">
+                <Alert variant="default" className="mb-6 bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400 mx-2 sm:mx-0 rounded-lg">
                     <Info className="h-5 w-5" />
-                    <AlertTitle>Leaderboard Info</AlertTitle>
+                    <AlertTitle className="font-semibold">Leaderboard Info</AlertTitle>
                     <AlertDescription>{statusMessage}</AlertDescription>
                 </Alert>
             )}
-            <div className="overflow-x-auto rounded-lg border">
+            <div className="overflow-x-auto rounded-lg border shadow-sm">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="w-[50px] sm:w-[60px] text-center px-2 sm:px-4">Rank</TableHead>
-                    <TableHead className="px-2 sm:px-4">User</TableHead>
-                    <TableHead className="w-[70px] text-center px-2 sm:px-4">Streak</TableHead>
-                    <TableHead className="text-center px-2 sm:px-4">Outfit</TableHead>
-                    <TableHead className="text-right px-2 sm:px-4">Score</TableHead>
+                    <TableHead className="w-[50px] sm:w-[70px] text-center px-2 sm:px-4 font-semibold">Rank</TableHead>
+                    <TableHead className="px-2 sm:px-4 font-semibold">User</TableHead>
+                    <TableHead className="w-[70px] text-center px-2 sm:px-4 font-semibold">Streak</TableHead>
+                    <TableHead className="text-center px-2 sm:px-4 font-semibold">Outfit</TableHead>
+                    <TableHead className="text-right px-2 sm:px-4 font-semibold">Score</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -246,20 +236,21 @@ function LeaderboardPage() {
                     <TableRow
                         key={entry.id}
                         className={cn(
-                            rank <= 3 ? 'bg-accent/10' : '',
-                            isCurrentUser ? 'bg-primary/20 ring-2 ring-primary ring-offset-1' : ''
+                            rank <= 3 ? 'bg-accent/5 dark:bg-accent/10' : '',
+                            isCurrentUser ? 'bg-primary/10 dark:bg-primary/20 ring-2 ring-primary ring-offset-1' : '',
+                            "hover:bg-muted/60 transition-colors"
                         )}
                     >
                       <TableCell className="font-bold text-lg sm:text-xl text-center px-2 sm:px-4">
-                        {rank === 1 && <Trophy className="h-5 w-5 sm:h-6 sm:w-6 inline-block text-yellow-400" />}
-                        {rank === 2 && <Trophy className="h-5 w-5 sm:h-6 sm:w-6 inline-block text-slate-400" />}
-                        {rank === 3 && <Trophy className="h-5 w-5 sm:h-6 sm:w-6 inline-block text-yellow-600" />}
+                        {rank === 1 && <Trophy className="h-5 w-5 sm:h-6 sm:w-6 inline-block text-yellow-400 fill-yellow-400" />}
+                        {rank === 2 && <Trophy className="h-5 w-5 sm:h-6 sm:w-6 inline-block text-slate-400 fill-slate-400" />}
+                        {rank === 3 && <Trophy className="h-5 w-5 sm:h-6 sm:w-6 inline-block text-yellow-600 fill-yellow-600" />}
                         {rank > 3 && `#${rank}`}
                         {rank <= 3 && <span className="sr-only">#{rank}</span>}
                       </TableCell>
                       <TableCell className="px-2 sm:px-4">
                         <div className="flex items-center gap-2 sm:gap-3">
-                          <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border-2 border-primary/50">
+                          <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border-2 border-primary/50 shadow-sm">
                             <AvatarImage src={entry.userPhotoURL || undefined} alt={entry.username || 'User'} />
                             <AvatarFallback>{(entry.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                           </Avatar>
@@ -285,24 +276,24 @@ function LeaderboardPage() {
                       </TableCell>
                       <TableCell className="text-center font-medium px-2 sm:px-4">
                         {entry.currentStreak && entry.currentStreak > 0 ? (
-                          <div className="flex items-center justify-center">
-                            <Flame className="h-4 w-4 text-destructive mr-1" />
+                          <div className="flex items-center justify-center text-destructive">
+                            <Flame className="h-4 w-4 mr-1" />
                             {entry.currentStreak}
                           </div>
                         ) : (
-                          '0'
+                          <span className="text-muted-foreground">0</span>
                         )}
                       </TableCell>
                       <TableCell className="text-center px-2 sm:px-4">
                         <DialogTrigger asChild>
-                          <button onClick={() => setSelectedEntry(entry)} className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-md">
+                          <button onClick={() => setSelectedEntry(entry)} className="focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-md group">
                             <Image
                               src={entry.outfitImageURL}
                               alt={`Outfit by ${entry.username}`}
                               width={48}
                               height={48}
-                              className="rounded-md object-cover mx-auto aspect-square border shadow-sm hover:opacity-80 transition-opacity sm:w-12 sm:h-12"
-                              data-ai-hint="fashion clothing"
+                              className="rounded-md object-cover mx-auto aspect-square border shadow-sm group-hover:opacity-80 group-hover:scale-105 transition-all sm:w-12 sm:h-12"
+                              data-ai-hint="fashion clothing miniature"
                             />
                           </button>
                         </DialogTrigger>
@@ -348,25 +339,19 @@ function LeaderboardPage() {
         </CardContent>
       </Card>
 
-      {!IS_SERVICE_SUSPENDED && (
-          <Alert variant="default" className="mt-8 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 border-primary/20 shadow-lg">
-            <Sparkles className="h-5 w-5 text-accent" />
-            <AlertTitle className="text-xl font-semibold text-primary">✨ Premium Feature Coming Soon: Private Leaderboards!</AlertTitle>
-            <AlertDescription className="text-muted-foreground mt-1">
-              Get ready to create your own private style challenges! Compete with up to 50 friends and showcase your unique fashion sense.
-              <div className="mt-3">
-                <Button variant="secondary" disabled>Learn More (Coming Soon)</Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-      )}
+      <Alert variant="default" className="mt-8 sm:mt-10 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 border-primary/20 shadow-lg rounded-xl">
+        <Sparkles className="h-5 w-5 text-accent" />
+        <AlertTitle className="text-lg sm:text-xl font-semibold text-primary">✨ Exciting Features Coming Soon!</AlertTitle>
+        <AlertDescription className="text-muted-foreground mt-1 text-sm sm:text-base">
+          We're working on new ways to enhance your LukuCheck experience, including private leaderboards to challenge your friends!
+        </AlertDescription>
+      </Alert>
 
-
-      {selectedEntry && !IS_SERVICE_SUSPENDED && (
-        <DialogContent className="sm:max-w-lg p-0">
-          <DialogHeader className="p-6 pb-4 border-b">
+      {selectedEntry && (
+        <DialogContent className="sm:max-w-lg p-0 rounded-xl overflow-hidden shadow-2xl">
+          <DialogHeader className="p-4 sm:p-6 pb-3 sm:pb-4 border-b bg-muted/30">
             <div className="flex items-center space-x-3 mb-2">
-                <Avatar className="h-12 w-12 border-2 border-primary">
+                <Avatar className="h-12 w-12 sm:h-14 sm:w-14 border-2 border-primary shadow-sm">
                     <AvatarImage src={selectedEntry.userPhotoURL || undefined} alt={selectedEntry.username || 'User'} />
                     <AvatarFallback>{(selectedEntry.username || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
@@ -375,71 +360,82 @@ function LeaderboardPage() {
                         {selectedEntry.username || 'Anonymous User'}
                         <LukuBadge lukuPoints={selectedEntry.lukuPoints} />
                     </DialogTitle>
-                    <DialogDescription>
+                    <DialogDescription className="text-xs sm:text-sm">
                         Feedback for {formatDate(currentLeaderboardDate)}
                     </DialogDescription>
                 </div>
+                 <DialogClose asChild>
+                    <Button variant="ghost" size="icon" className="ml-auto rounded-full h-8 w-8">
+                        <XCircle className="h-5 w-5" />
+                        <span className="sr-only">Close</span>
+                    </Button>
+                </DialogClose>
             </div>
-             <div className="flex items-center gap-2 pt-1">
+             <div className="flex items-center gap-1.5 pt-1">
                 {selectedEntry.tiktokUrl && (
                     <Link href={selectedEntry.tiktokUrl} target="_blank" rel="noopener noreferrer" aria-label={`${selectedEntry.username}'s TikTok Profile`}>
-                        <Button variant="ghost" size="sm" className="text-xs px-2 py-1 h-auto">
-                            <LinkIcon className="h-3.5 w-3.5 mr-1.5" /> TikTok
+                        <Button variant="ghost" size="sm" className="text-xs px-2 py-1 h-auto text-muted-foreground hover:text-primary">
+                            <LinkIcon className="h-3.5 w-3.5 mr-1" /> TikTok
                         </Button>
                     </Link>
                 )}
                 {selectedEntry.instagramUrl && (
                     <Link href={selectedEntry.instagramUrl} target="_blank" rel="noopener noreferrer" aria-label={`${selectedEntry.username}'s Instagram Profile`}>
-                         <Button variant="ghost" size="sm" className="text-xs px-2 py-1 h-auto">
-                            <Instagram className="h-3.5 w-3.5 mr-1.5" /> Instagram
+                         <Button variant="ghost" size="sm" className="text-xs px-2 py-1 h-auto text-muted-foreground hover:text-primary">
+                            <Instagram className="h-3.5 w-3.5 mr-1" /> Instagram
                         </Button>
                     </Link>
                 )}
             </div>
           </DialogHeader>
-          <div className="px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
-            <div className="border rounded-lg overflow-hidden shadow-md">
+          <div className="px-4 sm:px-6 py-4 space-y-4 max-h-[65vh] overflow-y-auto">
+            <div className="border rounded-lg overflow-hidden shadow-md bg-muted/20">
               <Image
                 src={selectedEntry.outfitImageURL}
                 alt={`Outfit by ${selectedEntry.username}`}
                 width={600}
                 height={600}
                 className="object-contain w-full h-auto max-h-[300px] sm:max-h-[400px]"
-                data-ai-hint="fashion clothing detailed"
+                data-ai-hint="fashion model clothing"
               />
             </div>
-            <div className="text-center">
-              <p className="text-5xl font-bold text-primary">{selectedEntry.rating.toFixed(1)}<span className="text-2xl text-muted-foreground">/10</span></p>
+            <div className="text-center py-2">
+              <p className="text-4xl sm:text-5xl font-bold text-primary">{selectedEntry.rating.toFixed(1)}<span className="text-xl sm:text-2xl text-muted-foreground">/10</span></p>
               <div className="flex justify-center mt-1">
                 {[...Array(10)].map((_, i) => (
-                  <Star key={i} className={`h-6 w-6 ${i < Math.round(selectedEntry.rating) ? 'text-accent fill-accent' : 'text-muted-foreground/50'}`} />
+                  <Star key={i} className={`h-5 w-5 sm:h-6 sm:w-6 ${i < Math.round(selectedEntry.rating) ? 'text-accent fill-accent' : 'text-muted-foreground/30'}`} />
                 ))}
               </div>
             </div>
 
-            <Separator className="my-4" />
+            <Separator className="my-3 sm:my-4" />
 
-            <div>
-              <h3 className="text-lg font-semibold mb-1 flex items-center"><MessageSquareQuote className="mr-2 h-5 w-5 text-primary"/>Stylist's Verdict:</h3>
-              <p className="text-sm text-foreground/90 italic">{selectedEntry.complimentOrCritique || "No verdict provided."}</p>
+            <div className="space-y-1">
+              <h3 className="text-md sm:text-lg font-semibold flex items-center"><MessageSquareQuote className="mr-2 h-5 w-5 text-primary"/>Stylist's Verdict:</h3>
+              <p className="text-sm sm:text-base text-foreground/90 italic bg-muted/30 p-2.5 rounded-md border">{selectedEntry.complimentOrCritique || "No verdict provided."}</p>
             </div>
 
             {selectedEntry.colorSuggestions && selectedEntry.colorSuggestions.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-1 flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Color Suggestions:</h3>
-                <ul className="list-disc list-inside space-y-1 text-sm text-foreground/90 pl-2">
+              <div className="space-y-1">
+                <h3 className="text-md sm:text-lg font-semibold flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Color Suggestions:</h3>
+                <ul className="list-disc list-inside space-y-0.5 text-sm sm:text-base text-foreground/90 pl-3">
                   {selectedEntry.colorSuggestions.map((color, index) => <li key={index}>{color}</li>)}
                 </ul>
               </div>
             )}
 
             {selectedEntry.lookSuggestions && (
-              <div>
-                <h3 className="text-lg font-semibold mb-1 flex items-center"><Shirt className="mr-2 h-5 w-5 text-primary"/>Look Suggestions:</h3>
-                <p className="text-sm text-foreground/90">{selectedEntry.lookSuggestions}</p>
+              <div className="space-y-1">
+                <h3 className="text-md sm:text-lg font-semibold flex items-center"><Shirt className="mr-2 h-5 w-5 text-primary"/>Look Suggestions:</h3>
+                <p className="text-sm sm:text-base text-foreground/90">{selectedEntry.lookSuggestions}</p>
               </div>
             )}
           </div>
+           <div className="px-4 sm:px-6 py-3 border-t bg-muted/30">
+                <DialogClose asChild>
+                    <Button variant="outline" className="w-full">Close</Button>
+                </DialogClose>
+            </div>
         </DialogContent>
       )}
     </div>
@@ -449,12 +445,10 @@ function LeaderboardPage() {
 function LeaderboardPageWrapper() {
     return (
         <Dialog>
-            <LeaderboardPageActual />
+            <LeaderboardPage />
         </Dialog>
     )
 }
 
-// Renaming original export to avoid conflict, and because Dialog needs to wrap it
-const LeaderboardPageActual = LeaderboardPage;
 export default LeaderboardPageWrapper;
 

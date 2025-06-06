@@ -1,11 +1,12 @@
 
 'use client';
 import type { User as FirebaseUser } from 'firebase/auth';
-import { auth, db }  from '@/config/firebase';
+import { auth, db, isFirebaseConfigValid }  from '@/config/firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp, getDoc, Unsubscribe, Timestamp, updateDoc } from 'firebase/firestore';
 import type { ReactNode} from 'react';
-import { createContext, useContext, useEffect, useState } from 'react';
-import { processReferral } from '@/actions/userActions'; 
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { processReferral } from '@/actions/userActions';
+import { AlertTriangle } from 'lucide-react';
 
 export type UserRole = 'user' | 'manager' | 'admin';
 
@@ -23,13 +24,13 @@ export interface UserProfile {
   lukuPoints?: number;
   referredBy?: string | null;
   referralPointsAwarded?: boolean;
-  tiktokPointsAwarded?: boolean; 
+  tiktokPointsAwarded?: boolean;
   instagramPointsAwarded?: boolean;
-  badges?: string[]; 
+  badges?: string[];
   currentStreak?: number;
-  lastSubmissionDate?: string | null; 
+  lastSubmissionDate?: string | null;
   lastTop3BonusDate?: string | null;
-  role?: UserRole; 
+  role?: UserRole;
 }
 
 export interface AuthContextType {
@@ -46,17 +47,39 @@ const AuthContext = createContext<AuthContextType>({
   refreshUserProfile: async () => {},
 });
 
+const MissingFirebaseConfigErrorDisplay = () => (
+  <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-background text-foreground">
+    <AlertTriangle className="w-16 h-16 text-destructive mb-4" />
+    <h1 className="text-2xl font-bold text-destructive mb-2">Firebase Configuration Error</h1>
+    <p className="text-center mb-1">LukuCheck cannot start because critical Firebase settings are missing.</p>
+    <p className="text-center text-sm text-muted-foreground mb-4 max-w-md">
+      Please ensure all <strong>NEXT_PUBLIC_FIREBASE_...</strong> environment variables
+      (like API Key, Project ID, etc.) are correctly set.
+    </p>
+    <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1 mb-4 text-left max-w-md">
+      <li>If you are developing locally, check your <strong><code>.env.local</code></strong> file in the project root.</li>
+      <li><strong>Restart your development server</strong> after making changes to <code>.env.local</code>.</li>
+      <li>If this app is deployed, check your hosting provider's (e.g., Vercel) environment variable settings.</li>
+    </ul>
+    <p className="text-xs text-muted-foreground">Refer to the project setup instructions or the console logs for more details.</p>
+  </div>
+);
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [referralProcessingAttempted, setReferralProcessingAttempted] = useState(false);
 
+  if (!isFirebaseConfigValid) {
+    return <MissingFirebaseConfigErrorDisplay />;
+  }
 
-  const fetchAndSetUserProfile = async (firebaseUser: FirebaseUser) => {
-    if (!firebaseUser) {
+  const fetchAndSetUserProfile = useCallback(async (firebaseUser: FirebaseUser) => {
+    if (!firebaseUser || !db) {
       setUserProfile(null);
-      setReferralProcessingAttempted(false); 
+      setReferralProcessingAttempted(false);
+      setLoading(false);
       return;
     }
     const userRef = doc(db, 'users', firebaseUser.uid);
@@ -64,7 +87,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
         const profileData = userSnap.data();
-        
+
         if (profileData.lastLogin?.toDate()?.toDateString() !== new Date().toDateString()) {
             await updateDoc(userRef, { lastLogin: serverTimestamp() });
         }
@@ -88,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           currentStreak: profileData.currentStreak || 0,
           lastSubmissionDate: profileData.lastSubmissionDate || null,
           lastTop3BonusDate: profileData.lastTop3BonusDate || null,
-          role: profileData.role || 'user', 
+          role: profileData.role || 'user',
         };
         setUserProfile(loadedProfile);
 
@@ -96,18 +119,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           firebaseUser.emailVerified &&
           loadedProfile.referredBy &&
           !loadedProfile.referralPointsAwarded &&
-          !referralProcessingAttempted 
+          !referralProcessingAttempted
         ) {
-          setReferralProcessingAttempted(true); 
+          setReferralProcessingAttempted(true);
           try {
-            const result = await processReferral(firebaseUser.uid);
-            if (result.success) {
-              // Optionally refresh profile here if points/badges for referrer are immediately needed client-side for referrer
-            } else {
-              // console.error('[AuthContext] Failed to process referral:', result.error);
-            }
+            await processReferral(firebaseUser.uid);
           } catch (e) {
-            // console.error('[AuthContext] Error calling processReferral action:', e);
+            // Error logged server-side if it occurs
           }
         }
 
@@ -118,7 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           username: firebaseUser.displayName,
           photoURL: firebaseUser.photoURL,
           emailVerified: firebaseUser.emailVerified,
-          lukuPoints: 0, 
+          lukuPoints: 0,
           referralPointsAwarded: false,
           tiktokPointsAwarded: false,
           instagramPointsAwarded: false,
@@ -130,32 +148,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     } catch (error) {
-      // console.error("Error fetching/setting user profile from Firestore:", error);
       setUserProfile(null);
     }
-  };
+  }, [referralProcessingAttempted]);
 
-  const refreshUserProfile = async () => {
+  const refreshUserProfile = useCallback(async () => {
+    if (!auth || !auth.currentUser) {
+        setUserProfile(null);
+        setReferralProcessingAttempted(false);
+        setLoading(false);
+        return;
+    }
     setLoading(true);
-    if (auth.currentUser) {
-      await auth.currentUser.reload();
-      const freshFirebaseUser = auth.currentUser;
-      setUser(freshFirebaseUser);
-      if (freshFirebaseUser) {
-        await fetchAndSetUserProfile(freshFirebaseUser);
-      } else {
-        setUserProfile(null);
-        setReferralProcessingAttempted(false); 
-      }
+    await auth.currentUser.reload();
+    const freshFirebaseUser = auth.currentUser;
+    setUser(freshFirebaseUser);
+    if (freshFirebaseUser) {
+      await fetchAndSetUserProfile(freshFirebaseUser);
     } else {
-        setUserProfile(null);
-        setReferralProcessingAttempted(false); 
+      setUserProfile(null);
+      setReferralProcessingAttempted(false);
     }
     setLoading(false);
-  };
+  }, [fetchAndSetUserProfile]);
 
 
   useEffect(() => {
+    if (!auth) {
+        setLoading(false);
+        setUser(null);
+        setUserProfile(null);
+        return;
+    }
+
     let profileListenerUnsubscribe: Unsubscribe | null = null;
 
     const authUnsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
@@ -169,12 +194,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         await firebaseUser.reload();
         const currentFirebaseUser = auth.currentUser;
         setUser(currentFirebaseUser);
-        setReferralProcessingAttempted(false); 
+        setReferralProcessingAttempted(false);
 
-        if (currentFirebaseUser) {
+        if (currentFirebaseUser && db) {
           const userRef = doc(db, 'users', currentFirebaseUser.uid);
-          await fetchAndSetUserProfile(currentFirebaseUser); 
-          
+          await fetchAndSetUserProfile(currentFirebaseUser);
+
           profileListenerUnsubscribe = onSnapshot(userRef, (snapshot) => {
             if (snapshot.exists()) {
               const profileData = snapshot.data();
@@ -184,7 +209,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 username: profileData.username || currentFirebaseUser.displayName,
                 photoURL: profileData.customPhotoURL || profileData.photoURL || currentFirebaseUser.photoURL,
                 customPhotoURL: profileData.customPhotoURL,
-                emailVerified: currentFirebaseUser.emailVerified, 
+                emailVerified: currentFirebaseUser.emailVerified,
                 createdAt: profileData.createdAt,
                 lastLogin: profileData.lastLogin,
                 tiktokUrl: profileData.tiktokUrl || null,
@@ -206,16 +231,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 currentFirebaseUser.emailVerified &&
                 updatedProfile.referredBy &&
                 !updatedProfile.referralPointsAwarded &&
-                !referralProcessingAttempted 
+                !referralProcessingAttempted
               ) {
-                setReferralProcessingAttempted(true); 
-                 processReferral(currentFirebaseUser.uid).then(result => {
-                     if (result.success) {
-                        // Referral processed
-                     } else {
-                        // console.error('[AuthContext Snapshot] Failed to process referral:', result.error);
-                     }
-                 }).catch(e => console.error('[AuthContext Snapshot] Error calling processReferral action:', e));
+                setReferralProcessingAttempted(true);
+                 processReferral(currentFirebaseUser.uid).catch(e => {}); // Fire and forget
               }
 
             } else {
@@ -223,7 +242,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
             setLoading(false);
           }, (error) => {
-            // console.error("Error in profile onSnapshot listener:", error);
             setUserProfile(null);
             setLoading(false);
           });
@@ -245,7 +263,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         profileListenerUnsubscribe();
       }
     };
-  }, []); 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, userProfile, loading, refreshUserProfile }}>
@@ -255,3 +274,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+
