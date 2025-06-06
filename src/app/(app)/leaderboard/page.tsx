@@ -56,7 +56,9 @@ function LeaderboardPage() {
     let dateStringToFetch: string;
     let displayDate: Date;
 
-    const endOfViewingPrevDayLeaderboard = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
+    // If it's before 8:25 PM, we view yesterday's (or earlier) results.
+    // After 8:25 PM, we anticipate today's results (which release at 8:30 PM).
+    const endOfViewingPrevDayLeaderboard = set(now, { hours: 20, minutes: 25, seconds: 0, milliseconds: 0 }); // 8:25 PM
 
     if (isBefore(now, endOfViewingPrevDayLeaderboard)) {
       displayDate = subDays(now, 1);
@@ -66,7 +68,7 @@ function LeaderboardPage() {
     dateStringToFetch = toYYYYMMDD(displayDate);
     setCurrentLeaderboardDate(dateStringToFetch);
 
-    const releaseDateTimeForFetchedDate = set(displayDate, { hours: 15, minutes: 0, seconds: 0, milliseconds: 0 });
+    const releaseDateTimeForFetchedDate = set(displayDate, { hours: 20, minutes: 30, seconds: 0, milliseconds: 0 }); // 8:30 PM Release
 
     if (isAfter(now, releaseDateTimeForFetchedDate)) {
       try {
@@ -86,7 +88,7 @@ function LeaderboardPage() {
        setTimeLeftToRelease(0);
     } else {
       setTimeLeftToRelease(releaseDateTimeForFetchedDate.getTime() - now.getTime());
-      setStatusMessage(`Leaderboard for ${formatDate(dateStringToFetch)} will be available at 3 PM.`);
+      setStatusMessage(`Leaderboard for ${formatDate(dateStringToFetch)} will be available at 8:30 PM.`);
       setAllEntries([]);
     }
     if (!isManualRefresh) setIsLoading(false); else setIsManuallyRefreshing(false);
@@ -108,7 +110,7 @@ function LeaderboardPage() {
             setTimeLeftToRelease(prevTime => {
                 if (prevTime <= 1000) {
                     if(timerInterval) clearInterval(timerInterval);
-                    determineLeaderboardStateAndFetch();
+                    determineLeaderboardStateAndFetch(); // Re-fetch when timer hits zero
                     return 0;
                 }
                 return prevTime - 1000;
@@ -127,7 +129,7 @@ function LeaderboardPage() {
     return format(date, "MMMM d, yyyy");
   };
 
-  const isLeaderboardReleased = !statusMessage?.includes('will be available at 3 PM');
+  const isLeaderboardReleased = !statusMessage?.includes('will be available at 8:30 PM');
 
   const totalPages = Math.ceil(allEntries.length / ITEMS_PER_PAGE);
   const displayedEntries = allEntries.slice(
@@ -166,7 +168,7 @@ function LeaderboardPage() {
             </CardDescription>
           )}
            <CardDescription className="text-xs mt-1">
-              (Submissions: 6 AM - 2:55 PM daily. Results: 3 PM daily - 2:55 PM next day)
+              (Submissions: 6 AM - 8 PM daily. Results: 8:30 PM daily - 8 PM next day)
           </CardDescription>
           <Button onClick={handleManualRefresh} variant="outline" size="sm" className="mt-4 mx-auto shadow-sm hover:shadow-md transition-shadow" disabled={isManuallyRefreshing || isLoading}>
             {isManuallyRefreshing || isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
@@ -184,7 +186,7 @@ function LeaderboardPage() {
               <Clock className="h-5 w-5" />
               <AlertTitle className="font-semibold">Leaderboard Not Yet Released</AlertTitle>
               <AlertDescription>
-                Leaderboard for {formatDate(currentLeaderboardDate)} will be available at 3 PM.
+                Leaderboard for {formatDate(currentLeaderboardDate)} will be available at 8:30 PM.
                 Releases in: <span className="font-semibold">{formatTimeLeft(timeLeftToRelease)}</span>.
               </AlertDescription>
             </Alert>
@@ -451,4 +453,3 @@ function LeaderboardPageWrapper() {
 }
 
 export default LeaderboardPageWrapper;
-

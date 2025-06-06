@@ -12,6 +12,7 @@ export interface AdminUserView extends Omit<UserProfile, 'createdAt' | 'lastLogi
   lastLogin?: string | null;
   firebaseAuthDisabled?: boolean;
   referralsMadeCount?: number;
+  aiUsageLimit?: number | null; // Added for custom AI limits
 }
 
 export async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]): Promise<boolean> {
@@ -26,7 +27,7 @@ export async function verifyUserRole(callerUid: string, allowedRoles: UserRole[]
     const userDocSnap = await userDocRef.get();
     if (userDocSnap.exists) {
       const userData = userDocSnap.data() as UserProfile;
-      const userRole = userData.role || 'user'; 
+      const userRole = userData.role || 'user';
       if (allowedRoles.includes(userRole)) {
         return true;
       }
@@ -49,7 +50,7 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
   }
 
   try {
-    const listUsersResult = await adminAuth.listUsers(1000); 
+    const listUsersResult = await adminAuth.listUsers(1000);
     const firebaseAuthUsers = listUsersResult.users;
 
     const allUsersDocsSnap = await adminDb.collection('users').get();
@@ -57,7 +58,7 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
     allUsersDocsSnap.forEach(doc => {
       allUserProfiles[doc.id] = doc.data() as UserProfile;
     });
-    
+
     const referralsMadeCounts: Record<string, number> = {};
     allUsersDocsSnap.forEach(doc => {
         const userData = doc.data() as UserProfile;
@@ -70,11 +71,11 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
     const userProfilesPromises = firebaseAuthUsers.map(async (authUser) => {
       const firestoreData = allUserProfiles[authUser.uid];
       const referralsCount = referralsMadeCounts[authUser.uid] || 0;
-      
+
       if (firestoreData) {
         return {
           ...firestoreData,
-          uid: authUser.uid, 
+          uid: authUser.uid,
           email: authUser.email || firestoreData.email || null,
           username: firestoreData.username || authUser.displayName || null,
           photoURL: firestoreData.customPhotoURL || authUser.photoURL || firestoreData.photoURL || null,
@@ -91,9 +92,10 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
           lastSubmissionDate: firestoreData.lastSubmissionDate || null,
           lastTop3BonusDate: firestoreData.lastTop3BonusDate || null,
           role: firestoreData.role || 'user',
-          createdAt: firestoreData.createdAt ? (firestoreData.createdAt as FirebaseAdmin.firestore.Timestamp).toDate().toISOString() : null, 
+          createdAt: firestoreData.createdAt ? (firestoreData.createdAt as FirebaseAdmin.firestore.Timestamp).toDate().toISOString() : null,
           lastLogin: firestoreData.lastLogin ? (firestoreData.lastLogin as FirebaseAdmin.firestore.Timestamp).toDate().toISOString() : null,
           referralsMadeCount: referralsCount,
+          aiUsageLimit: firestoreData.aiUsageLimit === undefined ? null : firestoreData.aiUsageLimit,
         } as AdminUserView;
       } else {
         return {
@@ -105,18 +107,19 @@ export async function getAllUsersForAdmin(callerUid: string): Promise<{ success:
           lukuPoints: 0,
           badges: [],
           currentStreak: 0,
-          role: 'user', 
+          role: 'user',
           firebaseAuthDisabled: authUser.disabled,
-          createdAt: null, 
-          lastLogin: null, 
+          createdAt: null,
+          lastLogin: null,
           referralsMadeCount: referralsCount,
+          aiUsageLimit: null,
         } as AdminUserView;
       }
     });
 
     const users = await Promise.all(userProfilesPromises);
     const validUsers = users.filter(user => user !== null) as AdminUserView[];
-    
+
     return { success: true, users: validUsers };
   } catch (error: any) {
     return { success: false, error: `Failed to fetch users: ${error.message}` };
@@ -178,13 +181,13 @@ export async function adjustUserLukuPoints(
     if (!userDocSnap.exists) {
       return { success: false, error: "Target user profile not found." };
     }
-    
+
     let newPointsValue;
     if (operation === 'add') {
       newPointsValue = FieldValue.increment(points);
     } else if (operation === 'subtract') {
-      newPointsValue = FieldValue.increment(-Math.abs(points)); 
-    } 
+      newPointsValue = FieldValue.increment(-Math.abs(points));
+    }
     else { // 'set'
       newPointsValue = points;
     }
@@ -193,5 +196,42 @@ export async function adjustUserLukuPoints(
     return { success: true };
   } catch (error: any) {
     return { success: false, error: `Failed to adjust LukuPoints: ${error.message}` };
+  }
+}
+
+export async function adjustUserAiLimit(
+  callerUid: string,
+  targetUserId: string,
+  newLimit: number | null // null to reset to default
+): Promise<{ success: boolean; error?: string }> {
+  if (!adminInitialized || !adminDb) {
+    return { success: false, error: "Admin SDK not configured." };
+  }
+
+  const isCallerAdmin = await verifyUserRole(callerUid, ['admin']);
+  if (!isCallerAdmin) {
+    return { success: false, error: "Unauthorized: Only admins can adjust AI usage limits." };
+  }
+
+  if (newLimit !== null && (isNaN(newLimit) || newLimit < 0)) {
+    return { success: false, error: "Invalid AI limit. Must be a non-negative number, or null to reset." };
+  }
+
+  try {
+    const userDocRef = adminDb.collection('users').doc(targetUserId);
+    const userDocSnap = await userDocRef.get();
+
+    if (!userDocSnap.exists) {
+      return { success: false, error: "Target user profile not found." };
+    }
+
+    if (newLimit === null) {
+      await userDocRef.update({ aiUsageLimit: FieldValue.delete() });
+    } else {
+      await userDocRef.update({ aiUsageLimit: newLimit });
+    }
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: `Failed to adjust AI usage limit: ${error.message}` };
   }
 }

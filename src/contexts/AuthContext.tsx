@@ -31,6 +31,7 @@ export interface UserProfile {
   lastSubmissionDate?: string | null;
   lastTop3BonusDate?: string | null;
   role?: UserRole;
+  aiUsageLimit?: number | null; // Added for custom AI limits
 }
 
 export interface AuthContextType {
@@ -112,6 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           lastSubmissionDate: profileData.lastSubmissionDate || null,
           lastTop3BonusDate: profileData.lastTop3BonusDate || null,
           role: profileData.role || 'user',
+          aiUsageLimit: profileData.aiUsageLimit === undefined ? null : profileData.aiUsageLimit,
         };
         setUserProfile(loadedProfile);
 
@@ -145,6 +147,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           lastSubmissionDate: null,
           lastTop3BonusDate: null,
           role: 'user',
+          aiUsageLimit: null,
         });
       }
     } catch (error) {
@@ -224,6 +227,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 lastSubmissionDate: profileData.lastSubmissionDate || null,
                 lastTop3BonusDate: profileData.lastTop3BonusDate || null,
                 role: profileData.role || 'user',
+                aiUsageLimit: profileData.aiUsageLimit === undefined ? null : profileData.aiUsageLimit,
               };
               setUserProfile(updatedProfile);
 
@@ -274,4 +278,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-

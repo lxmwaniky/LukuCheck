@@ -52,7 +52,6 @@ export async function createUserProfileInFirestore(
   referrerUid?: string | null
 ): Promise<{ success: boolean; error?: string }> {
   if (!adminInitialized || !adminDb) {
-    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot create Firestore user profile.");
     return { success: false, error: "Server error: Admin SDK not configured. Profile creation failed." };
   }
   const userRef = adminDb.collection('users').doc(userId);
@@ -92,6 +91,7 @@ export async function createUserProfileInFirestore(
       stripeCustomerId: null,
       stripeSubscriptionId: null,
       stripeSubscriptionStatus: null,
+      aiUsageLimit: null, // Initialize with no custom limit
     });
 
     const adminAuth = getAdminAuth();
@@ -99,7 +99,6 @@ export async function createUserProfileInFirestore(
 
     return { success: true };
   } catch (error: any) {
-    // console.error(`[UserActions ERROR] Failed to create Firestore user profile for UID ${userId}:`, error);
     return { success: false, error: `Failed to create Firestore user profile: ${error.message || "Unknown error"}` };
   }
 }
@@ -114,7 +113,6 @@ export async function updateUserProfileInFirestore({
   instagramUrl,
 }: UpdateProfileArgs): Promise<{ success: boolean; message?: string; error?: string; newPhotoURL?: string }> {
   if (!adminInitialized || !adminDb) {
-    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot update profile.");
     return { success: false, error: "Server error: Admin SDK not configured. Profile update failed." };
   }
   const adminAuth = getAdminAuth();
@@ -156,7 +154,7 @@ export async function updateUserProfileInFirestore({
         updateDataFirestore.instagramPointsAwarded = true;
       }
     }
-    
+
     const photoFieldForBadgeCheck = photoDataUrl || currentUserData.customPhotoURL;
     const tiktokFieldForBadgeCheck = (updateDataFirestore.tiktokUrl !== undefined ? updateDataFirestore.tiktokUrl !== null : currentUserData.tiktokUrl !== null && currentUserData.tiktokUrl.trim() !== '');
     const instagramFieldForBadgeCheck = (updateDataFirestore.instagramUrl !== undefined ? updateDataFirestore.instagramUrl !== null : currentUserData.instagramUrl !== null && currentUserData.instagramUrl.trim() !== '');
@@ -184,7 +182,6 @@ export async function updateUserProfileInFirestore({
             await adminBucket.file(filePath).delete({ ignoreNotFound: true });
           }
         } catch (e: any) {
-          // console.warn(`[UserActions WARN] Failed to delete old profile photo from Storage (non-critical): ${currentUserData.customPhotoURL}`, e.message);
         }
       }
 
@@ -231,7 +228,6 @@ export async function updateUserProfileInFirestore({
     return { success: true, message: 'Profile updated successfully.', newPhotoURL: newPublicPhotoURL };
 
   } catch (error: any) {
-    // console.error("[UserActions ERROR] Profile update failed (Admin SDK or Photo):", error);
     let errorMessage = `Profile update failed: ${error.message || "Unknown error"}`;
     if (error.code === 'auth/user-not-found') errorMessage = "User not found in Firebase Authentication.";
     if (error.code === 'storage/unauthorized' || (error.errors && error.errors.some((e:any) => e.reason === 'forbidden'))) {
@@ -244,7 +240,6 @@ export async function updateUserProfileInFirestore({
 
 export async function deleteUserData(userId: string): Promise<{ success: boolean; error?: string }> {
   if (!adminInitialized || !adminDb) {
-    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot delete user data.");
     return { success: false, error: "Server error: Admin SDK not configured. Account deletion failed." };
   }
   const adminAuthInstance = getAdminAuth();
@@ -275,7 +270,6 @@ export async function deleteUserData(userId: string): Promise<{ success: boolean
       const [outfitFiles] = await adminBucket.getFiles({ prefix: outfitsPrefix });
       await Promise.all(outfitFiles.map(file => file.delete()));
     } else {
-      // console.warn("[UserActions WARN] Admin Storage bucket not available. Skipping Storage file deletion.");
     }
 
     await adminAuthInstance.deleteUser(userId);
@@ -286,7 +280,6 @@ export async function deleteUserData(userId: string): Promise<{ success: boolean
     return { success: true };
 
   } catch (error: any) {
-    // console.error(`[UserActions ERROR] User data deletion failed for ${userId} (Admin SDK):`, error);
     let errorMessage = `User data deletion failed: ${error.message || "Unknown error"}`;
      if (error.code === 'auth/user-not-found') {
         errorMessage = "User not found in Firebase Authentication, but data deletion may have partially proceeded.";
@@ -320,7 +313,6 @@ export interface UserProfileStats {
 
 export async function getUserProfileStats(userId: string): Promise<{ success: boolean; data?: UserProfileStats; error?: string }> {
   if (!adminInitialized || !adminDb) {
-    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot fetch profile stats.");
     return { success: false, error: "Server error: Admin SDK not configured." };
   }
   if (!userId) {
@@ -363,7 +355,6 @@ export async function getUserProfileStats(userId: string): Promise<{ success: bo
     };
 
   } catch (error: any) {
-    // console.error(`[UserActions ERROR] Failed to fetch profile stats for UID ${userId} using Admin SDK:`, error);
     return { success: false, error: `Failed to fetch profile stats: ${error.message || "Unknown error"}` };
   }
 }
@@ -371,7 +362,6 @@ export async function getUserProfileStats(userId: string): Promise<{ success: bo
 
 export async function processReferral(newlyRegisteredUserId: string): Promise<{ success: boolean; message?: string; error?: string }> {
   if (!adminInitialized || !adminDb) {
-    // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot process referral.");
     return { success: false, error: "Server error: Admin SDK not configured." };
   }
 
@@ -385,7 +375,7 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
 
     const newUserData = newUserDocSnap.data() as UserProfile;
     const referrerUid = newUserData.referredBy;
-    const alreadyAwardedToReferrerForThisUser = newUserData.referralPointsAwarded; 
+    const alreadyAwardedToReferrerForThisUser = newUserData.referralPointsAwarded;
 
     if (!referrerUid) {
       return { success: true, message: "User was not referred." };
@@ -397,7 +387,7 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
 
 
     const referrerDocRef = adminDb.collection('users').doc(referrerUid);
-    let pointsToAwardReferrerThisTime = POINTS_PER_REFERRAL; 
+    let pointsToAwardReferrerThisTime = POINTS_PER_REFERRAL;
     const newBadgesForReferrer: string[] = [];
     let referrerUpdateSuccessful = false;
     let currentReferrerLukuPoints = 0;
@@ -421,11 +411,11 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
       const existingReferralsSnapshot = await transaction.get(referralsQuery);
       const countOfPreviousSuccessfulReferrals = existingReferralsSnapshot.size;
 
-      const newTotalSuccessfulReferrals = countOfPreviousSuccessfulReferrals + 1; 
+      const newTotalSuccessfulReferrals = countOfPreviousSuccessfulReferrals + 1;
 
       if (newTotalSuccessfulReferrals >= REFERRALS_FOR_ROCKSTAR_BADGE && !currentReferrerBadges.includes(REFERRAL_ROCKSTAR_BADGE)) {
         newBadgesForReferrer.push(REFERRAL_ROCKSTAR_BADGE);
-        pointsToAwardReferrerThisTime += POINTS_REFERRAL_ROCKSTAR; 
+        pointsToAwardReferrerThisTime += POINTS_REFERRAL_ROCKSTAR;
       }
 
       const updatedReferrerLukuPoints = currentReferrerLukuPoints + pointsToAwardReferrerThisTime;
@@ -445,22 +435,20 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
       }
 
       transaction.update(referrerDocRef, referrerUpdatePayload);
-      transaction.update(newUserDocRef, { referralPointsAwarded: true }); 
+      transaction.update(newUserDocRef, { referralPointsAwarded: true });
       referrerUpdateSuccessful = true;
     });
 
     if(referrerUpdateSuccessful) {
         revalidatePath(`/profile`);
-        revalidatePath(`/leaderboard`); 
+        revalidatePath(`/leaderboard`);
     }
     return { success: true, message: "Referral points processing attempted." };
 
   } catch (error: any) {
-    // console.error(`[UserActions ERROR] Failed to process referral for ${newlyRegisteredUserId}:`, error);
     try {
         await adminDb.collection('users').doc(newlyRegisteredUserId).update({ referralPointsAwarded: true });
     } catch (updateError) {
-        // console.error(`[UserActions CRITICAL] Failed to mark referralPointsAwarded for ${newlyRegisteredUserId} after an error:`, updateError);
     }
     return { success: false, error: `Failed to process referral: ${error.message || "Unknown error"}` };
   }
@@ -468,7 +456,6 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
 
 export async function handleLeaderboardSubmissionPerks(userId: string, submittedOutfitRating: number): Promise<{ success: boolean; message?: string; error?: string }> {
     if (!adminInitialized || !adminDb) {
-        // console.error("[UserActions ERROR] Admin SDK not initialized. Cannot process submission perks.");
         return { success: false, error: "Server error: Admin SDK not configured." };
     }
     if (!userId) {
@@ -508,25 +495,25 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
             // Streak Logic
             const todayStr = new Date().toISOString().split('T')[0]; // Server's UTC date
             let currentStreak = userData.currentStreak || 0;
-            
-            if (userData.lastSubmissionDate !== todayStr) { 
+
+            if (userData.lastSubmissionDate !== todayStr) {
                 if (userData.lastSubmissionDate) {
                     const lastSubmission = new Date(userData.lastSubmissionDate);
                     const today = new Date(todayStr);
                     const diffDays = differenceInCalendarDays(today, lastSubmission);
 
-                    if (diffDays === 1) { 
+                    if (diffDays === 1) {
                         currentStreak++;
-                    } else if (diffDays > 1) { 
+                    } else if (diffDays > 1) {
                         currentStreak = 1;
                     } else if (diffDays < 0 ) { // Should not happen if clocks are synced, but handle defensively
                         currentStreak = 1;
                       }
-                } else { 
+                } else {
                     currentStreak = 1;
                 }
-                
-                pointsToAward += POINTS_DAILY_STREAK_SUBMISSION; 
+
+                pointsToAward += POINTS_DAILY_STREAK_SUBMISSION;
                 updateData.lastSubmissionDate = todayStr;
                 updateData.currentStreak = currentStreak;
 
@@ -547,7 +534,7 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
                     const yesterdayLeaderboardData = await getLeaderboardData({ leaderboardDate: yesterdayStr });
                     if (yesterdayLeaderboardData.entries && yesterdayLeaderboardData.entries.length > 0) {
                         const userRankYesterday = yesterdayLeaderboardData.entries.findIndex(entry => entry.userId === userId) + 1;
-                        
+
                         let pointsForRank = 0;
                         if (userRankYesterday === 1) pointsForRank = POINTS_TOP_3_RANK_1;
                         else if (userRankYesterday === 2) pointsForRank = POINTS_TOP_3_RANK_2;
@@ -562,7 +549,6 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
                         }
                     }
                 } catch (e: any) {
-                   // console.warn(`[UserActions WARN] Could not fetch or process yesterday's leaderboard for Top 3 perks for user ${userId}: ${e.message}`);
                 }
             }
 
@@ -571,7 +557,7 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
                 updateData.lukuPoints = FieldValue.increment(pointsToAward);
                 currentLukuPoints += pointsToAward; // Update local tracker for subsequent badge checks
             }
-            
+
             // Check for Century Club / Legend Status badges based on the new total points
             if (currentLukuPoints >= 250 && !currentBadges.includes(LEGEND_STATUS_BADGE) && !newBadges.includes(LEGEND_STATUS_BADGE)) {
                 newBadges.push(LEGEND_STATUS_BADGE);
@@ -589,16 +575,14 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
                 perksUpdated = true;
             }
         });
-        
+
         if (perksUpdated) {
             revalidatePath('/profile');
-            revalidatePath('/leaderboard'); 
+            revalidatePath('/leaderboard');
         }
         return { success: true, message: "Leaderboard submission perks processed." };
 
     } catch (error: any) {
-        // console.error(`[UserActions ERROR] Failed to process submission perks for ${userId}:`, error);
         return { success: false, error: `Failed to process submission perks: ${error.message || "Unknown error"}` };
     }
 }
-

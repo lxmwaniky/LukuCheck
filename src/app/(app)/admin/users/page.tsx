@@ -3,31 +3,32 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getAllUsersForAdmin, setUserRoleAction, adjustUserLukuPoints, type AdminUserView } from '@/actions/adminActions';
-import type { UserProfile, UserRole } from '@/contexts/AuthContext'; 
+import { getAllUsersForAdmin, setUserRoleAction, adjustUserLukuPoints, adjustUserAiLimit, type AdminUserView } from '@/actions/adminActions';
+import type { UserProfile, UserRole } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from '@/hooks/use-toast';
-import { Loader2, UserCog, AlertTriangle, Coins, RotateCcw, Search, ChevronDown, ChevronUp, Users, Edit3, ShieldQuestion } from 'lucide-react';
+import { Loader2, UserCog, AlertTriangle, Coins, RotateCcw, Search, ChevronDown, ChevronUp, Users, Edit3, ShieldQuestion, SlidersHorizontal } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from '@/lib/utils'; 
+import { cn } from '@/lib/utils';
 import { LukuBadge } from '@/components/LukuBadge';
 
 const ITEMS_PER_PAGE = 10;
+const DEFAULT_FREE_TIER_AI_LIMIT = 2; // Consistent with upload page
 
-type SortableColumn = 'username' | 'email' | 'lukuPoints' | 'currentStreak' | 'referralsMadeCount' | 'role';
+type SortableColumn = 'username' | 'email' | 'lukuPoints' | 'currentStreak' | 'referralsMadeCount' | 'role' | 'aiUsageLimit';
 type SortDirection = 'asc' | 'desc';
 
 export default function AdminUsersPage() {
-  const { user, userProfile } = useAuth(); 
+  const { user, userProfile } = useAuth();
   const [usersData, setUsersData] = useState<AdminUserView[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [selectedUserForPoints, setSelectedUserForPoints] = useState<AdminUserView | null>(null);
   const [pointsToAdjust, setPointsToAdjust] = useState<string>("");
   const [pointsOperation, setPointsOperation] = useState<'add' | 'set' | 'subtract'>('add');
@@ -37,9 +38,13 @@ export default function AdminUsersPage() {
   const [newRole, setNewRole] = useState<UserRole>('user');
   const [isChangingRole, setIsChangingRole] = useState(false);
 
+  const [selectedUserForAiLimit, setSelectedUserForAiLimit] = useState<AdminUserView | null>(null);
+  const [aiLimitToAdjust, setAiLimitToAdjust] = useState<string>("");
+  const [isAdjustingAiLimit, setIsAdjustingAiLimit] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<UserRole | 'all'>('all');
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<SortableColumn>('username');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -76,7 +81,7 @@ export default function AdminUsersPage() {
     if (result.success) {
       toast({ title: "Success", description: `User role updated to ${newRole}.` });
       setSelectedUserForRole(null);
-      fetchUsers(); 
+      fetchUsers();
     } else {
       toast({ title: "Error", description: result.error || "Failed to update user role.", variant: "destructive" });
     }
@@ -101,19 +106,47 @@ export default function AdminUsersPage() {
       toast({ title: "Success", description: `LukuPoints adjusted for ${selectedUserForPoints.username || selectedUserForPoints.uid}.` });
       setSelectedUserForPoints(null);
       setPointsToAdjust("");
-      fetchUsers(); 
+      fetchUsers();
     } else {
       toast({ title: "Error", description: result.error || "Failed to adjust LukuPoints.", variant: "destructive" });
     }
     setIsAdjustingPoints(false);
   };
 
+  const handleAdjustAiLimitSubmit = async () => {
+    if (!selectedUserForAiLimit || !user?.uid || !isSuperAdmin) return;
+    
+    let limitValue: number | null;
+    if (aiLimitToAdjust.trim() === "") { // Empty string means reset to default (null)
+      limitValue = null;
+    } else {
+      limitValue = parseInt(aiLimitToAdjust, 10);
+      if (isNaN(limitValue) || limitValue < 0) {
+        toast({ title: "Invalid Input", description: "AI limit must be a non-negative number, or empty to reset to default.", variant: "destructive" });
+        return;
+      }
+    }
+
+    setIsAdjustingAiLimit(true);
+    const result = await adjustUserAiLimit(user.uid, selectedUserForAiLimit.uid, limitValue);
+    if (result.success) {
+      toast({ title: "Success", description: `AI usage limit adjusted for ${selectedUserForAiLimit.username || selectedUserForAiLimit.uid}.` });
+      setSelectedUserForAiLimit(null);
+      setAiLimitToAdjust("");
+      fetchUsers();
+    } else {
+      toast({ title: "Error", description: result.error || "Failed to adjust AI usage limit.", variant: "destructive" });
+    }
+    setIsAdjustingAiLimit(false);
+  };
+
+
   const sortedAndFilteredUsers = useMemo(() => {
     let processedUsers = [...usersData];
 
     if (searchTerm) {
       const lowerSearchTerm = searchTerm.toLowerCase();
-      processedUsers = processedUsers.filter(u => 
+      processedUsers = processedUsers.filter(u =>
         u.username?.toLowerCase().includes(lowerSearchTerm) ||
         u.email?.toLowerCase().includes(lowerSearchTerm) ||
         u.uid.toLowerCase().includes(lowerSearchTerm)
@@ -123,7 +156,7 @@ export default function AdminUsersPage() {
     if (filterRole !== 'all') {
       processedUsers = processedUsers.filter(u => (u.role || 'user') === filterRole);
     }
-    
+
     processedUsers.sort((a, b) => {
       let valA = a[sortColumn];
       let valB = b[sortColumn];
@@ -131,6 +164,9 @@ export default function AdminUsersPage() {
       if (sortColumn === 'username' || sortColumn === 'email' || sortColumn === 'role') {
         valA = String(valA || '').toLowerCase();
         valB = String(valB || '').toLowerCase();
+      } else if (sortColumn === 'aiUsageLimit') {
+        valA = valA === null || valA === undefined ? -1 : Number(valA); // Treat null/default as -1 for sorting
+        valB = valB === null || valB === undefined ? -1 : Number(valB);
       } else { // numeric columns
         valA = Number(valA || 0);
         valB = Number(valB || 0);
@@ -186,7 +222,7 @@ export default function AdminUsersPage() {
       </div>
     );
   }
-  
+
   return (
     <div className="border bg-card text-card-foreground shadow-sm rounded-lg">
       <div className="flex flex-col space-y-1.5 p-6">
@@ -226,7 +262,7 @@ export default function AdminUsersPage() {
                 <TableHead onClick={() => handleSort('email')} className="cursor-pointer hover:bg-muted/50 hidden md:table-cell">Email <SortIndicator column="email" /></TableHead>
                 <TableHead onClick={() => handleSort('lukuPoints')} className="cursor-pointer hover:bg-muted/50 text-center">LukuPoints <SortIndicator column="lukuPoints" /></TableHead>
                 <TableHead onClick={() => handleSort('currentStreak')} className="cursor-pointer hover:bg-muted/50 text-center">Streak <SortIndicator column="currentStreak" /></TableHead>
-                <TableHead onClick={() => handleSort('referralsMadeCount')} className="cursor-pointer hover:bg-muted/50 text-center hidden sm:table-cell">Referrals <SortIndicator column="referralsMadeCount" /></TableHead>
+                <TableHead onClick={() => handleSort('aiUsageLimit')} className="cursor-pointer hover:bg-muted/50 text-center">AI Limit <SortIndicator column="aiUsageLimit" /></TableHead>
                 <TableHead onClick={() => handleSort('role')} className="cursor-pointer hover:bg-muted/50 text-center">Role <SortIndicator column="role" /></TableHead>
                 {isSuperAdmin && <TableHead className="text-right">Actions</TableHead>}
               </TableRow>
@@ -242,7 +278,7 @@ export default function AdminUsersPage() {
                       </Avatar>
                       <div>
                         <div className="font-medium truncate max-w-[120px] sm:max-w-[150px] flex items-center">
-                            {u.username || u.email?.split('@')[0]} 
+                            {u.username || u.email?.split('@')[0]}
                             {u.lukuPoints !== undefined && <LukuBadge lukuPoints={u.lukuPoints} className="ml-1.5" size="sm"/>}
                         </div>
                         <div className="text-xs text-muted-foreground truncate max-w-[120px] sm:max-w-[150px] md:hidden">{u.email}</div>
@@ -252,11 +288,17 @@ export default function AdminUsersPage() {
                   <TableCell className="truncate max-w-[180px] hidden md:table-cell">{u.email}</TableCell>
                   <TableCell className="text-center">{u.lukuPoints ?? 0}</TableCell>
                   <TableCell className="text-center">{u.currentStreak ?? 0}</TableCell>
-                  <TableCell className="text-center hidden sm:table-cell">{u.referralsMadeCount ?? 0}</TableCell>
                   <TableCell className="text-center">
-                      <span className={cn("px-2 py-0.5 text-xs rounded-full", 
-                          u.role === 'admin' ? 'bg-destructive/20 text-destructive-foreground' : 
-                          u.role === 'manager' ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-300' : 
+                    {u.aiUsageLimit === null || u.aiUsageLimit === undefined ? (
+                      <span className="text-xs text-muted-foreground">Default ({DEFAULT_FREE_TIER_AI_LIMIT})</span>
+                    ) : (
+                      u.aiUsageLimit
+                    )}
+                  </TableCell>
+                  <TableCell className="text-center">
+                      <span className={cn("px-2 py-0.5 text-xs rounded-full",
+                          u.role === 'admin' ? 'bg-destructive/20 text-destructive-foreground' :
+                          u.role === 'manager' ? 'bg-yellow-400/20 text-yellow-600 dark:text-yellow-300' :
                           'bg-secondary text-secondary-foreground'
                       )}>
                           {u.role || 'user'}
@@ -269,6 +311,9 @@ export default function AdminUsersPage() {
                       </Button>
                       <Button variant="outline" size="sm" className="px-2 py-1 h-auto text-xs" onClick={() => setSelectedUserForPoints(u)}>
                         <Coins className="mr-1 h-3 w-3" /> Points
+                      </Button>
+                      <Button variant="outline" size="sm" className="px-2 py-1 h-auto text-xs" onClick={() => { setSelectedUserForAiLimit(u); setAiLimitToAdjust(u.aiUsageLimit?.toString() || ""); }}>
+                        <SlidersHorizontal className="mr-1 h-3 w-3" /> AI Limit
                       </Button>
                     </TableCell>
                   )}
@@ -396,8 +441,49 @@ export default function AdminUsersPage() {
             </DialogContent>
           </Dialog>
         )}
+
+        {selectedUserForAiLimit && isSuperAdmin && (
+          <Dialog open={!!selectedUserForAiLimit} onOpenChange={(open) => { if (!open) setSelectedUserForAiLimit(null); }}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Adjust AI Usage Limit for {selectedUserForAiLimit.username || selectedUserForAiLimit.email}</DialogTitle>
+                <DialogDescription>
+                    Current Limit: {selectedUserForAiLimit.aiUsageLimit === null || selectedUserForAiLimit.aiUsageLimit === undefined
+                                    ? `Default (${DEFAULT_FREE_TIER_AI_LIMIT})`
+                                    : selectedUserForAiLimit.aiUsageLimit}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="aiLimit" className="text-right">New Limit</Label>
+                  <Input
+                    id="aiLimit"
+                    type="number"
+                    value={aiLimitToAdjust}
+                    onChange={(e) => setAiLimitToAdjust(e.target.value)}
+                    className="col-span-3"
+                    placeholder={`Enter number, or empty to reset to default (${DEFAULT_FREE_TIER_AI_LIMIT})`}
+                    min="0"
+                  />
+                </div>
+                 <p className="col-span-4 text-xs text-muted-foreground text-center">
+                    Leave empty to reset to the default daily limit. Enter 0 for no AI usage.
+                  </p>
+              </div>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Cancel</Button>
+                </DialogClose>
+                <Button onClick={handleAdjustAiLimitSubmit} disabled={isAdjustingAiLimit}>
+                  {isAdjustingAiLimit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Confirm AI Limit
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+
       </div>
     </div>
   );
 }
-

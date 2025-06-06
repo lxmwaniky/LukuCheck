@@ -22,7 +22,7 @@ import { format, set, isBefore, isAfter, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 // AI Usage Limits
-const FREE_TIER_AI_LIMIT = 2;
+const DEFAULT_FREE_TIER_AI_LIMIT = 2;
 
 interface ProcessedOutfitClient extends StyleSuggestionsOutput {
   outfitImageBase64: string; // Store base64 for AI and pre-submission
@@ -61,41 +61,44 @@ function getAiUsageDateString(): string {
   return `${year}-${month}-${dayString}`;
 }
 
-// Placeholder for client-side image compression
-// You would typically use a library like 'browser-image-compression'
+// Placeholder for client-side image compression.
+// For production, integrate a library like 'browser-image-compression'.
 // async function compressImage(file: File): Promise<string> {
+
+//   // This is where you'd use browser-image-compression or similar
+//   // For now, just reading the file as base64.
 //   // console.log(`Original file size: ${file.size / 1024 / 1024} MB`);
 //   // const options = {
 //   //   maxSizeMB: 0.5, // Max 0.5MB
 //   //   maxWidthOrHeight: 1024, // Max 1024px
 //   //   useWebWorker: true,
 //   // };
-//   // try {
-//   //   // const compressedFile = await imageCompression(file, options);
-//   //   // console.log(`Compressed file size: ${compressedFile.size / 1024 / 1024} MB`);
-//   //   // const reader = new FileReader();
-//   //   // return new Promise((resolve, reject) => {
-//   //   //   reader.onloadend = () => resolve(reader.result as string);
-//   //   //   reader.onerror = reject;
-//   //   //   reader.readAsDataURL(compressedFile);
-//   //   // });
-//   //   // For now, without the library, just return original base64
-//   //   return new Promise((resolve, reject) => {
-//   //      const reader = new FileReader();
-//   //      reader.onloadend = () => resolve(reader.result as string);
-//   //      reader.onerror = reject;
-//   //      reader.readAsDataURL(file);
-//   //   });
-//   // } catch (error) {
-//   //   console.error('Error compressing image:', error);
-//   //   // Fallback to original if compression fails
-//   //   return new Promise((resolve, reject) => {
-//   //      const reader = new FileReader();
-//   //      reader.onloadend = () => resolve(reader.result as string);
-//   //      reader.onerror = reject;
-//   //      reader.readAsDataURL(file);
-//   //   });
-//   // }
+//   try {
+//     // const compressedFile = await imageCompression(file, options);
+//     // console.log(`Compressed file size: ${compressedFile.size / 1024 / 1024} MB`);
+//     // return new Promise((resolve, reject) => {
+//     //    const reader = new FileReader();
+//     //    reader.onloadend = () => resolve(reader.result as string);
+//     //    reader.onerror = reject;
+//     //    reader.readAsDataURL(compressedFile);
+//     // });
+//     // For now, returning original base64 if compression library not integrated
+//     return new Promise((resolve, reject) => {
+//        const reader = new FileReader();
+//        reader.onloadend = () => resolve(reader.result as string);
+//        reader.onerror = reject;
+//        reader.readAsDataURL(file);
+//     });
+//   } catch (error) {
+//     // console.error('Error compressing image:', error);
+//     // Fallback to original if compression fails
+//     return new Promise((resolve, reject) => {
+//        const reader = new FileReader();
+//        reader.onloadend = () => resolve(reader.result as string);
+//        reader.onerror = reject;
+//        reader.readAsDataURL(file);
+//     });
+//   }
 // }
 
 
@@ -111,7 +114,7 @@ export default function UploadPage() {
   const [selectedOutfitForDetails, setSelectedOutfitForDetails] = useState<ProcessedOutfitClient | null>(null);
 
   const [aiUsage, setAiUsage] = useState({ count: 0, limitReached: false });
-  const currentAiLimit = FREE_TIER_AI_LIMIT;
+  const [currentAiLimit, setCurrentAiLimit] = useState(DEFAULT_FREE_TIER_AI_LIMIT);
   const [isSubmittingToLeaderboard, setIsSubmittingToLeaderboard] = useState(false);
   const [hasSubmittedToday, setHasSubmittedToday] = useState(false);
 
@@ -122,32 +125,50 @@ export default function UploadPage() {
 
   const fetchAIUsageOnClient = useCallback(async () => {
     if (!user || !db) return;
+
+    // Determine effective AI limit (custom or default)
+    const userCustomLimit = userProfile?.aiUsageLimit;
+    const effectiveLimit = (typeof userCustomLimit === 'number' && userCustomLimit >= 0)
+                            ? userCustomLimit
+                            : DEFAULT_FREE_TIER_AI_LIMIT;
+    setCurrentAiLimit(effectiveLimit);
+
     const usageDateString = getAiUsageDateString();
     const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
     const usageRef = doc(db, usageDocPath);
     try {
       const usageSnap = await getDoc(usageRef);
-      const effectiveLimit = FREE_TIER_AI_LIMIT;
 
       if (usageSnap.exists()) {
         const data = usageSnap.data();
         const count = data.count || 0;
         setAiUsage({ count, limitReached: count >= effectiveLimit });
       } else {
-        setAiUsage({ count: 0, limitReached: false });
+        setAiUsage({ count: 0, limitReached: effectiveLimit === 0 }); // if limit is 0, it's immediately reached
       }
     } catch (error) {
-      setAiUsage({ count: 0, limitReached: false });
+      setAiUsage({ count: 0, limitReached: effectiveLimit === 0 });
     }
-  }, [user]);
+  }, [user, userProfile?.aiUsageLimit]);
 
   const clientIncrementAIUsage = useCallback(async (): Promise<{ success: boolean; error?: string; limitReached?: boolean }> => {
     if (!user || !db) return { success: false, error: 'User ID or DB is required.' };
+
+    const userCustomLimit = userProfile?.aiUsageLimit;
+    const effectiveLimit = (typeof userCustomLimit === 'number' && userCustomLimit >= 0)
+                            ? userCustomLimit
+                            : DEFAULT_FREE_TIER_AI_LIMIT;
+    setCurrentAiLimit(effectiveLimit); // Ensure currentAiLimit state is also up-to-date
+
+    if (effectiveLimit === 0) {
+      setAiUsage({ count: 0, limitReached: true });
+      toast({ title: 'AI Usage Disabled', description: `Your AI usage limit is set to 0.`, variant: 'default' });
+      return { success: false, error: `AI usage limit is 0.`, limitReached: true };
+    }
+
     const usageDateString = getAiUsageDateString();
     const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
     const usageRef = doc(db, usageDocPath);
-
-    const effectiveLimit = FREE_TIER_AI_LIMIT;
 
     try {
       const usageSnap = await getDoc(usageRef);
@@ -176,14 +197,14 @@ export default function UploadPage() {
       await fetchAIUsageOnClient();
       return { success: false, error: errorMessage };
     }
-  }, [user, fetchAIUsageOnClient, toast]);
+  }, [user, userProfile?.aiUsageLimit, fetchAIUsageOnClient, toast]);
 
   useEffect(() => {
     const checkSubmissionStatusAndWindow = async () => {
       if (!user) return;
       const now = new Date();
       const submissionOpenTime = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
-      const submissionCloseTime = set(now, { hours: 14, minutes: 55, seconds: 0, milliseconds: 0 });
+      const submissionCloseTime = set(now, { hours: 20, minutes: 0, seconds: 0, milliseconds: 0 }); // 8 PM
       const currentSubmissionWindowOpen = isAfter(now, submissionOpenTime) && isBefore(now, submissionCloseTime);
       setIsSubmissionWindowOpen(currentSubmissionWindowOpen);
       const currentSubmissionNotYetOpen = isBefore(now, submissionOpenTime);
@@ -191,7 +212,7 @@ export default function UploadPage() {
       setTimeLeftToSubmissionOpen(submissionOpenTime.getTime() - now.getTime());
       setTimeLeftToSubmissionClose(submissionCloseTime.getTime() - now.getTime());
 
-      await fetchAIUsageOnClient();
+      await fetchAIUsageOnClient(); // This will also set currentAiLimit
 
       const todaysDateStr = toYYYYMMDD(now);
       if (db) {
@@ -214,11 +235,14 @@ export default function UploadPage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
-      setSelectedOutfitForDetails(null);
-      
-      // Read the file as base64 for preview
-      // In a real scenario with compression, you'd call compressImage(file) here
-      // For now, just reading the original file:
+      setSelectedOutfitForDetails(null); // Clear any previously selected outfit details
+
+      // **TODO: Implement robust client-side image compression here**
+      // Example using a placeholder function:
+      // const compressedBase64 = await compressImage(file);
+      // setImageBase64Preview(compressedBase64);
+
+      // For now, without a real compression library, just read the file:
       const reader = new FileReader();
       reader.onloadend = () => {
         setImageBase64Preview(reader.result as string);
@@ -233,18 +257,17 @@ export default function UploadPage() {
       return;
     }
     setIsProcessingAIRating(true);
-    setSelectedOutfitForDetails(null);
+    setSelectedOutfitForDetails(null); // Clear previous selection
 
     try {
-      // const compressedBase64 = await compressImage(imageFile); // Call your compression function
-      // For production, you should implement client-side compression here
-      // For now, we use the original base64 preview. Replace with compressed version.
-      const processedBase64ForAI = imageBase64Preview; 
+      // For cost optimization, we pass the base64 data URI directly to the AI.
+      // The image is only uploaded to Firebase Storage if the user explicitly submits to the leaderboard.
+      const processedBase64ForAI = imageBase64Preview; // This should be the (potentially compressed) base64
 
       const incrementResult = await clientIncrementAIUsage();
       if (!incrementResult.success) {
         setIsProcessingAIRating(false);
-        return;
+        return; // Stop if usage limit reached or error during increment
       }
 
       const aiProcessingResult = await processOutfitWithAI({ photoDataUri: processedBase64ForAI });
@@ -252,12 +275,13 @@ export default function UploadPage() {
       if (aiProcessingResult.success && aiProcessingResult.data) {
         const newRatedOutfit: ProcessedOutfitClient = {
           ...aiProcessingResult.data,
-          outfitImageBase64: processedBase64ForAI, // Store the (potentially compressed) base64
+          outfitImageBase64: processedBase64ForAI, // Store the base64 used for AI
           outfitImageURLForDisplay: processedBase64ForAI, // Initially display base64
           submittedToLeaderboard: false,
-          localId: Date.now().toString() + Math.random().toString(36).substring(2, 9)
+          localId: Date.now().toString() + Math.random().toString(36).substring(2, 9) // Unique ID for client-side list
         };
-        setTodaysRatedOutfits(prev => [newRatedOutfit, ...prev].slice(0, 5)); // Keep max 5 recent local previews
+        // Add to the start of the array and keep only the latest N (e.g., 5)
+        setTodaysRatedOutfits(prev => [newRatedOutfit, ...prev].slice(0, 5));
         setImageFile(null);
         setImageBase64Preview(null);
         toast({ title: 'AI Analysis Complete!', description: `Outfit rated ${aiProcessingResult.data.rating.toFixed(1)}/10. Ready for review.` });
@@ -295,14 +319,15 @@ export default function UploadPage() {
 
     setIsSubmittingToLeaderboard(true);
     try {
+      // Upload image to Firebase Storage now that user wants to submit
       const imageFileName = `outfits/${user.uid}/${Date.now()}_${selectedOutfitForDetails.localId}.jpg`;
       const imageRef = ref(storage, imageFileName);
-      
-      // IMPORTANT: Here you'd ideally upload a compressed version if you implemented it.
-      // For now, uploading the stored base64.
+
+      // Use the stored base64 for upload
       await uploadString(imageRef, selectedOutfitForDetails.outfitImageBase64, 'data_url', { contentType: 'image/jpeg' });
       const uploadedOutfitFirebaseURL = await getDownloadURL(imageRef);
       if (!uploadedOutfitFirebaseURL) throw new Error("Failed to upload image to Firebase Storage or get download URL.");
+
 
       const leaderboardDateStr = toYYYYMMDD(new Date());
       const outfitsCollectionRef = collection(db, 'outfits');
@@ -310,7 +335,7 @@ export default function UploadPage() {
         userId: user.uid,
         username: userProfile.username,
         userPhotoURL: userProfile.customPhotoURL || userProfile.photoURL,
-        outfitImageURL: uploadedOutfitFirebaseURL,
+        outfitImageURL: uploadedOutfitFirebaseURL, // Use the actual Firebase Storage URL
         rating: selectedOutfitForDetails.rating,
         colorSuggestions: selectedOutfitForDetails.colorSuggestions,
         lookSuggestions: selectedOutfitForDetails.lookSuggestions,
@@ -324,6 +349,7 @@ export default function UploadPage() {
       toast({ title: 'Success!', description: 'Outfit submitted to the leaderboard.' });
 
       setHasSubmittedToday(true);
+      // Update the specific outfit in the list to mark as submitted and use Firebase URL for display
       setTodaysRatedOutfits(prevOutfits =>
         prevOutfits.map(o => o.localId === selectedOutfitForDetails.localId ? { ...o, submittedToLeaderboard: true, outfitImageURLForDisplay: uploadedOutfitFirebaseURL, outfitImageFirebaseURL: uploadedOutfitFirebaseURL } : o)
       );
@@ -386,7 +412,7 @@ export default function UploadPage() {
             <div className="space-y-1 sm:space-y-2">
               <Label htmlFor="outfitImage" className="text-base sm:text-lg font-medium">Outfit Photo</Label>
               <Input id="outfitImage" type="file" accept="image/*" onChange={handleImageChange} className="file:text-primary file:font-semibold file:mr-2" disabled={imageInputDisabled} />
-              <p className="text-xs text-muted-foreground">Tip: Clear, well-lit photos get better AI feedback. Max 0.5MB recommended after compression.</p>
+              <p className="text-xs text-muted-foreground">Tip: Clear, well-lit photos get better AI feedback. Consider compressing images client-side before upload.</p>
             </div>
 
             {imageBase64Preview && (
@@ -400,6 +426,7 @@ export default function UploadPage() {
               <AlertTitle className="font-semibold">AI Usage: {aiUsage.count}/{currentAiLimit} Analyses Used Today</AlertTitle>
               <AlertDescription className="text-xs sm:text-sm">
                 {aiUsage.limitReached ? `You've reached your daily AI analysis limit. Resets 6 AM local time.` : `Get up to ${currentAiLimit} AI ratings per day (resets 6 AM).`}
+                 {userProfile?.aiUsageLimit !== null && userProfile?.aiUsageLimit !== undefined && <span className="block mt-1 text-blue-600 dark:text-blue-400">You have a custom daily limit set by an admin.</span>}
               </AlertDescription>
             </Alert>
 
@@ -408,7 +435,7 @@ export default function UploadPage() {
                 <Clock className="h-4 w-4" />
                 <AlertTitle>Submissions Open Soon</AlertTitle>
                 <AlertDescription className="text-xs sm:text-sm">
-                  Today's submission window (6 AM - 2:55 PM) for the leaderboard opens in: <span className="font-semibold">{formatTimeLeft(timeLeftToSubmissionOpen)}</span>.
+                  Today's submission window (6 AM - 8 PM) for the leaderboard opens in: <span className="font-semibold">{formatTimeLeft(timeLeftToSubmissionOpen)}</span>.
                 </AlertDescription>
               </Alert>
             )}
@@ -418,7 +445,7 @@ export default function UploadPage() {
                 <Ban className="h-4 w-4" />
                 <AlertTitle>Submissions Closed for Today</AlertTitle>
                 <AlertDescription className="text-xs sm:text-sm">
-                  The 2:55 PM deadline for today's leaderboard submissions has passed. Try again tomorrow from 6 AM!
+                  The 8 PM deadline for today's leaderboard submissions has passed. Try again tomorrow from 6 AM!
                 </AlertDescription>
               </Alert>
             )}
@@ -573,4 +600,3 @@ export default function UploadPage() {
     </div>
   );
 }
-
