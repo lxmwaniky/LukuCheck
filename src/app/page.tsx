@@ -1,36 +1,17 @@
 
 'use client';
-import { useState, type ChangeEvent, useEffect, useCallback } from 'react';
-import Image from 'next/image';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import Link from 'next/link';
+import Image from 'next/image';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
+import { Shirt, LogIn, Info, CalendarCheck2, PlayCircle, Users as UsersIconProp, Loader2, HelpCircle, Sparkles, Star as StarIconProp, Trophy, Gift as GiftIcon, Flame, BadgeCheck, Users, ShieldCheck as LegendIcon, Award, UploadCloud, Send, BarChart3, Coins, User as UserIcon } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
-import { processOutfitWithAI } from '@/actions/outfitActions';
-import type { StyleSuggestionsOutput } from '@/ai/flows/style-suggestions';
-import { handleLeaderboardSubmissionPerks } from '@/actions/userActions';
-import { UploadCloud, Sparkles, Send, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Ban, Clock, ShieldAlert, ImageOff, Eye, XCircle, RefreshCw } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { db, storage } from '@/config/firebase';
-import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, where, getDocs as getFirestoreDocs } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { format, set, isBefore, isAfter, addDays } from 'date-fns';
-import { cn } from '@/lib/utils';
-
-// AI Usage Limits
-const FREE_TIER_AI_LIMIT = 2;
-
-interface ProcessedOutfitClient extends StyleSuggestionsOutput {
-  outfitImageBase64: string; // Store base64 for AI and pre-submission
-  outfitImageURLForDisplay: string; // Could be base64 or Firebase URL post-submission
-  outfitImageFirebaseURL?: string; // Firebase URL after submission
-  submittedToLeaderboard?: boolean;
-  localId: string;
-}
+import { format, subDays, addDays, set, isBefore, isAfter, differenceInMilliseconds, isValid } from 'date-fns';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
@@ -41,527 +22,359 @@ const formatTimeLeft = (ms: number): string => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 };
 
-const toYYYYMMDD = (date: Date): string => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
+export default function HomePage() {
+  const { user, loading } = useAuth();
+  const [isClient, setIsClient] = useState(false);
 
-function getAiUsageDateString(): string {
-  const now = new Date();
-  const currentHour = now.getHours();
-  let targetDate = new Date(now);
-  if (currentHour < 6) { // AI usage resets at 6 AM
-    targetDate.setDate(now.getDate() - 1);
-  }
-  const year = targetDate.getFullYear();
-  const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-  const dayString = String(targetDate.getDate()).padStart(2, '0');
-  return `${year}-${month}-${dayString}`;
-}
-
-// Placeholder for client-side image compression.
-// For production, integrate a library like 'browser-image-compression'.
-// async function compressImage(file: File): Promise<string> {
-//   console.log(`Original file size: ${file.size / 1024 / 1024} MB`);
-//   // const options = {
-//   //   maxSizeMB: 0.5, // Max 0.5MB
-//   //   maxWidthOrHeight: 1024, // Max 1024px
-//   //   useWebWorker: true,
-//   // };
-//   try {
-//     // const compressedFile = await imageCompression(file, options);
-//     // console.log(`Compressed file size: ${compressedFile.size / 1024 / 1024} MB`);
-//     // For now, returning original base64. Replace with compressed logic.
-//     return new Promise((resolve, reject) => {
-//        const reader = new FileReader();
-//        reader.onloadend = () => resolve(reader.result as string);
-//        reader.onerror = reject;
-//        reader.readAsDataURL(file); // Use original file for now
-//     });
-//   } catch (error) {
-//     console.error('Error compressing image:', error);
-//     // Fallback to original if compression fails
-//     return new Promise((resolve, reject) => {
-//        const reader = new FileReader();
-//        reader.onloadend = () => resolve(reader.result as string);
-//        reader.onerror = reject;
-//        reader.readAsDataURL(file);
-//     });
-//   }
-// }
-
-
-export default function UploadPage() {
-  const { user, userProfile, loading: authLoading, refreshUserProfile } = useAuth();
-  const { toast } = useToast();
-
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageBase64Preview, setImageBase64Preview] = useState<string | null>(null);
-  const [isProcessingAIRating, setIsProcessingAIRating] = useState(false);
-
-  const [todaysRatedOutfits, setTodaysRatedOutfits] = useState<ProcessedOutfitClient[]>([]);
-  const [selectedOutfitForDetails, setSelectedOutfitForDetails] = useState<ProcessedOutfitClient | null>(null);
-
-  const [aiUsage, setAiUsage] = useState({ count: 0, limitReached: false });
-  const currentAiLimit = FREE_TIER_AI_LIMIT;
-  const [isSubmittingToLeaderboard, setIsSubmittingToLeaderboard] = useState(false);
-  const [hasSubmittedToday, setHasSubmittedToday] = useState(false);
-
+  const [submissionStatusMessage, setSubmissionStatusMessage] = useState("Calculating...");
   const [isSubmissionWindowOpen, setIsSubmissionWindowOpen] = useState(false);
-  const [isSubmissionNotYetOpen, setIsSubmissionNotYetOpen] = useState(false);
-  const [timeLeftToSubmissionOpen, setTimeLeftToSubmissionOpen] = useState(0);
-  const [timeLeftToSubmissionClose, setTimeLeftToSubmissionClose] = useState(0);
 
-  const fetchAIUsageOnClient = useCallback(async () => {
-    if (!user || !db) return;
-    const usageDateString = getAiUsageDateString();
-    const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
-    const usageRef = doc(db, usageDocPath);
-    try {
-      const usageSnap = await getDoc(usageRef);
-      const effectiveLimit = FREE_TIER_AI_LIMIT;
-
-      if (usageSnap.exists()) {
-        const data = usageSnap.data();
-        const count = data.count || 0;
-        setAiUsage({ count, limitReached: count >= effectiveLimit });
-      } else {
-        setAiUsage({ count: 0, limitReached: false });
-      }
-    } catch (error) {
-      setAiUsage({ count: 0, limitReached: false });
-    }
-  }, [user]);
-
-  const clientIncrementAIUsage = useCallback(async (): Promise<{ success: boolean; error?: string; limitReached?: boolean }> => {
-    if (!user || !db) return { success: false, error: 'User ID or DB is required.' };
-    const usageDateString = getAiUsageDateString();
-    const usageDocPath = `users/${user.uid}/aiUsage/${usageDateString}`;
-    const usageRef = doc(db, usageDocPath);
-
-    const effectiveLimit = FREE_TIER_AI_LIMIT;
-
-    try {
-      const usageSnap = await getDoc(usageRef);
-      let currentCount = 0;
-      if (usageSnap.exists()) currentCount = usageSnap.data()?.count || 0;
-
-      if (currentCount >= effectiveLimit) {
-        setAiUsage({ count: currentCount, limitReached: true });
-        toast({ title: 'Usage Limit Reached', description: `AI usage limit (${effectiveLimit}/day) reached. Resets 6 AM local time.`, variant: 'default' });
-        return { success: false, error: `AI usage limit (${effectiveLimit}/day) reached.`, limitReached: true };
-      }
-      const newCount = currentCount + 1;
-      if (!usageSnap.exists()) {
-        await setDoc(usageRef, { count: newCount, lastUsed: Timestamp.now() });
-      } else {
-        await updateDoc(usageRef, { count: newCount, lastUsed: Timestamp.now() });
-      }
-      setAiUsage({ count: newCount, limitReached: newCount >= effectiveLimit });
-      return { success: true, limitReached: newCount >= effectiveLimit };
-    } catch (error: any) {
-      let errorMessage = `AI usage update failed: ${error.message || "Unknown error"}`;
-      if (error.message?.includes('PERMISSION_DENIED') || error.code === 'permission-denied') {
-        errorMessage = "Permission denied to update AI usage. Check Firestore rules.";
-      }
-      toast({ title: 'AI Usage Error', description: errorMessage, variant: 'destructive' });
-      await fetchAIUsageOnClient();
-      return { success: false, error: errorMessage };
-    }
-  }, [user, fetchAIUsageOnClient, toast]);
+  const [leaderboardStatusMessage, setLeaderboardStatusMessage] = useState("Calculating...");
+  const [isLeaderboardReleasedForViewing, setIsLeaderboardReleasedForViewing] = useState(false);
+  const [currentViewableLeaderboardDate, setCurrentViewableLeaderboardDate] = useState<Date | null>(null);
 
   useEffect(() => {
-    const checkSubmissionStatusAndWindow = async () => {
-      if (!user) return;
+    setIsClient(true);
+
+    const calculateTimes = () => {
       const now = new Date();
-      const submissionOpenTime = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
-      const submissionCloseTime = set(now, { hours: 20, minutes: 0, seconds: 0, milliseconds: 0 }); // 8 PM
-      const currentSubmissionWindowOpen = isAfter(now, submissionOpenTime) && isBefore(now, submissionCloseTime);
-      setIsSubmissionWindowOpen(currentSubmissionWindowOpen);
-      const currentSubmissionNotYetOpen = isBefore(now, submissionOpenTime);
-      setIsSubmissionNotYetOpen(currentSubmissionNotYetOpen);
-      setTimeLeftToSubmissionOpen(submissionOpenTime.getTime() - now.getTime());
-      setTimeLeftToSubmissionClose(submissionCloseTime.getTime() - now.getTime());
 
-      await fetchAIUsageOnClient();
+      const submissionOpenTimeToday = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
+      const submissionCloseTimeToday = set(now, { hours: 20, minutes: 0, seconds: 0, milliseconds: 0 }); // 8 PM
 
-      const todaysDateStr = toYYYYMMDD(now);
-      if (db) {
-        const outfitsCollectionRef = collection(db, 'outfits');
-        const q = query(outfitsCollectionRef, where('userId', '==', user.uid), where('leaderboardDate', '==', todaysDateStr));
-        try {
-          const querySnapshot = await getFirestoreDocs(q);
-          setHasSubmittedToday(!querySnapshot.empty);
-        } catch (error) {
-           // Error reading submission status, handled by UI defaults
+      const currentIsSubmissionWindowOpen = isAfter(now, submissionOpenTimeToday) && isBefore(now, submissionCloseTimeToday);
+      setIsSubmissionWindowOpen(currentIsSubmissionWindowOpen);
+
+      if (isBefore(now, submissionOpenTimeToday)) {
+        const timeLeft = differenceInMilliseconds(submissionOpenTimeToday, now);
+        setSubmissionStatusMessage(`Submissions Open In: ${formatTimeLeft(timeLeft)}`);
+      } else if (currentIsSubmissionWindowOpen) {
+        const timeLeft = differenceInMilliseconds(submissionCloseTimeToday, now);
+        setSubmissionStatusMessage(`Submissions LIVE! Closes In: ${formatTimeLeft(timeLeft)}`);
+      } else {
+        const submissionOpenTimeTomorrow = set(addDays(now, 1), { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
+        const timeLeft = differenceInMilliseconds(submissionOpenTimeTomorrow, now);
+        setSubmissionStatusMessage(`Opens tomorrow in ${formatTimeLeft(timeLeft)}`);
+      }
+
+      let leaderboardDateToView: Date;
+      // Leaderboard for day X is released at 8:30 PM on day X.
+      // It's viewable until 8:00 PM on day X+1.
+      // If it's before 8:25 PM on day X, we should be trying to view day X-1's results (if released).
+      // If it's after 8:25 PM on day X, we should be trying to view day X's results.
+      const leaderboardReleaseAndViewingCutoff = set(now, { hours: 20, minutes: 25, seconds: 0, milliseconds: 0 }); // 8:25 PM
+
+      if (isBefore(now, leaderboardReleaseAndViewingCutoff)) {
+        leaderboardDateToView = subDays(now, 1); // Attempt to view previous day's results
+      } else {
+        leaderboardDateToView = new Date(now); // Attempt to view current day's results
+      }
+
+      if (isValid(leaderboardDateToView)) {
+        setCurrentViewableLeaderboardDate(leaderboardDateToView);
+        const releaseTimeForDateToView = set(leaderboardDateToView, { hours: 20, minutes: 30, seconds: 0, milliseconds: 0 }); // 8:30 PM release
+        const viewingEndTimeForDateToView = set(addDays(leaderboardDateToView, 1), { hours: 20, minutes: 0, seconds: 0, milliseconds: 0 }); // Viewable until 8 PM next day
+
+        const isReleased = isAfter(now, releaseTimeForDateToView);
+        const isStillViewable = isBefore(now, viewingEndTimeForDateToView);
+
+        setIsLeaderboardReleasedForViewing(isReleased && isStillViewable);
+
+        if (!isReleased) {
+          const timeLeftToRelease = differenceInMilliseconds(releaseTimeForDateToView, now);
+          setLeaderboardStatusMessage(`${format(leaderboardDateToView, "MMM d")} Results Release In: ${formatTimeLeft(timeLeftToRelease)}`);
+        } else if (isReleased && isStillViewable) {
+          const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForDateToView, now);
+          setLeaderboardStatusMessage(`${format(leaderboardDateToView, "MMM d")} Results LIVE! Viewable For: ${formatTimeLeft(timeLeftToCloseViewing)}`);
+        } else { // Results for 'leaderboardDateToView' are no longer viewable or not yet released in a way that fits the current time window.
+                 // This implies we should look at the *next* day's upcoming results.
+            const nextDayCandidate = addDays(leaderboardDateToView, 1); // This will be the next logical day to show results for
+            const nextReleaseTime = set(nextDayCandidate, { hours: 20, minutes: 30, seconds: 0, milliseconds: 0});
+
+            if (isValid(nextDayCandidate)){
+                const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
+                setLeaderboardStatusMessage(`${format(nextDayCandidate, "MMM d")} Results Release In: ${formatTimeLeft(timeLeft)}`);
+                setCurrentViewableLeaderboardDate(nextDayCandidate); // Update the date we are targeting
+                setIsLeaderboardReleasedForViewing(false); // It's for the future
+            } else {
+                setLeaderboardStatusMessage("Leaderboard status unavailable.");
+            }
         }
+      } else {
+         setLeaderboardStatusMessage("Leaderboard date calculation error.");
+         setCurrentViewableLeaderboardDate(null);
+         setIsLeaderboardReleasedForViewing(false);
       }
     };
-    if (user) checkSubmissionStatusAndWindow();
-    const interval = setInterval(() => { if (user) checkSubmissionStatusAndWindow(); }, 60000);
+
+    calculateTimes();
+    const interval = setInterval(calculateTimes, 1000);
     return () => clearInterval(interval);
-  }, [user, fetchAIUsageOnClient]);
+  }, []);
 
-  const handleImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      setSelectedOutfitForDetails(null);
-      
-      // For production, uncomment and use a compression library:
-      // const compressedBase64 = await compressImage(file);
-      // setImageBase64Preview(compressedBase64);
-
-      // For now, without compression library:
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImageBase64Preview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleGetRating = async () => {
-    if (!imageFile || !imageBase64Preview || !user || !storage) {
-      toast({ title: 'Missing information', description: 'Please select an image and ensure you are logged in.', variant: 'destructive' });
-      return;
-    }
-    setIsProcessingAIRating(true);
-    setSelectedOutfitForDetails(null);
-
-    try {
-      // Use imageBase64Preview which holds the (potentially compressed) base64 string
-      const processedBase64ForAI = imageBase64Preview; 
-
-      const incrementResult = await clientIncrementAIUsage();
-      if (!incrementResult.success) {
-        setIsProcessingAIRating(false);
-        return;
-      }
-
-      const aiProcessingResult = await processOutfitWithAI({ photoDataUri: processedBase64ForAI });
-
-      if (aiProcessingResult.success && aiProcessingResult.data) {
-        const newRatedOutfit: ProcessedOutfitClient = {
-          ...aiProcessingResult.data,
-          outfitImageBase64: processedBase64ForAI,
-          outfitImageURLForDisplay: processedBase64ForAI,
-          submittedToLeaderboard: false,
-          localId: Date.now().toString() + Math.random().toString(36).substring(2, 9)
-        };
-        setTodaysRatedOutfits(prev => [newRatedOutfit, ...prev].slice(0, 5));
-        setImageFile(null);
-        setImageBase64Preview(null);
-        toast({ title: 'AI Analysis Complete!', description: `Outfit rated ${aiProcessingResult.data.rating.toFixed(1)}/10. Ready for review.` });
-      } else {
-        toast({ title: 'AI Analysis Failed', description: aiProcessingResult.error || 'Unknown error during AI processing.', variant: 'destructive' });
-      }
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'An unexpected error occurred.', variant: 'destructive' });
-    } finally {
-      setIsProcessingAIRating(false);
-    }
-  };
-
-  const handleSelectOutfitForDetails = (outfit: ProcessedOutfitClient) => {
-    setSelectedOutfitForDetails(outfit);
-  };
-
-  const handleSubmitToLeaderboard = async () => {
-    if (!user || !userProfile || !selectedOutfitForDetails || !selectedOutfitForDetails.outfitImageBase64 || !db || !storage) {
-      toast({ title: 'Error', description: 'No outfit selected or missing data for submission.', variant: 'destructive' });
-      return;
-    }
-    if (!selectedOutfitForDetails.isActualUserOutfit) {
-      toast({ title: "Invalid Submission", description: selectedOutfitForDetails.validityCritique || "This outfit cannot be submitted due to AI validation.", variant: "destructive" });
-      return;
-    }
-    if (hasSubmittedToday) {
-      toast({ title: "Already Submitted", description: "You've already submitted an outfit today.", variant: "default" });
-      return;
-    }
-    if (!isSubmissionWindowOpen) {
-      toast({ title: "Submissions Closed", description: `Submissions are ${isSubmissionNotYetOpen ? `not open yet (opens in ${formatTimeLeft(timeLeftToSubmissionOpen)})` : 'closed for today.'}`, variant: "default" });
-      return;
-    }
-
-    setIsSubmittingToLeaderboard(true);
-    try {
-      const imageFileName = `outfits/${user.uid}/${Date.now()}_${selectedOutfitForDetails.localId}.jpg`;
-      const imageRef = ref(storage, imageFileName);
-      
-      await uploadString(imageRef, selectedOutfitForDetails.outfitImageBase64, 'data_url', { contentType: 'image/jpeg' });
-      const uploadedOutfitFirebaseURL = await getDownloadURL(imageRef);
-      if (!uploadedOutfitFirebaseURL) throw new Error("Failed to upload image to Firebase Storage or get download URL.");
-
-      const leaderboardDateStr = toYYYYMMDD(new Date());
-      const outfitsCollectionRef = collection(db, 'outfits');
-      const outfitData = {
-        userId: user.uid,
-        username: userProfile.username,
-        userPhotoURL: userProfile.customPhotoURL || userProfile.photoURL,
-        outfitImageURL: uploadedOutfitFirebaseURL,
-        rating: selectedOutfitForDetails.rating,
-        colorSuggestions: selectedOutfitForDetails.colorSuggestions,
-        lookSuggestions: selectedOutfitForDetails.lookSuggestions,
-        submittedAt: Timestamp.now(),
-        leaderboardDate: leaderboardDateStr,
-        complimentOrCritique: selectedOutfitForDetails.complimentOrCritique,
-        isActualUserOutfit: selectedOutfitForDetails.isActualUserOutfit,
-        validityCritique: selectedOutfitForDetails.validityCritique || null,
-      };
-      await addDoc(outfitsCollectionRef, outfitData);
-      toast({ title: 'Success!', description: 'Outfit submitted to the leaderboard.' });
-
-      setHasSubmittedToday(true);
-      setTodaysRatedOutfits(prevOutfits =>
-        prevOutfits.map(o => o.localId === selectedOutfitForDetails.localId ? { ...o, submittedToLeaderboard: true, outfitImageURLForDisplay: uploadedOutfitFirebaseURL, outfitImageFirebaseURL: uploadedOutfitFirebaseURL } : o)
-      );
-      setSelectedOutfitForDetails(prev => prev ? { ...prev, submittedToLeaderboard: true, outfitImageURLForDisplay: uploadedOutfitFirebaseURL, outfitImageFirebaseURL: uploadedOutfitFirebaseURL } : null);
-
-      const perksResult = await handleLeaderboardSubmissionPerks(user.uid, selectedOutfitForDetails.rating);
-      if (perksResult.success) {
-        toast({ title: 'Perks Updated!', description: perksResult.message || 'Points & badges processed.', duration: 2000 });
-        await refreshUserProfile();
-      } else {
-        toast({ title: 'Perks Error', description: perksResult.error, variant: 'destructive' });
-      }
-
-    } catch (error: any) {
-      let errorMessage = 'Failed to submit to leaderboard.';
-      if (error.code === 'storage/unauthorized' || error.message?.toLowerCase().includes('permission denied to access object')) {
-          errorMessage = 'Permission denied to upload image to Firebase Storage. Check Storage rules.';
-      } else if (error.code === 'permission-denied' || error.message?.toLowerCase().includes('permission denied')) {
-          errorMessage = 'Permission denied to submit to leaderboard (Firestore). Check Firestore security rules.';
-      } else if (error.message) {
-          errorMessage = error.message;
-      }
-      toast({ title: 'Submission Failed', description: errorMessage, variant: 'destructive' });
-    } finally {
-      setIsSubmittingToLeaderboard(false);
-    }
-  };
-
-  if (authLoading) {
-    return <div className="flex justify-center items-center h-full p-4"><Loader2 className="h-8 w-8 animate-spin text-primary" /> <span className="ml-2 text-muted-foreground">Loading Your Style Studio...</span></div>;
+  if (loading && !isClient) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-muted-foreground">Loading LukuCheck...</p>
+      </div>
+    );
   }
 
-  const getRatingDisabled = !imageFile || isProcessingAIRating || aiUsage.limitReached;
-  const imageInputDisabled = aiUsage.limitReached || isProcessingAIRating;
+  const faqs = [
+    {
+      question: "What are the daily challenge times?",
+      answer: (
+        <div>
+          <p>The daily style challenge runs on the following schedule:</p>
+          <ul className="list-disc list-inside pl-2 space-y-1 mt-1 text-sm">
+            <li><strong>AI Rating Credits Reset:</strong> 6:00 AM daily.</li>
+            <li><strong>Outfit Submission Window:</strong> 6:00 AM - 8:00 PM daily.</li>
+            <li><strong>Leaderboard Results Release:</strong> 8:30 PM daily.</li>
+            <li><strong>Leaderboard Viewable Until:</strong> 8:00 PM the following day.</li>
+          </ul>
+          <p className="text-xs text-muted-foreground mt-1">(All times are based on your local server environment time.)</p>
+        </div>
+      )
+    },
+    {
+      question: "How often can I submit an outfit for AI rating?",
+      answer: (
+        <div>
+          <p>All users can get AI feedback on up to <strong>2 outfits per day</strong>.</p>
+          <p className="text-xs text-muted-foreground mt-1">Daily AI usage limits reset at 6:00 AM local time.</p>
+        </div>
+      )
+    },
+    {
+      question: "What makes LukuCheck awesome?",
+      answer: (
+        <div className="space-y-2">
+          <p>LukuCheck is your ultimate style battlefield and playground:</p>
+          <ul className="list-disc list-inside pl-2 space-y-1 text-sm">
+            <li><strong className="text-accent">Brutally Honest AI Ratings:</strong> Get instant scores & electrifying suggestions for your outfits.</li>
+            <li><strong className="text-accent">Daily Style Showdown:</strong> Conquer the leaderboard and bask in fashion glory.</li>
+            <li><strong className="text-accent">Epic LukuPoints & Badges:</strong> Rack up rewards for your style prowess and achievements.</li>
+            <li><strong className="text-accent">Ignite Your LukuStreak:</strong> Keep the submission fire burning for bonus points & bragging rights!</li>
+          </ul>
+           <p className="text-sm">We're constantly brewing new ways to make your style journey legendary!</p>
+        </div>
+      )
+    },
+    {
+      question: "How do I become a LukuLegend (earn LukuPoints)?",
+      answer: (
+        <div className="space-y-1">
+          <p>Stack LukuPoints and ascend to legend status:</p>
+          <ul className="list-disc list-inside pl-2 space-y-0.5 text-sm">
+            <li>Instant <strong>5 points</strong> for signing up!</li>
+            <li>Link TikTok: <strong>1 point</strong>. Link Instagram: <strong>1 point</strong>.</li>
+            <li>"Profile Pro" Badge (photo & social links): <strong>5 points</strong> bonus!</li>
+            <li>"First Submission" Badge: <strong>3 points</strong> for your leaderboard debut.</li>
+            <li>Daily LukuStreak submission: <strong>1 point/day</strong>.</li>
+            <li>"Perfect Score" Badge (10/10 AI rating): <strong>5 points</strong> (once).</li>
+            <li>3-Day LukuStreak ("Streak Starter"): <strong>2 bonus points</strong>.</li>
+            <li>7-Day LukuStreak ("Streak Keeper"): <strong>5 bonus points</strong>.</li>
+            <li>Refer a stylist: <strong>2 points</strong> each.</li>
+            <li>"Referral Rockstar" (3 referrals): <strong>10 bonus points</strong>!</li>
+            <li>Dominate the Top 3 (awarded next day):
+                <ul className="list-circle list-inside pl-4">
+                    <li>Rank 1: <strong>5 points</strong></li>
+                    <li>Rank 2: <strong>3 points</strong></li>
+                    <li>Rank 3: <strong>2 points</strong></li>
+                </ul>
+            </li>
+          </ul>
+        </div>
+      )
+    },
+    {
+      question: "What are Badges? Show me the bling!",
+      answer: (
+        <div className="space-y-3">
+          <p>Badges are your symbols of style supremacy and dedication!</p>
+          <p className="font-semibold">Achievement Badges (visible on your profile):</p>
+          <ul className="list-disc list-inside space-y-1.5 pl-2 text-sm">
+            <li className="flex items-center gap-1.5"><UserIcon className="h-4 w-4 text-accent" /><strong>Profile Pro:</strong> Master your profile with custom photo & social links.</li>
+            <li className="flex items-center gap-1.5"><Award className="inline h-4 w-4 text-accent" /><strong>First Submission:</strong> Your epic first step onto the leaderboard.</li>
+            <li className="flex items-center gap-1.5"><GiftIcon className="inline h-4 w-4 text-accent" /><strong>Referral Rockstar:</strong> The ultimate connector—3 successful referrals!</li>
+            <li className="flex items-center gap-1.5"><Flame className="inline h-4 w-4 text-red-500" /><strong>Streak Starter:</strong> 3 days of unstoppable style submissions.</li>
+            <li className="flex items-center gap-1.5"><Flame className="inline h-4 w-4 text-orange-500" /><strong>Streak Keeper:</strong> 7 days of fashion fire!</li>
+            <li className="flex items-center gap-1.5"><Trophy className="inline h-4 w-4 text-yellow-500" /><strong>Top 3 Finisher:</strong> You conquered the daily elite!</li>
+            <li className="flex items-center gap-1.5"><StarIconProp className="inline h-4 w-4 text-accent" /><strong>Perfect Score:</strong> The AI bowed down—a flawless 10/10!</li>
+            <li className="flex items-center gap-1.5"><Users className="inline h-4 w-4 text-accent" /><strong>Century Club:</strong> 100 LukuPoints of pure style.</li>
+            <li className="flex items-center gap-1.5"><LegendIcon className="inline h-4 w-4 text-accent" /><strong>Legend Status:</strong> 250+ LukuPoints—you're a style icon!</li>
+          </ul>
+          <p className="mt-2 font-semibold">Luku Tier Badges (your rank flair, shown by your name):</p>
+          <ul className="list-none space-y-1.5 pl-2 text-sm">
+            <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-yellow-600 fill-yellow-600" /> <strong>Luku Bronze:</strong> 20-49 LukuPoints - Style Spark</li>
+            <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-slate-400 fill-slate-400" /> <strong>Luku Silver:</strong> 50-99 LukuPoints - Fashion Forward</li>
+            <li className="flex items-center gap-2"><StarIconProp className="h-4 w-4 text-yellow-400 fill-yellow-400" /> <strong>Luku Gold:</strong> 100-249 LukuPoints - Trendsetter Titan</li>
+            <li className="flex items-center gap-2"><Award className="h-4 w-4 text-sky-500 fill-sky-500" /> <strong>Luku Legend:</strong> 250+ LukuPoints - Style Deity</li>
+          </ul>
+        </div>
+      )
+    },
+    {
+      question: "How does LukuStreak work?",
+      answer: "Submit an outfit to the leaderboard for consecutive days to build your LukuStreak! You earn 1 LukuPoint for each day's submission in your streak, plus bonus points and badges at milestones like 3 and 7 days. Miss a day? Your streak resets, but you can always ignite a new one!"
+    },
+    {
+      question: "How is my outfit rated?",
+      answer: "Our cutting-edge AI scrutinizes your outfit like a top fashion critic, analyzing color harmony, style coherence, trend relevance, and overall impact to deliver a precise rating and actionable suggestions."
+    }
+  ];
 
-  const submitToLeaderboardButtonDisabled = isSubmittingToLeaderboard ||
-    !selectedOutfitForDetails ||
-    selectedOutfitForDetails.submittedToLeaderboard ||
-    hasSubmittedToday ||
-    !isSubmissionWindowOpen ||
-    (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit);
-
-  let submitToLeaderboardButtonText = "Submit to Daily Leaderboard";
-  if (selectedOutfitForDetails && !selectedOutfitForDetails.isActualUserOutfit) submitToLeaderboardButtonText = "Cannot Submit (Invalid Image)";
-  else if (hasSubmittedToday || selectedOutfitForDetails?.submittedToLeaderboard) submitToLeaderboardButtonText = "Submitted Today!";
-  else if (!isSubmissionWindowOpen && !isSubmissionNotYetOpen) submitToLeaderboardButtonText = "Submission Window Closed";
-  else if (isSubmissionNotYetOpen) submitToLeaderboardButtonText = `Submissions Open In: ${formatTimeLeft(timeLeftToSubmissionOpen)}`;
+  const gameplaySteps = [
+    {
+      icon: UploadCloud,
+      title: "Upload Your Masterpiece",
+      description: "Got a killer look? Snap it, upload it, and let the AI work its magic."
+    },
+    {
+      icon: Sparkles,
+      title: "AI Verdict: Hot or Not?",
+      description: "Our AI gives your outfit a score (0-10) and spills the tea with color, look suggestions, plus a brutally honest critique. Get 2 free AI ratings daily!"
+    },
+    {
+      icon: Send,
+      title: "Enter the Arena",
+      description: "Confident? Submit your AI-rated look to the daily leaderboard. Window: 6 AM - 8 PM daily."
+    },
+    {
+      icon: BarChart3,
+      title: "Claim Your Rank",
+      description: "Results drop at 8:30 PM daily! See where you stand and scope out the competition."
+    },
+    {
+      icon: Coins,
+      title: "Rewards & Recognition",
+      description: "Amass LukuPoints for submissions, streaks, referrals, & top ranks. Unlock exclusive badges and become a LukuLegend!"
+    }
+  ];
 
   return (
-    <div className="container mx-auto py-6 sm:py-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
-        <Card className="shadow-xl rounded-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl sm:text-3xl flex items-center text-primary">
-              <UploadCloud className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:w-8" /> Submit Your Look
-            </CardTitle>
-            <CardDescription className="text-sm sm:text-base">Get feedback, then choose your best look for the leaderboard!</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 sm:space-y-6">
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="outfitImage" className="text-base sm:text-lg font-medium">Outfit Photo</Label>
-              <Input id="outfitImage" type="file" accept="image/*" onChange={handleImageChange} className="file:text-primary file:font-semibold file:mr-2" disabled={imageInputDisabled} />
-              <p className="text-xs text-muted-foreground">Tip: Clear, well-lit photos get better AI feedback. Max 0.5MB recommended after compression.</p>
-            </div>
+    <>
+      <SiteHeader />
+      <main className="flex-1 container flex flex-col items-center text-center py-8 sm:py-10 md:py-12 px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 sm:mb-10">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-4 tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-accent to-primary/80 py-2">
+                Is Your Outfit a 10/10? Prove It!
+            </h1>
+            <p className="text-lg sm:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+                Get Instant AI Fashion Feedback, Conquer the Daily Style Challenge, and Rise as a LukuCheck Legend! ✨ Free ratings, fierce competition.
+            </p>
 
-            {imageBase64Preview && (
-              <div className="mt-3 sm:mt-4 border-2 border-dashed border-primary/30 rounded-lg overflow-hidden shadow-inner p-2 bg-muted/20">
-                <Image src={imageBase64Preview} alt="Outfit preview" width={500} height={500} className="object-contain w-full h-auto max-h-[300px] sm:max-h-[400px] rounded-md" data-ai-hint="fashion clothing detail" />
-              </div>
-            )}
-
-            <Alert variant="default" className="bg-secondary/30 border-secondary">
-              <Info className="h-4 w-4 text-secondary-foreground" />
-              <AlertTitle className="font-semibold">AI Usage: {aiUsage.count}/{currentAiLimit} Analyses Used Today</AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm">
-                {aiUsage.limitReached ? `You've reached your daily AI analysis limit. Resets 6 AM local time.` : `Get up to ${currentAiLimit} AI ratings per day (resets 6 AM).`}
-              </AlertDescription>
-            </Alert>
-
-            {!hasSubmittedToday && isSubmissionNotYetOpen && timeLeftToSubmissionOpen > 0 && (
-              <Alert variant="default" className="bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300">
-                <Clock className="h-4 w-4" />
-                <AlertTitle>Submissions Open Soon</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                  Today's submission window (6 AM - 8 PM) for the leaderboard opens in: <span className="font-semibold">{formatTimeLeft(timeLeftToSubmissionOpen)}</span>.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {!hasSubmittedToday && !isSubmissionWindowOpen && !isSubmissionNotYetOpen && (
-              <Alert variant="destructive">
-                <Ban className="h-4 w-4" />
-                <AlertTitle>Submissions Closed for Today</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                  The 8 PM deadline for today's leaderboard submissions has passed. Try again tomorrow from 6 AM!
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {hasSubmittedToday && (
-              <Alert variant="default" className="bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400">
-                <ShieldAlert className="h-4 w-4" />
-                <AlertTitle>Submission Complete for Today</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                  You've already submitted an outfit for today's leaderboard. Check back tomorrow!
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button onClick={handleGetRating} disabled={getRatingDisabled} className="w-full text-base sm:text-lg py-3">
-              {isProcessingAIRating ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-              Get AI Rating & Suggestions
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <div className="md:col-span-1 space-y-6 sm:space-y-8">
-          {isProcessingAIRating && !selectedOutfitForDetails && todaysRatedOutfits.length === 0 && (
-            <Card className="shadow-xl rounded-lg animate-pulse">
-              <CardHeader className="items-center">
-                <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin text-primary" />
-                <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mt-3">Our AI is analyzing your style...</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <Progress value={50} className="w-3/4 mx-auto" />
-                <p className="text-xs sm:text-sm text-muted-foreground mt-2">This might take a few moments.</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {todaysRatedOutfits.length > 0 && !selectedOutfitForDetails && (
-            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500">
-              <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl">Today's Rated Looks</CardTitle>
-                <CardDescription className="text-sm sm:text-base">Review your outfits and choose one to submit.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 sm:space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                {todaysRatedOutfits.map((outfit) => (
-                  <Card key={outfit.localId} className={cn("p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 transition-all hover:shadow-md", outfit.submittedToLeaderboard ? "bg-green-500/10 border-green-500/30" : "bg-card hover:bg-muted/50", !outfit.isActualUserOutfit && "border-destructive/50")}>
-                    <Image src={outfit.outfitImageURLForDisplay} alt="Rated outfit" width={72} height={72} className="rounded-md aspect-square object-cover border-2 border-primary/20 shadow-sm" data-ai-hint="fashion clothing item"/>
-                    <div className="flex-grow text-center sm:text-left">
-                      <p className="text-2xl sm:text-3xl font-bold text-primary">{outfit.rating.toFixed(1)}<span className="text-lg text-muted-foreground">/10</span></p>
-                      {!outfit.isActualUserOutfit && <p className="text-xs text-destructive mt-0.5">{outfit.validityCritique || "AI flagged this image."}</p>}
-                    </div>
-                    <Button
-                      onClick={() => handleSelectOutfitForDetails(outfit)}
-                      disabled={!outfit.isActualUserOutfit || outfit.submittedToLeaderboard}
-                      variant={outfit.submittedToLeaderboard ? "ghost" : "default"}
-                      size="sm"
-                      className="w-full sm:w-auto mt-2 sm:mt-0"
-                    >
-                      {outfit.submittedToLeaderboard ? <><Star className="mr-2 h-4 w-4 text-green-600 fill-green-600"/>Submitted!</> : <><Eye className="mr-2 h-4 w-4"/>Review & Prepare</>}
-                    </Button>
-                  </Card>
-                ))}
-              </CardContent>
-               {hasSubmittedToday && (
-                  <CardFooter>
-                    <Alert variant="default" className="mt-4 bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400 w-full">
-                        <ShieldAlert className="h-5 w-5" />
-                        <AlertTitle>Leaderboard Submission Sent!</AlertTitle>
-                        <AlertDescription>
-                            You've successfully submitted an outfit for today. Check the leaderboard later!
-                        </AlertDescription>
-                    </Alert>
-                  </CardFooter>
-                )}
-            </Card>
-          )}
-
-          {selectedOutfitForDetails && (
-            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle className="text-xl sm:text-2xl flex items-center text-accent">
-                            <Sparkles className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" /> AI Feedback
-                        </CardTitle>
-                        <CardDescription className="text-sm sm:text-base">Here's what our fashion AI thinks.</CardDescription>
-                    </div>
-                     <Button variant="ghost" size="icon" onClick={() => setSelectedOutfitForDetails(null)} className="ml-auto -mt-2 -mr-2 sm:mt-0 sm:mr-0">
-                        <XCircle className="h-5 w-5 text-muted-foreground hover:text-destructive" />
-                        <span className="sr-only">Close details</span>
-                    </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 sm:space-y-4">
-                {!selectedOutfitForDetails.isActualUserOutfit && (
-                  <Alert variant="destructive">
-                    <ImageOff className="h-5 w-5" />
-                    <AlertTitle>Image Validity Issue</AlertTitle>
-                    <AlertDescription>{selectedOutfitForDetails.validityCritique}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="text-center py-2">
-                  <p className="text-4xl sm:text-5xl font-bold text-primary">{selectedOutfitForDetails.rating.toFixed(1)}<span className="text-xl sm:text-2xl text-muted-foreground">/10</span></p>
-                  <div className="flex justify-center mt-1">
-                    {[...Array(10)].map((_, i) => (
-                      <Star key={i} className={`h-5 w-5 sm:h-6 sm:w-6 ${i < Math.round(selectedOutfitForDetails.rating) ? 'text-accent fill-accent' : 'text-muted-foreground/30'}`} />
-                    ))}
-                  </div>
-                </div>
-
-                <Separator className="my-3 sm:my-4" />
-
-                <div>
-                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><MessageSquareQuote className="mr-2 h-5 w-5 text-primary"/>Stylist's Verdict:</h3>
-                  <p className="text-sm sm:text-base text-foreground/90 italic bg-muted/30 p-2 rounded-md border">{selectedOutfitForDetails.complimentOrCritique || "No specific verdict provided."}</p>
-                </div>
-
-                <div>
-                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Color Suggestions:</h3>
-                  {selectedOutfitForDetails.colorSuggestions && selectedOutfitForDetails.colorSuggestions.length > 0 ? (
-                    <ul className="list-disc list-inside space-y-0.5 text-sm sm:text-base text-foreground/90 pl-3">
-                      {selectedOutfitForDetails.colorSuggestions.map((color, index) => <li key={index}>{color}</li>)}
-                    </ul>
-                  ) : (<p className="text-sm sm:text-base text-muted-foreground italic">No specific color suggestions provided.</p>)}
-                </div>
-
-                <div>
-                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><Shirt className="mr-2 h-5 w-5 text-primary"/>Look Suggestions:</h3>
-                  <p className="text-sm sm:text-base text-foreground/90">{selectedOutfitForDetails.lookSuggestions || "No specific look suggestions provided."}</p>
-                </div>
-
-                {selectedOutfitForDetails.outfitImageURLForDisplay && (
-                  <div className="mt-3 border-2 border-dashed border-primary/30 rounded-lg overflow-hidden shadow-inner p-1 bg-muted/20">
-                    <Image src={selectedOutfitForDetails.outfitImageURLForDisplay} alt="Processed outfit" width={300} height={300} className="object-contain w-full h-auto max-h-[200px] sm:max-h-[250px] rounded" data-ai-hint="model clothing detail"/>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter>
-                <Button
-                  onClick={handleSubmitToLeaderboard}
-                  disabled={submitToLeaderboardButtonDisabled}
-                  className="w-full text-base sm:text-lg py-3 bg-accent hover:bg-accent/90 text-accent-foreground"
-                >
-                  {isSubmittingToLeaderboard ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                  {submitToLeaderboardButtonText}
+            {!user ? (
+            <Link href="/login" passHref legacyBehavior>
+                <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground text-base sm:text-lg px-10 py-3.5 rounded-lg shadow-lg transition-transform hover:scale-105 transform active:scale-95">
+                 Join the Style Off! <Sparkles className="ml-2 h-5 w-5" />
                 </Button>
-              </CardFooter>
-            </Card>
-          )}
+            </Link>
+            ) : (
+            <Link href="/upload" passHref legacyBehavior>
+                <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground text-base sm:text-lg px-10 py-3.5 rounded-lg shadow-lg transition-transform hover:scale-105 transform active:scale-95">
+                 Rate My Look Now! <Sparkles className="ml-2 h-5 w-5" />
+                </Button>
+            </Link>
+            )}
         </div>
-      </div>
-    </div>
+
+        {isClient && (
+          <Card className="mt-10 mb-12 sm:mb-16 max-w-3xl w-full shadow-xl rounded-xl border-primary/20">
+            <CardHeader className="bg-primary/5 rounded-t-xl">
+              <CardTitle className="text-2xl sm:text-3xl flex items-center justify-center text-primary">
+                <CalendarCheck2 className="mr-3 h-7 w-7 sm:h-8 sm:w-8"/>Daily Challenge Cycle
+              </CardTitle>
+              <CardDescription className="text-sm sm:text-base text-center pt-1">
+                Submissions: Daily <strong>6 AM - 8 PM</strong>.
+                Leaderboard Results: <strong>8:30 PM daily</strong> (viewable until <strong>8 PM next day</strong>).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg border-2 border-dashed border-primary/30 bg-card hover:shadow-md transition-shadow">
+                  <h4 className="text-lg font-semibold flex items-center mb-1">
+                    <PlayCircle className={`mr-2 h-5 w-5 ${isSubmissionWindowOpen ? 'text-green-500 animate-pulse' : 'text-destructive'}`}/>
+                    Outfit Submissions:
+                  </h4>
+                  <p className="text-sm sm:text-base font-medium">
+                    {submissionStatusMessage}
+                  </p>
+                </div>
+                <Link href="/leaderboard" passHref className="h-full block group">
+                  <div className="p-4 rounded-lg border-2 border-dashed border-accent/30 bg-card hover:shadow-md transition-shadow h-full flex flex-col justify-center group-hover:border-accent">
+                    <h4 className="text-lg font-semibold flex items-center mb-1">
+                      <UsersIconProp className={`mr-2 h-5 w-5 ${isLeaderboardReleasedForViewing ? 'text-accent' : 'text-muted-foreground'}`}/>
+                      Leaderboard:
+                    </h4>
+                    <p className="text-sm sm:text-base font-medium">{leaderboardStatusMessage}</p>
+                  </div>
+                </Link>
+              </div>
+              {isClient && isLeaderboardReleasedForViewing && !user && currentViewableLeaderboardDate && (
+                <Alert variant="default" className="mt-4 bg-secondary/50 border-secondary">
+                  <Info className="h-5 w-5 text-secondary-foreground" />
+                  <AlertTitle className="font-semibold">Leaderboard is Active!</AlertTitle>
+                  <AlertDescription className="flex flex-col sm:flex-row items-center justify-between gap-2 text-sm">
+                    <span>Log in to view the top styles for {format(currentViewableLeaderboardDate, "MMM d")}.</span>
+                    <Link href="/login" passHref legacyBehavior>
+                      <Button size="sm" className="mt-2 sm:mt-0 sm:ml-auto shrink-0">
+                        <LogIn className="mr-2 h-4 w-4" /> Login to View
+                      </Button>
+                    </Link>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        <section className="my-12 sm:my-16 w-full max-w-5xl">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-8 sm:mb-10 flex items-center justify-center">
+                <Shirt className="mr-3 h-8 w-8 sm:h-9 sm:w-9 text-primary"/>
+                How LukuCheck Works
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                {gameplaySteps.map((step, index) => (
+                    <Card key={index} className="shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-xl flex flex-col text-left bg-card hover:bg-primary/5">
+                        <CardHeader className="items-start">
+                            <div className="p-3 rounded-full bg-accent/10 mb-3 inline-block ring-2 ring-accent/30">
+                                <step.icon className="w-8 h-8 text-accent" />
+                            </div>
+                            <CardTitle className="text-xl sm:text-2xl">{step.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex-grow">
+                            <p className="text-muted-foreground text-sm sm:text-base">{step.description}</p>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        </section>
+
+        <section className="my-12 sm:my-16 w-full max-w-3xl">
+            <h2 className="text-3xl sm:text-4xl font-bold mb-8 sm:mb-10 flex items-center justify-center">
+                <HelpCircle className="mr-3 h-8 w-8 sm:h-9 sm:w-9 text-primary"/>
+                Your Questions Answered
+            </h2>
+            <Accordion type="single" collapsible className="w-full bg-card p-4 sm:p-6 rounded-xl shadow-lg border border-primary/10">
+                {faqs.map((faq, index) => (
+                <AccordionItem value={`item-${index}`} key={index} className="border-b border-primary/10 last:border-b-0">
+                    <AccordionTrigger
+                        className="text-lg sm:text-xl hover:no-underline text-left justify-between py-4 sm:py-5 font-medium text-foreground hover:text-primary"
+                    >
+                        {faq.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="text-base text-muted-foreground text-left pb-4 sm:pb-5 pl-1 pr-1">
+                    {typeof faq.answer === 'string' ? <p>{faq.answer}</p> : faq.answer}
+                    </AccordionContent>
+                </AccordionItem>
+                ))}
+            </Accordion>
+        </section>
+
+      </main>
+      <SiteFooter />
+    </>
   );
 }
