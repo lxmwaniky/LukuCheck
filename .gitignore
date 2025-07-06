@@ -46,3 +46,8 @@ firebase-debug.log
 firestore-debug.log
 .vscode
 docs
+
+# capacitor
+/android/
+/ios/
+temp_admin_backup/

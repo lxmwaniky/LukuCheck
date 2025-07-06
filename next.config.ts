@@ -1,15 +1,20 @@
-
 import type {NextConfig} from 'next';
 
+const isMobileBuild = process.env.MOBILE_BUILD === 'true';
+
 const nextConfig: NextConfig = {
-  /* config options here */
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
   },
+  ...(isMobileBuild && {
+    output: 'export',
+    trailingSlash: true,
+  }),
   images: {
+    unoptimized: isMobileBuild,
     remotePatterns: [
       {
         protocol: 'https',
@@ -25,19 +30,18 @@ const nextConfig: NextConfig = {
       },
        {
         protocol: 'https',
-        hostname: 'lh3.googleusercontent.com', // For Google User Avatars
+        hostname: 'lh3.googleusercontent.com',
         port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
-        hostname: 'img.freepik.com', // Added for the new image
+        hostname: 'img.freepik.com',
         port: '',
         pathname: '/**',
       }
     ],
   },
-  // Removed webpack function to avoid potential conflicts with Turbopack
 };
 
 export default nextConfig;
