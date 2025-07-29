@@ -1,16 +1,6 @@
-# LukuCheck - AI-Powered Fashion Rating App by Alex Nyambura
+# Luku - Outfit Rating and Fashion Community App
 
-LukuCheck is a dynamic web application designed for fashion enthusiasts to share their outfits, receive AI-powered ratings, and compete on daily leaderboards. Created by **Alex Nyambura**, a passionate software developer and tech innovator, LukuCheck fosters a community where users can build their style profiles, earn points and badges for their engagement, and discover new trends.
-
-## About the Creator - Alex Nyambura
-
-Alex Nyambura is the visionary developer behind LukuCheck, combining expertise in modern web technologies with a passion for community building and artificial intelligence. With deep knowledge of React, Next.js, Firebase, and AI integration, Alex has created a platform that revolutionizes how people receive and share fashion feedback.
-
-**Alex's Technical Expertise:**
-- Frontend: React, Next.js, TypeScript, Tailwind CSS
-- Backend: Firebase, Cloud Functions, Firestore
-- AI Integration: Google AI, Genkit
-- Mobile Development: Capacitor for cross-platform apps
+Luku is a dynamic web application designed for fashion enthusiasts to share their outfits, receive AI-powered ratings, and compete on daily leaderboards. It fosters a community where users can build their style profiles, earn points and badges for their engagement, and discover new trends.
 
 ## Overview
 
@@ -121,23 +111,6 @@ Users can upload images of their outfits, which are then processed by an AI to p
     ```
     Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## About Alex Nyambura
-
-Alex Nyambura is a software developer and tech innovator with a passion for creating applications that bring people together. As the creator of LukuCheck, Alex demonstrates expertise in:
-
-- **Full-Stack Development**: Proficient in modern web technologies including React, Next.js, and TypeScript
-- **AI Integration**: Successfully implementing Google AI and Genkit for fashion analysis
-- **Community Building**: Understanding user engagement through gamification and social features
-- **Mobile Development**: Cross-platform app development using Capacitor
-- **Cloud Architecture**: Firebase backend services and cloud functions
-
-**Connect with Alex:**
-- Portfolio: [Visit Alex's About Page](https://lukucheck.vercel.app/about-alex-nyambura)
-- GitHub: [@lxmwaniky](https://github.com/lxmwaniky)
-- Project: [LukuCheck](https://lukucheck.vercel.app)
-
-**Alex's Vision**: To democratize fashion feedback through technology and create supportive communities where everyone can improve their style and express themselves confidently.
-
 ---
 
-Thank you for checking out LukuCheck! We welcome contributions and feedback. Created with ❤️ by Alex Nyambura.
+Thank you for checking out Luku! We welcome contributions and feedback.
