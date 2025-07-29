@@ -22,14 +22,12 @@ export function SiteFooter() {
       <div className="container flex flex-col items-center justify-center gap-4 md:h-20 md:flex-row">
         <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
           {currentYear ? `© ${currentYear} ` : '© '}
-          <a
-            href="https://lxmwaniky.me"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-primary hover:underline underline-offset-4"
-          >
-            Alex Nyambura
-          </a>
+          Created by{' '}
+          <Link href="/about-alex-nyambura" legacyBehavior passHref>
+            <a className="font-medium text-primary hover:underline underline-offset-4">
+              Alex Nyambura
+            </a>
+          </Link>
           . All Rights Reserved.
         </p>
         <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">

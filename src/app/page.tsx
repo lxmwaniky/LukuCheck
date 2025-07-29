@@ -353,6 +353,31 @@ export default function HomePage() {
         </section>
 
         <section className="my-12 sm:my-16 w-full max-w-3xl">
+            <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-6 sm:p-8 border border-primary/20">
+                <div className="text-center space-y-4">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+                        Meet the Creator
+                    </h2>
+                    <p className="text-base sm:text-lg text-muted-foreground">
+                        LukuCheck was created by{' '}
+                        <Link href="/about-alex-nyambura" className="font-semibold text-primary hover:underline underline-offset-4">
+                            Alex Nyambura
+                        </Link>
+                        , a passionate software developer who combines cutting-edge AI technology with fashion community building.
+                    </p>
+                    <p className="text-sm sm:text-base text-muted-foreground">
+                        Alex's vision: Democratize fashion feedback through technology and create a supportive community where everyone can improve their style.
+                    </p>
+                    <Link href="/about-alex-nyambura" passHref legacyBehavior>
+                        <Button variant="outline" size="sm" className="mt-4">
+                            Learn More About Alex
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+        </section>
+
+        <section className="my-12 sm:my-16 w-full max-w-3xl">
             <h2 className="text-3xl sm:text-4xl font-bold mb-8 sm:mb-10 flex items-center justify-center">
                 <HelpCircle className="mr-3 h-8 w-8 sm:h-9 sm:w-9 text-primary"/>
                 Your Questions Answered
