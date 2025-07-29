@@ -5,9 +5,9 @@ export const alexNyamburaStructuredData = {
   "name": "Alex Nyambura",
   "jobTitle": "Software Developer & Tech Innovator",
   "description": "Creator of LukuCheck - AI-powered fashion rating app. Passionate about combining technology with creative communities.",
-  "url": "https://lukucheck.vercel.app/about-alex-nyambura",
+  "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura",
   "sameAs": [
-    "https://lukucheck.vercel.app",
+    "https://lukucheck.lxmwaniky.me",
     "https://github.com/lxmwaniky"
   ],
   "worksFor": {
@@ -33,7 +33,7 @@ export const alexNyamburaStructuredData = {
     "@type": "SoftwareApplication",
     "name": "LukuCheck",
     "description": "AI-powered fashion rating and community app",
-    "url": "https://lukucheck.vercel.app"
+    "url": "https://lukucheck.lxmwaniky.me"
   }
 };
 
@@ -42,20 +42,20 @@ export const lukuCheckStructuredData = {
   "@type": "WebApplication",
   "name": "LukuCheck",
   "description": "Rate your outfit and climb the leaderboard! Created by Alex Nyambura - Fashion AI technology meets community.",
-  "url": "https://lukucheck.vercel.app",
+  "url": "https://lukucheck.lxmwaniky.me",
   "applicationCategory": "LifestyleApplication",
   "operatingSystem": "Any",
   "author": {
     "@type": "Person",
     "name": "Alex Nyambura",
     "description": "Tech innovator and creator of LukuCheck - combining AI with fashion community",
-    "url": "https://lukucheck.vercel.app/about-alex-nyambura"
+    "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura"
   },
   "creator": {
     "@type": "Person", 
     "name": "Alex Nyambura",
     "description": "Tech innovator and creator of LukuCheck - combining AI with fashion community",
-    "url": "https://lukucheck.vercel.app/about-alex-nyambura"
+    "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura"
   },
   "offers": {
     "@type": "Offer",
@@ -70,20 +70,20 @@ export const lukuCheckStructuredData = {
     "Points and badges system",
     "Social media integration"
   ],
-  "screenshot": "https://lukucheck.vercel.app/preview.png"
+  "screenshot": "https://lukucheck.lxmwaniky.me/preview.png"
 };
 
 export const organizationStructuredData = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": "LukuCheck",
-  "url": "https://lukucheck.vercel.app",
-  "logo": "https://lukucheck.vercel.app/logo.png",
+  "url": "https://lukucheck.lxmwaniky.me",
+  "logo": "https://lukucheck.lxmwaniky.me/logo.png",
   "description": "AI-powered fashion rating and community platform created by Alex Nyambura",
   "founder": {
     "@type": "Person",
     "name": "Alex Nyambura",
-    "url": "https://lukucheck.vercel.app/about-alex-nyambura"
+    "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura"
   },
   "sameAs": [
     "https://github.com/lxmwaniky/LukuCheck"

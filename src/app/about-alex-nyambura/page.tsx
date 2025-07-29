@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     type: 'profile',
   },
   alternates: {
-    canonical: 'https://lukucheck.vercel.app/about-alex-nyambura',
+    canonical: 'https://lukucheck.lxmwaniky.me/about-alex-nyambura',
   },
 };
 
@@ -37,9 +37,9 @@ const structuredData = {
   "name": "Alex Nyambura",
   "jobTitle": "Software Developer & Tech Innovator",
   "description": "Creator of LukuCheck - AI-powered fashion rating app. Passionate about combining technology with creative communities.",
-  "url": "https://lukucheck.vercel.app/about-alex-nyambura",
+  "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura",
   "sameAs": [
-    "https://lukucheck.vercel.app",
+    "https://lukucheck.lxmwaniky.me",
     "https://github.com/lxmwaniky"
   ],
   "worksFor": {
@@ -61,7 +61,7 @@ const structuredData = {
     "@type": "SoftwareApplication",
     "name": "LukuCheck",
     "description": "AI-powered fashion rating and community app",
-    "url": "https://lukucheck.vercel.app"
+    "url": "https://lukucheck.lxmwaniky.me"
   }
 };
 

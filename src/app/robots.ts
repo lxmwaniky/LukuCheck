@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: '/',
       disallow: ['/admin_disabled/', '/verify-email-notice/'],
     },
-    sitemap: 'https://lukucheck.vercel.app/sitemap.xml',
+    sitemap: 'https://lukucheck.lxmwaniky.me/sitemap.xml',
   };
 }

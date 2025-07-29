@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://lukucheck.vercel.app';
+  const baseUrl = 'https://lukucheck.lxmwaniky.me';
   
   return [
     {
