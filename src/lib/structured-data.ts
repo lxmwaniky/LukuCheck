@@ -5,10 +5,11 @@ export const alexNyamburaStructuredData = {
   "name": "Alex Nyambura",
   "jobTitle": "Software Developer & Tech Innovator",
   "description": "Creator of LukuCheck - AI-powered fashion rating app. Passionate about combining technology with creative communities.",
-  "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura",
+  "url": "https://lxmwaniky.me",
   "sameAs": [
     "https://lukucheck.lxmwaniky.me",
-    "https://github.com/lxmwaniky"
+    "https://github.com/lxmwaniky",
+    "https://lxmwaniky.me"
   ],
   "worksFor": {
     "@type": "Organization",
@@ -49,13 +50,13 @@ export const lukuCheckStructuredData = {
     "@type": "Person",
     "name": "Alex Nyambura",
     "description": "Tech innovator and creator of LukuCheck - combining AI with fashion community",
-    "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura"
+    "url": "https://lxmwaniky.me"
   },
   "creator": {
     "@type": "Person", 
     "name": "Alex Nyambura",
     "description": "Tech innovator and creator of LukuCheck - combining AI with fashion community",
-    "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura"
+    "url": "https://lxmwaniky.me"
   },
   "offers": {
     "@type": "Offer",
@@ -83,7 +84,7 @@ export const organizationStructuredData = {
   "founder": {
     "@type": "Person",
     "name": "Alex Nyambura",
-    "url": "https://lukucheck.lxmwaniky.me/about-alex-nyambura"
+    "url": "https://lxmwaniky.me"
   },
   "sameAs": [
     "https://github.com/lxmwaniky/LukuCheck"
