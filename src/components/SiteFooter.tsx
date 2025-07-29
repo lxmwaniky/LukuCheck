@@ -23,7 +23,7 @@ export function SiteFooter() {
         <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
           {currentYear ? `© ${currentYear} ` : '© '}
           <a
-            href="https://lxmwaniky.vercel.app"
+            href="https://lxmwaniky.me"
             target="_blank"
             rel="noopener noreferrer"
             className="font-medium text-primary hover:underline underline-offset-4"
