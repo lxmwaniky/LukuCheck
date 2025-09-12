@@ -51,7 +51,7 @@ export default function AdminTicketDetailPage({ params: { ticketId } }: AdminTic
   useEffect(() => {
     if (!authLoading) {
       if (!user || !userProfile?.role || !['admin', 'manager'].includes(userProfile.role)) {
-        router.replace('/login?redirect=/admin/tickets');
+        router.replace('/auth?redirect=/admin/tickets');
       } else {
         fetchTicketDetails();
       }

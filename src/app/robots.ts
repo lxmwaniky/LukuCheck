@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/admin_disabled/', '/verify-email-notice/'],
+      disallow: ['/admin_disabled/'],
     },
     sitemap: 'https://lukucheck.lxmwaniky.me/sitemap.xml',
   };

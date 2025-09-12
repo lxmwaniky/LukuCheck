@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const loadedProfile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          username: profileData.username || firebaseUser.displayName,
+          username: profileData.username || '', // Keep empty to force profile completion
           photoURL: profileData.customPhotoURL || profileData.photoURL || firebaseUser.photoURL,
           customPhotoURL: profileData.customPhotoURL,
           emailVerified: firebaseUser.emailVerified,
@@ -143,11 +143,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // No Firestore document exists - create a proper profile
         console.log('No Firestore profile found for user, creating new profile...');
         
-        // Create a proper user profile with all the right fields
+        // Create a proper user profile without username to force profile completion
         const profileResult = await createUserProfileInFirestore(
           firebaseUser.uid,
           firebaseUser.email || '',
-          firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          '', // Empty username to force profile completion flow
           null // No referral handling here - would have been handled during signup
         );
 
@@ -159,7 +159,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const newProfile: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email,
-              username: newProfileData.username || firebaseUser.displayName,
+              username: newProfileData.username || '', // Keep empty to force profile completion
               photoURL: newProfileData.customPhotoURL || newProfileData.photoURL || firebaseUser.photoURL,
               customPhotoURL: newProfileData.customPhotoURL,
               emailVerified: firebaseUser.emailVerified,

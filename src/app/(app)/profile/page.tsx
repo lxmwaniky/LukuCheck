@@ -296,7 +296,7 @@ export default function ProfilePage() {
         toast({ title: 'Account Deleted', description: 'Your account and all associated data have been permanently deleted.' });
 
         await signOut(auth);
-        router.push('/signup');
+        router.push('/auth');
 
     } catch (error: any) {
       errorOccurred = true;
@@ -339,10 +339,67 @@ export default function ProfilePage() {
     return <div className="text-center p-4 text-muted-foreground">Loading user profile details. If this persists, please try again or re-login.</div>;
   }
 
+  // Check if this is a new user who needs to complete profile setup
+  const needsProfileSetup = !userProfile.username || userProfile.username.trim() === '';
+  
+  if (needsProfileSetup) {
+    return (
+      <div className="container max-w-2xl mx-auto p-4 py-8">
+        <Card className="shadow-lg border-primary/20">
+          <CardHeader className="text-center pb-8">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600">
+              <UserIcon className="h-8 w-8 text-white" />
+            </div>
+            <CardTitle className="text-3xl font-bold">Welcome to LukuCheck!</CardTitle>
+            <CardDescription className="text-lg">
+              Let's set up your profile to get started
+            </CardDescription>
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
+            <div>
+              <Label htmlFor="setup-username" className="text-base font-medium">Choose your username</Label>
+              <p className="text-sm text-muted-foreground mb-2">This will be displayed on the leaderboard</p>
+              <Input
+                id="setup-username"
+                type="text"
+                value={currentUsername}
+                onChange={(e) => setCurrentUsername(e.target.value)}
+                placeholder="Enter a unique username (min. 3 characters)"
+                className="text-lg h-12"
+              />
+            </div>
+            
+            <div className="text-center">
+              <Button 
+                onClick={handleProfileUpdate}
+                disabled={isSubmitting || currentUsername.trim().length < 3}
+                size="lg"
+                className="px-8 h-12 text-lg"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Setting up...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-5 w-5" />
+                    Complete Setup
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const avatarDisplayName = currentUsername || userProfile?.email?.split('@')[0] || 'L';
   const isPasswordProvider = auth.currentUser?.providerData.some(provider => provider.providerId === 'password');
 
-  const referralLink = typeof window !== 'undefined' ? `${window.location.origin}/signup?ref=${user.uid}` : '';
+  const referralLink = typeof window !== 'undefined' ? `${window.location.origin}/auth?ref=${user.uid}` : '';
 
   const handleCopyReferralLink = () => {
     if (referralLink && navigator.clipboard) {

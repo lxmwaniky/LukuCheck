@@ -16,16 +16,10 @@ export default function AppLayout({
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.replace('/login');
-      } else if (user && !user.emailVerified) {
-        if (window.location.pathname !== '/verify-email-notice') {
-           router.replace('/verify-email-notice');
-        }
-      }
+    if (!loading && !user) {
+      router.replace('/auth');
     }
-  }, [user, userProfile, loading, router]);
+  }, [user, loading, router]);
 
   if (loading) {
     return (
@@ -36,7 +30,7 @@ export default function AppLayout({
     );
   }
 
-  if (!user || (user && !user.emailVerified && window.location.pathname !== '/verify-email-notice')) {
+  if (!user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center p-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />

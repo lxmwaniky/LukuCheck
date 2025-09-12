@@ -30,7 +30,7 @@ export function SiteHeader() {
       if (auth) {
         await signOut(auth);
       }
-      router.push('/login');
+      router.push('/auth');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -57,7 +57,7 @@ export function SiteHeader() {
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-          {user && user.emailVerified && (
+          {user && (
             <>
               <Link href="/upload" legacyBehavior passHref>
                 <Button variant="ghost" className="text-sm">
@@ -134,9 +134,9 @@ export function SiteHeader() {
                 <LogOut className="mr-2 h-4 w-4" /> Logout
               </Button>
             ) : (
-              <Link href="/login" passHref legacyBehavior>
+              <Link href="/auth" passHref legacyBehavior>
                 <Button variant="default" size="sm">
-                  <LogIn className="mr-2 h-4 w-4" /> Login
+                  <LogIn className="mr-2 h-4 w-4" /> Sign In
                 </Button>
               </Link>
             )
@@ -170,7 +170,7 @@ export function SiteHeader() {
                 </Link>
               </SheetHeader>
               <nav className="flex flex-col space-y-2 p-4 flex-grow">
-                {user && user.emailVerified && (
+                {user && (
                   <>
                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3 border-b pb-3">
                       {userProfile && userProfile.lukuPoints !== undefined && userProfile.lukuPoints >= 15 &&(
@@ -266,9 +266,9 @@ export function SiteHeader() {
                       </SheetClose>
                     ) : (
                       <SheetClose asChild>
-                        <Link href="/login" passHref legacyBehavior>
+                        <Link href="/auth" passHref legacyBehavior>
                           <Button variant="default" className={navLinkClass}>
-                            <LogIn className="mr-2 h-5 w-5" /> Login
+                            <LogIn className="mr-2 h-5 w-5" /> Sign In
                           </Button>
                         </Link>
                       </SheetClose>

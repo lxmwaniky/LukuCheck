@@ -45,22 +45,21 @@ export function GoogleAuthButton({
       // Check if this is a new user by examining the creation time
       const isNewUser = user.metadata.creationTime === user.metadata.lastSignInTime;
       
-      if (isNewUser && referrerUid) {
-        // For new users with referrals, create profile with referral info
-        // This needs to happen before AuthContext processes the user
+      if (isNewUser) {
+        // For new users, create profile WITHOUT username to force profile completion
+        // This ensures they go through the profile setup flow
         const profileResult = await createUserProfileInFirestore(
           user.uid,
           user.email || '',
-          user.displayName || user.email?.split('@')[0] || 'User',
+          '', // Empty username to force profile completion
           referrerUid
         );
 
         if (!profileResult.success) {
-          console.error('Failed to create profile with referral:', profileResult.error);
+          console.error('Failed to create initial profile:', profileResult.error);
         }
       }
-      // For other cases (existing users or new users without referrals), 
-      // let AuthContext handle profile creation
+      // For existing users, let AuthContext handle everything normally
       
       toast({
         title: mode === 'signin' ? 'Login Successful!' : 'Account Created!',

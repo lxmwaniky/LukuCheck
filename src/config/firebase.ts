@@ -5,7 +5,6 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   sendPasswordResetEmail, 
-  sendEmailVerification,
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup
@@ -86,7 +85,6 @@ export {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
-  sendEmailVerification,
   updateProfile,
   signInWithPopup,
   GoogleAuthProvider,

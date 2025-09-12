@@ -48,7 +48,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (isClient && !loading) {
       if (!user) {
-        router.replace('/login?redirect=/admin');
+        router.replace('/auth?redirect=/admin');
       } else if (user && (!userProfile?.role || !['admin', 'manager'].includes(userProfile.role))) {
         // Stay on this page to show "Access Denied"
       }
