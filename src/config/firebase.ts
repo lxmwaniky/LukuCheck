@@ -6,10 +6,13 @@ import {
   signInWithEmailAndPassword, 
   sendPasswordResetEmail, 
   sendEmailVerification,
-  updateProfile
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup
 } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { getAnalytics, type Analytics } from 'firebase/analytics';
 
 const firebaseConfigValues = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -22,7 +25,7 @@ const firebaseConfigValues = {
 
 export let isFirebaseConfigValid = false; 
 
-function isValidFirebaseConfig(config: typeof firebaseConfigValues): config is FirebaseOptions {
+function isValidFirebaseConfig(config: typeof firebaseConfigValues): config is Required<typeof firebaseConfigValues> {
   const allValuesPresent = 
     !!config.apiKey && 
     !!config.authDomain && 
@@ -45,6 +48,7 @@ let app: ReturnType<typeof initializeApp> | null = null;
 let authModule: ReturnType<typeof getAuth> | null = null;
 let dbModule: ReturnType<typeof getFirestore> | null = null;
 let storageModule: ReturnType<typeof getStorage> | null = null;
+let analyticsModule: Analytics | null = null;
 
 if (isValidFirebaseConfig(firebaseConfigValues)) {
   try {
@@ -52,6 +56,11 @@ if (isValidFirebaseConfig(firebaseConfigValues)) {
     authModule = getAuth(app);
     dbModule = getFirestore(app);
     storageModule = getStorage(app);
+    
+    // Initialize Analytics only in browser environment
+    if (typeof window !== 'undefined') {
+      analyticsModule = getAnalytics(app);
+    }
     // Optional: A single success log if needed, but often better to keep startup clean.
     // console.log("[LUKUCHECK_FIREBASE_INIT] Firebase SDK initialized successfully.");
   } catch (error) {
@@ -62,16 +71,25 @@ if (isValidFirebaseConfig(firebaseConfigValues)) {
   // Error already logged by isValidFirebaseConfig
 }
 
+// Google Auth Provider
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
 export { 
   app, 
   authModule as auth, 
   dbModule as db, 
-  storageModule as storage, 
+  storageModule as storage,
+  analyticsModule as analytics,
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
   sendEmailVerification,
   updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
 };
 
     

@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format, subDays, addDays, set, isBefore, isAfter, differenceInMilliseconds, isValid } from 'date-fns';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { TIMING_CONFIG, TIMING_MESSAGES } from '@/config/timing';
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
@@ -39,8 +40,8 @@ export default function HomePage() {
     const calculateTimes = () => {
       const now = new Date();
 
-      const submissionOpenTimeToday = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
-      const submissionCloseTimeToday = set(now, { hours: 20, minutes: 0, seconds: 0, milliseconds: 0 }); // 8 PM
+      const submissionOpenTimeToday = set(now, { hours: TIMING_CONFIG.SUBMISSION_OPEN_HOUR, minutes: 0, seconds: 0, milliseconds: 0 });
+      const submissionCloseTimeToday = set(now, { hours: TIMING_CONFIG.SUBMISSION_CLOSE_HOUR, minutes: 0, seconds: 0, milliseconds: 0 });
 
       const currentIsSubmissionWindowOpen = isAfter(now, submissionOpenTimeToday) && isBefore(now, submissionCloseTimeToday);
       setIsSubmissionWindowOpen(currentIsSubmissionWindowOpen);
@@ -50,19 +51,24 @@ export default function HomePage() {
         setSubmissionStatusMessage(`Submissions Open In: ${formatTimeLeft(timeLeft)}`);
       } else if (currentIsSubmissionWindowOpen) {
         const timeLeft = differenceInMilliseconds(submissionCloseTimeToday, now);
-        setSubmissionStatusMessage(`Submissions LIVE! Closes In: ${formatTimeLeft(timeLeft)}`);
+        setSubmissionStatusMessage(TIMING_MESSAGES.SUBMISSION_LIVE(formatTimeLeft(timeLeft)));
       } else {
-        const submissionOpenTimeTomorrow = set(addDays(now, 1), { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
+        const submissionOpenTimeTomorrow = set(addDays(now, 1), { hours: TIMING_CONFIG.SUBMISSION_OPEN_HOUR, minutes: 0, seconds: 0, milliseconds: 0 });
         const timeLeft = differenceInMilliseconds(submissionOpenTimeTomorrow, now);
-        setSubmissionStatusMessage(`Opens tomorrow in ${formatTimeLeft(timeLeft)}`);
+        setSubmissionStatusMessage(TIMING_MESSAGES.SUBMISSION_OPENS_TOMORROW(formatTimeLeft(timeLeft)));
       }
 
       let leaderboardDateToView: Date;
-      // Leaderboard for day X is released at 8:30 PM on day X.
-      // It's viewable until 8:00 PM on day X+1.
-      // If it's before 8:25 PM on day X, we should be trying to view day X-1's results (if released).
-      // If it's after 8:25 PM on day X, we should be trying to view day X's results.
-      const leaderboardReleaseAndViewingCutoff = set(now, { hours: 20, minutes: 25, seconds: 0, milliseconds: 0 }); // 8:25 PM
+      // Leaderboard for day X is released at 6:30 PM on day X.
+      // It's viewable until 6:00 PM on day X+1.
+      // If it's before 6:25 PM on day X, we should be trying to view day X-1's results (if released).
+      // If it's after 6:25 PM on day X, we should be trying to view day X's results.
+      const leaderboardReleaseAndViewingCutoff = set(now, { 
+        hours: TIMING_CONFIG.LEADERBOARD_VIEWING_CUTOFF_HOUR, 
+        minutes: TIMING_CONFIG.LEADERBOARD_VIEWING_CUTOFF_MINUTE, 
+        seconds: 0, 
+        milliseconds: 0 
+      });
 
       if (isBefore(now, leaderboardReleaseAndViewingCutoff)) {
         leaderboardDateToView = subDays(now, 1); // Attempt to view previous day's results
@@ -72,8 +78,18 @@ export default function HomePage() {
 
       if (isValid(leaderboardDateToView)) {
         setCurrentViewableLeaderboardDate(leaderboardDateToView);
-        const releaseTimeForDateToView = set(leaderboardDateToView, { hours: 20, minutes: 30, seconds: 0, milliseconds: 0 }); // 8:30 PM release
-        const viewingEndTimeForDateToView = set(addDays(leaderboardDateToView, 1), { hours: 20, minutes: 0, seconds: 0, milliseconds: 0 }); // Viewable until 8 PM next day
+        const releaseTimeForDateToView = set(leaderboardDateToView, { 
+          hours: TIMING_CONFIG.LEADERBOARD_RELEASE_HOUR, 
+          minutes: TIMING_CONFIG.LEADERBOARD_RELEASE_MINUTE, 
+          seconds: 0, 
+          milliseconds: 0 
+        });
+        const viewingEndTimeForDateToView = set(addDays(leaderboardDateToView, 1), { 
+          hours: TIMING_CONFIG.LEADERBOARD_VIEWING_END_HOUR, 
+          minutes: 0, 
+          seconds: 0, 
+          milliseconds: 0 
+        });
 
         const isReleased = isAfter(now, releaseTimeForDateToView);
         const isStillViewable = isBefore(now, viewingEndTimeForDateToView);
@@ -82,18 +98,23 @@ export default function HomePage() {
 
         if (!isReleased) {
           const timeLeftToRelease = differenceInMilliseconds(releaseTimeForDateToView, now);
-          setLeaderboardStatusMessage(`${format(leaderboardDateToView, "MMM d")} Results Release In: ${formatTimeLeft(timeLeftToRelease)}`);
+          setLeaderboardStatusMessage(TIMING_MESSAGES.LEADERBOARD_RELEASE_IN(format(leaderboardDateToView, "MMM d"), formatTimeLeft(timeLeftToRelease)));
         } else if (isReleased && isStillViewable) {
           const timeLeftToCloseViewing = differenceInMilliseconds(viewingEndTimeForDateToView, now);
-          setLeaderboardStatusMessage(`${format(leaderboardDateToView, "MMM d")} Results LIVE! Viewable For: ${formatTimeLeft(timeLeftToCloseViewing)}`);
+          setLeaderboardStatusMessage(TIMING_MESSAGES.LEADERBOARD_LIVE(format(leaderboardDateToView, "MMM d"), formatTimeLeft(timeLeftToCloseViewing)));
         } else { // Results for 'leaderboardDateToView' are no longer viewable or not yet released in a way that fits the current time window.
                  // This implies we should look at the *next* day's upcoming results.
             const nextDayCandidate = addDays(leaderboardDateToView, 1); // This will be the next logical day to show results for
-            const nextReleaseTime = set(nextDayCandidate, { hours: 20, minutes: 30, seconds: 0, milliseconds: 0});
+            const nextReleaseTime = set(nextDayCandidate, { 
+              hours: TIMING_CONFIG.LEADERBOARD_RELEASE_HOUR, 
+              minutes: TIMING_CONFIG.LEADERBOARD_RELEASE_MINUTE, 
+              seconds: 0, 
+              milliseconds: 0
+            });
 
             if (isValid(nextDayCandidate)){
                 const timeLeft = differenceInMilliseconds(nextReleaseTime, now);
-                setLeaderboardStatusMessage(`${format(nextDayCandidate, "MMM d")} Results Release In: ${formatTimeLeft(timeLeft)}`);
+                setLeaderboardStatusMessage(TIMING_MESSAGES.LEADERBOARD_RELEASE_IN(format(nextDayCandidate, "MMM d"), formatTimeLeft(timeLeft)));
                 setCurrentViewableLeaderboardDate(nextDayCandidate); // Update the date we are targeting
                 setIsLeaderboardReleasedForViewing(false); // It's for the future
             } else {
@@ -129,9 +150,9 @@ export default function HomePage() {
           <p>The daily style challenge runs on the following schedule:</p>
           <ul className="list-disc list-inside pl-2 space-y-1 mt-1 text-sm">
             <li><strong>AI Rating Credits Reset:</strong> 6:00 AM daily.</li>
-            <li><strong>Outfit Submission Window:</strong> 6:00 AM - 8:00 PM daily.</li>
-            <li><strong>Leaderboard Results Release:</strong> 8:30 PM daily.</li>
-            <li><strong>Leaderboard Viewable Until:</strong> 8:00 PM the following day.</li>
+            <li><strong>Outfit Submission Window:</strong> 6:00 AM - 6:00 PM daily.</li>
+            <li><strong>Leaderboard Results Release:</strong> 6:30 PM daily.</li>
+            <li><strong>Leaderboard Viewable Until:</strong> 6:00 PM the following day.</li>
           </ul>
           <p className="text-xs text-muted-foreground mt-1">(All times are based on your local server environment time.)</p>
         </div>
@@ -172,7 +193,9 @@ export default function HomePage() {
             <li>"Profile Pro" Badge (photo & social links): <strong>5 points</strong> bonus!</li>
             <li>"First Submission" Badge: <strong>3 points</strong> for your leaderboard debut.</li>
             <li>Daily LukuStreak submission: <strong>1 point/day</strong>.</li>
+            <li><span className="text-emerald-600">🆕</span> Weekend submissions: <strong>+1 bonus point</strong>!</li>
             <li>"Perfect Score" Badge (10/10 AI rating): <strong>5 points</strong> (once).</li>
+            <li><span className="text-emerald-600">🆕</span> "Style Rookie" (15 points): <strong>+1 bonus point</strong>!</li>
             <li>3-Day LukuStreak ("Streak Starter"): <strong>2 bonus points</strong>.</li>
             <li>7-Day LukuStreak ("Streak Keeper"): <strong>5 bonus points</strong>.</li>
             <li>Refer a stylist: <strong>2 points</strong> each.</li>
@@ -220,6 +243,20 @@ export default function HomePage() {
       answer: "Submit an outfit to the leaderboard for consecutive days to build your LukuStreak! You earn 1 LukuPoint for each day's submission in your streak, plus bonus points and badges at milestones like 3 and 7 days. Miss a day? Your streak resets, but you can always ignite a new one!"
     },
     {
+      question: "🆕 What can I spend my LukuPoints on?",
+      answer: (
+        <div className="space-y-2">
+          <p className="font-semibold text-emerald-600">NEW: Point Economy! Put your points to work:</p>
+          <ul className="list-disc list-inside pl-2 space-y-1 text-sm">
+            <li><strong>Streak Shield</strong> (10 points): Protect your streak from one missed day!</li>
+            <li><strong>AI Power-up</strong> (5 points): Get one extra AI analysis for the day.</li>
+            <li><strong>Profile Boost</strong> (15 points): Feature your profile in searches for a week.</li>
+          </ul>
+          <p className="text-xs text-muted-foreground">More spending options coming soon - your points are an investment in your style journey! 💎</p>
+        </div>
+      )
+    },
+    {
       question: "How is my outfit rated?",
       answer: "Our cutting-edge AI scrutinizes your outfit like a top fashion critic, analyzing color harmony, style coherence, trend relevance, and overall impact to deliver a precise rating and actionable suggestions."
     }
@@ -239,12 +276,12 @@ export default function HomePage() {
     {
       icon: Send,
       title: "Enter the Arena",
-      description: "Confident? Submit your AI-rated look to the daily leaderboard. Window: 6 AM - 8 PM daily."
+      description: "Confident? Submit your AI-rated look to the daily leaderboard. Window: 6 AM - 6 PM daily."
     },
     {
       icon: BarChart3,
       title: "Claim Your Rank",
-      description: "Results drop at 8:30 PM daily! See where you stand and scope out the competition."
+      description: "Results drop at 6:30 PM daily! See where you stand and scope out the competition."
     },
     {
       icon: Coins,
@@ -287,8 +324,8 @@ export default function HomePage() {
                 <CalendarCheck2 className="mr-3 h-7 w-7 sm:h-8 sm:w-8"/>Daily Challenge Cycle
               </CardTitle>
               <CardDescription className="text-sm sm:text-base text-center pt-1">
-                Submissions: Daily <strong>6 AM - 8 PM</strong>.
-                Leaderboard Results: <strong>8:30 PM daily</strong> (viewable until <strong>8 PM next day</strong>).
+                Submissions: Daily <strong>6 AM - 6 PM</strong>.
+                Leaderboard Results: <strong>6:30 PM daily</strong> (viewable until <strong>6 PM next day</strong>).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 p-4 sm:p-6">

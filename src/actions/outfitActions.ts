@@ -57,6 +57,10 @@ export interface LeaderboardEntry {
 
 
 export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate: string }): Promise<{ date: string; entries: LeaderboardEntry[]; message?: string, error?: string }> {
+  if (!db) {
+    throw new Error('Database is not initialized');
+  }
+
   try {
     if (!leaderboardDate || !/^\d{4}-\d{2}-\d{2}$/.test(leaderboardDate)) {
         return { date: new Date().toISOString().split('T')[0], entries: [], error: "Invalid or missing date for leaderboard." };
@@ -92,11 +96,11 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
         currentStreak: 0, // Default to 0
       }; 
       
-      if (outfitData.userId) {
+      if (outfitData.userId && db) {
         const userDocRef = doc(db, 'users', outfitData.userId);
         const userDocSnap = await getFirestoreDoc(userDocRef);
         if (userDocSnap.exists()) {
-          const firestoreUserData = userDocSnap.data();
+          const firestoreUserData = userDocSnap.data() as any;
           userData.username = firestoreUserData.username || outfitData.username;
           userData.photoURL = firestoreUserData.customPhotoURL || firestoreUserData.photoURL || outfitData.userPhotoURL;
           userData.tiktokUrl = firestoreUserData.tiktokUrl || null;
@@ -150,4 +154,171 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
     }
     return { date: leaderboardDate || new Date().toISOString().split('T')[0], entries: [], error: errorMessage };
   }
+}
+
+/**
+ * Weekly leaderboard aggregating all submissions for a given week
+ */
+export async function getWeeklyLeaderboardData({ weekStart }: { weekStart: string }): Promise<{ 
+  weekStart: string; 
+  weekEnd: string;
+  entries: Array<{
+    userId: string;
+    username: string | null;
+    userPhotoURL: string | null;
+    totalSubmissions: number;
+    avgRating: number;
+    bestRating: number;
+    totalPoints: number;
+    lukuPoints: number;
+    currentStreak: number;
+  }>; 
+  message?: string; 
+  error?: string; 
+}> {
+  if (!db) {
+    throw new Error('Database is not initialized');
+  }
+
+  try {
+    // Calculate week end date (6 days after start)
+    const weekStartDate = new Date(weekStart + 'T00:00:00Z');
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    const weekEnd = weekEndDate.toISOString().split('T')[0];
+
+    // Get all submissions for the week
+    const outfitsCollectionRef = collection(db, 'outfits');
+    const outfitsQuery = query(
+      outfitsCollectionRef,
+      where('leaderboardDate', '>=', weekStart),
+      where('leaderboardDate', '<=', weekEnd),
+      orderBy('leaderboardDate', 'asc')
+    );
+
+    const querySnapshot = await getDocs(outfitsQuery);
+    
+    // Group submissions by user
+    const userStats = new Map<string, {
+      userId: string;
+      username: string | null;
+      userPhotoURL: string | null;
+      submissions: Array<{ rating: number; date: string }>;
+      lukuPoints: number;
+      currentStreak: number;
+    }>();
+
+    // Process each submission
+    for (const outfitDoc of querySnapshot.docs) {
+      const outfit = outfitDoc.data();
+      const userId = outfit.userId;
+      
+      if (!userStats.has(userId)) {
+        // Get user profile data
+        let userData = {
+          username: outfit.username,
+          photoURL: outfit.userPhotoURL,
+          lukuPoints: 0,
+          currentStreak: 0
+        };
+
+        if (userId && db) {
+          const userDocRef = doc(db, 'users', userId);
+          const userDocSnap = await getFirestoreDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const firestoreUserData = userDocSnap.data() as any;
+            userData.username = firestoreUserData.username || outfit.username;
+            userData.photoURL = firestoreUserData.customPhotoURL || firestoreUserData.photoURL || outfit.userPhotoURL;
+            userData.lukuPoints = typeof firestoreUserData.lukuPoints === 'number' ? firestoreUserData.lukuPoints : 0;
+            userData.currentStreak = firestoreUserData.currentStreak || 0;
+          }
+        }
+
+        userStats.set(userId, {
+          userId,
+          username: userData.username,
+          userPhotoURL: userData.photoURL,
+          submissions: [],
+          lukuPoints: userData.lukuPoints,
+          currentStreak: userData.currentStreak
+        });
+      }
+
+      userStats.get(userId)!.submissions.push({
+        rating: outfit.rating,
+        date: outfit.leaderboardDate
+      });
+    }
+
+    // Calculate weekly rankings
+    const entries = Array.from(userStats.values()).map(user => {
+      const submissions = user.submissions;
+      const totalSubmissions = submissions.length;
+      const avgRating = totalSubmissions > 0 ? 
+        submissions.reduce((sum, sub) => sum + sub.rating, 0) / totalSubmissions : 0;
+      const bestRating = totalSubmissions > 0 ? 
+        Math.max(...submissions.map(sub => sub.rating)) : 0;
+      
+      // Calculate weekly points based on performance
+      const totalPoints = Math.round((avgRating * totalSubmissions * 10) + (bestRating * 5));
+
+      return {
+        userId: user.userId,
+        username: user.username,
+        userPhotoURL: user.userPhotoURL,
+        totalSubmissions,
+        avgRating: Math.round(avgRating * 10) / 10,
+        bestRating,
+        totalPoints,
+        lukuPoints: user.lukuPoints,
+        currentStreak: user.currentStreak
+      };
+    })
+    // Sort by total points (primary), then by best rating (secondary)
+    .sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) return b.totalPoints - a.totalPoints;
+      return b.bestRating - a.bestRating;
+    });
+
+    const message = entries.length === 0 
+      ? `No submissions found for week ${weekStart} to ${weekEnd}.`
+      : `Weekly leaderboard for ${weekStart} to ${weekEnd} with ${entries.length} participants.`;
+
+    return {
+      weekStart,
+      weekEnd,
+      entries,
+      message
+    };
+
+  } catch (error: any) {
+    console.error('Error fetching weekly leaderboard data:', error);
+    const errorMessage = error.message || 'Failed to fetch weekly leaderboard data.';
+    
+    const weekStartDate = new Date(weekStart + 'T00:00:00Z');
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    const weekEnd = weekEndDate.toISOString().split('T')[0];
+    
+    return {
+      weekStart,
+      weekEnd,
+      entries: [],
+      error: errorMessage
+    };
+  }
+}
+
+/**
+ * Get the start date of the current week (Monday)
+ */
+export async function getCurrentWeekStart(): Promise<string> {
+  const today = new Date();
+  const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // If Sunday, go back 6 days; otherwise, go back to Monday
+
+  const monday = new Date(today);
+  monday.setDate(today.getDate() + mondayOffset);
+
+  return monday.toISOString().split('T')[0];
 }

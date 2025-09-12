@@ -27,7 +27,9 @@ export function SiteHeader() {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      if (auth) {
+        await signOut(auth);
+      }
       router.push('/login');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -171,7 +173,7 @@ export function SiteHeader() {
                 {user && user.emailVerified && (
                   <>
                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-3 border-b pb-3">
-                      {userProfile && userProfile.lukuPoints !== undefined && userProfile.lukuPoints >= 20 &&(
+                      {userProfile && userProfile.lukuPoints !== undefined && userProfile.lukuPoints >= 15 &&(
                          <LukuBadge lukuPoints={userProfile.lukuPoints} size="default" className="mr-1" />
                       )}
                       <TooltipProvider delayDuration={100}>

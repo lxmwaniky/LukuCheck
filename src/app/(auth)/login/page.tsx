@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mail, Lock, LogIn, Loader2, Eye, EyeOff, ArrowLeft, Shirt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { GoogleAuthButton } from '@/components/ui/google-auth-button';
 
 export default function LoginPage() {
   const { user, loading } = useAuth();
@@ -33,6 +34,16 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!auth) {
+      toast({
+        title: "Authentication Error",
+        description: "Firebase authentication is not available.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -123,6 +134,23 @@ export default function LoginPage() {
               {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
               Login
             </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">or</span>
+              </div>
+            </div>
+            
+            <GoogleAuthButton 
+              mode="signin" 
+              disabled={isSubmitting}
+              onSuccess={() => {
+                // The AuthContext will handle the redirect
+              }}
+            />
             <div className="text-sm text-center w-full flex justify-between">
               <Link href="/forgot-password" legacyBehavior passHref>
                 <a className="text-primary hover:underline">Forgot Password?</a>

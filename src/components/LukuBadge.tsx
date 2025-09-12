@@ -18,8 +18,8 @@ interface LukuBadgeProps {
 }
 
 export function LukuBadge({ lukuPoints, className, size = 'default' }: LukuBadgeProps) {
-  if (lukuPoints === undefined || lukuPoints < 20) {
-    return null; // No badge below 20 points
+  if (lukuPoints === undefined || lukuPoints < 15) {
+    return null; // No badge below 15 points (changed from 20)
   }
 
   let badgeColor = "text-yellow-600 dark:text-yellow-700";
@@ -27,7 +27,6 @@ export function LukuBadge({ lukuPoints, className, size = 'default' }: LukuBadge
   let BadgeIcon = Star;
   let title = "Luku Bronze";
   let iconSizeClass = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4';
-
 
   if (lukuPoints >= 250) {
     badgeColor = "text-sky-500 dark:text-sky-400";
@@ -38,6 +37,21 @@ export function LukuBadge({ lukuPoints, className, size = 'default' }: LukuBadge
     badgeColor = "text-yellow-400 dark:text-yellow-300";
     fillBadgeColor = "fill-yellow-400 dark:fill-yellow-300";
     BadgeIcon = Star;
+    title = "Luku Gold";
+  } else if (lukuPoints >= 50) {
+    badgeColor = "text-slate-400 dark:text-slate-300";
+    fillBadgeColor = "fill-slate-400 dark:fill-slate-300";
+    BadgeIcon = Star;
+    title = "Luku Silver";
+  } else if (lukuPoints >= 20) {
+    // Keep existing bronze (20-49 points)
+    title = "Luku Bronze";
+  } else if (lukuPoints >= 15) {
+    // New Style Rookie badge (15-19 points)
+    badgeColor = "text-emerald-500 dark:text-emerald-400";
+    fillBadgeColor = "fill-emerald-500 dark:fill-emerald-400";
+    BadgeIcon = Star;
+    title = "Style Rookie";
     title = "Luku Gold";
   } else if (lukuPoints >= 50) {
     badgeColor = "text-slate-400 dark:text-slate-300";

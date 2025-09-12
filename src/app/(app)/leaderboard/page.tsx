@@ -2,13 +2,14 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import { getLeaderboardData } from '@/actions/outfitActions';
+import { getLeaderboardData, getWeeklyLeaderboardData, getCurrentWeekStart } from '@/actions/outfitActions';
 import type { LeaderboardEntry as ServerLeaderboardEntry } from '@/actions/outfitActions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogClose } from '@/components/ui/dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Trophy, CalendarDays, Info, Loader2, Star, Palette, Shirt, MessageSquareQuote, Clock, Users, ChevronLeft, ChevronRight, Instagram, Link as LinkIcon, Sparkles, Flame, XCircle, RefreshCw } from 'lucide-react';
 import { format, subDays, set, isBefore, isAfter, addDays } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { LukuBadge } from '@/components/LukuBadge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TIMING_CONFIG } from '@/config/timing';
 
 type LeaderboardEntry = ServerLeaderboardEntry;
 
@@ -47,6 +49,13 @@ function LeaderboardPage() {
   const [currentLeaderboardDate, setCurrentLeaderboardDate] = useState<string>('');
   const [timeLeftToRelease, setTimeLeftToRelease] = useState<number>(0);
 
+  // Weekly leaderboard state
+  const [weeklyEntries, setWeeklyEntries] = useState<any[]>([]);
+  const [weeklyStatusMessage, setWeeklyStatusMessage] = useState<string | undefined>('');
+  const [isWeeklyLoading, setIsWeeklyLoading] = useState(false);
+  const [currentWeekStart, setCurrentWeekStart] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
+
   const [currentPage, setCurrentPage] = useState(1);
 
   const determineLeaderboardStateAndFetch = useCallback(async (isManualRefresh = false) => {
@@ -56,9 +65,14 @@ function LeaderboardPage() {
     let dateStringToFetch: string;
     let displayDate: Date;
 
-    // If it's before 8:25 PM, we view yesterday's (or earlier) results.
-    // After 8:25 PM, we anticipate today's results (which release at 8:30 PM).
-    const endOfViewingPrevDayLeaderboard = set(now, { hours: 20, minutes: 25, seconds: 0, milliseconds: 0 }); // 8:25 PM
+    // If it's before 6:25 PM, we view yesterday's (or earlier) results.
+    // After 6:25 PM, we anticipate today's results (which release at 6:30 PM).
+    const endOfViewingPrevDayLeaderboard = set(now, { 
+      hours: TIMING_CONFIG.LEADERBOARD_VIEWING_CUTOFF_HOUR, 
+      minutes: TIMING_CONFIG.LEADERBOARD_VIEWING_CUTOFF_MINUTE, 
+      seconds: 0, 
+      milliseconds: 0 
+    });
 
     if (isBefore(now, endOfViewingPrevDayLeaderboard)) {
       displayDate = subDays(now, 1);
@@ -68,7 +82,12 @@ function LeaderboardPage() {
     dateStringToFetch = toYYYYMMDD(displayDate);
     setCurrentLeaderboardDate(dateStringToFetch);
 
-    const releaseDateTimeForFetchedDate = set(displayDate, { hours: 20, minutes: 30, seconds: 0, milliseconds: 0 }); // 8:30 PM Release
+    const releaseDateTimeForFetchedDate = set(displayDate, { 
+      hours: TIMING_CONFIG.LEADERBOARD_RELEASE_HOUR, 
+      minutes: TIMING_CONFIG.LEADERBOARD_RELEASE_MINUTE, 
+      seconds: 0, 
+      milliseconds: 0 
+    });
 
     if (isAfter(now, releaseDateTimeForFetchedDate)) {
       try {
@@ -88,10 +107,33 @@ function LeaderboardPage() {
        setTimeLeftToRelease(0);
     } else {
       setTimeLeftToRelease(releaseDateTimeForFetchedDate.getTime() - now.getTime());
-      setStatusMessage(`Leaderboard for ${formatDate(dateStringToFetch)} will be available at 8:30 PM.`);
+      setStatusMessage(`Leaderboard for ${formatDate(dateStringToFetch)} will be available at 6:30 PM.`);
       setAllEntries([]);
     }
     if (!isManualRefresh) setIsLoading(false); else setIsManuallyRefreshing(false);
+  }, []);
+
+  const fetchWeeklyLeaderboard = useCallback(async (weekStart?: string) => {
+    setIsWeeklyLoading(true);
+    try {
+      const weekToFetch = weekStart || await getCurrentWeekStart();
+      setCurrentWeekStart(weekToFetch);
+      
+      const data = await getWeeklyLeaderboardData({ weekStart: weekToFetch });
+      setWeeklyEntries(data.entries);
+      
+      if (data.error) {
+        setWeeklyStatusMessage(data.error);
+      } else if (data.entries.length === 0) {
+        setWeeklyStatusMessage(`No submissions found for the week starting ${weekToFetch}.`);
+      } else {
+        setWeeklyStatusMessage(data.message || `Displaying ${data.entries.length} participants for the week.`);
+      }
+    } catch (error) {
+      setWeeklyStatusMessage('Could not load weekly leaderboard data. Please try again later.');
+      setWeeklyEntries([]);
+    }
+    setIsWeeklyLoading(false);
   }, []);
 
 
@@ -122,6 +164,13 @@ function LeaderboardPage() {
     };
   }, [timeLeftToRelease, statusMessage, determineLeaderboardStateAndFetch]);
 
+  // Fetch weekly data when weekly tab is activated
+  useEffect(() => {
+    if (activeTab === 'weekly' && weeklyEntries.length === 0) {
+      fetchWeeklyLeaderboard();
+    }
+  }, [activeTab, fetchWeeklyLeaderboard, weeklyEntries.length]);
+
 
   const formatDate = (dateString: string) => {
     if (!dateString) return "N/A";
@@ -129,7 +178,25 @@ function LeaderboardPage() {
     return format(date, "MMMM d, yyyy");
   };
 
-  const isLeaderboardReleased = !statusMessage?.includes('will be available at 8:30 PM');
+  const getWeekDateRange = (weekStart: string) => {
+    const startDate = new Date(weekStart + 'T00:00:00Z');
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+    return {
+      start: format(startDate, "MMM d"),
+      end: format(endDate, "MMM d, yyyy")
+    };
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    const currentDate = new Date(currentWeekStart + 'T00:00:00Z');
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
+    const newWeekStart = newDate.toISOString().split('T')[0];
+    fetchWeeklyLeaderboard(newWeekStart);
+  };
+
+  const isLeaderboardReleased = !statusMessage?.includes('will be available at 6:30 PM');
 
   const totalPages = Math.ceil(allEntries.length / ITEMS_PER_PAGE);
   const displayedEntries = allEntries.slice(
@@ -155,26 +222,39 @@ function LeaderboardPage() {
 
   return (
     <div className="max-w-4xl mx-auto py-6 sm:py-8">
-      <Card className="shadow-xl rounded-xl mb-6 sm:mb-8">
-        <CardHeader className="text-center px-4 py-6 sm:px-6 sm:py-8 bg-primary/5 rounded-t-xl">
-            <div className="flex items-center justify-center mb-3 sm:mb-4">
-                <Users className="h-12 w-12 sm:h-16 sm:w-16 text-accent animate-bounce" />
-            </div>
-          <CardTitle className="text-3xl sm:text-4xl font-bold">Daily Style Leaderboard</CardTitle>
-          {currentLeaderboardDate && (
-            <CardDescription className="text-base sm:text-lg text-muted-foreground flex items-center justify-center mt-1">
-              <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-              Showing results for: {formatDate(currentLeaderboardDate)}
-            </CardDescription>
-          )}
-           <CardDescription className="text-xs mt-1">
-              (Submissions: 6 AM - 8 PM daily. Results: 8:30 PM daily - 8 PM next day)
-          </CardDescription>
-          <Button onClick={handleManualRefresh} variant="outline" size="sm" className="mt-4 mx-auto shadow-sm hover:shadow-md transition-shadow" disabled={isManuallyRefreshing || isLoading}>
-            {isManuallyRefreshing || isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
-            Refresh Leaderboard
-          </Button>
-        </CardHeader>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'daily' | 'weekly')} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6 sm:mb-8">
+          <TabsTrigger value="daily" className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Daily Leaderboard
+          </TabsTrigger>
+          <TabsTrigger value="weekly" className="flex items-center gap-2">
+            <Trophy className="h-4 w-4" />
+            Weekly Leaderboard
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="daily">
+          <Card className="shadow-xl rounded-xl">
+            <CardHeader className="text-center px-4 py-6 sm:px-6 sm:py-8 bg-primary/5 rounded-t-xl">
+                <div className="flex items-center justify-center mb-3 sm:mb-4">
+                    <Users className="h-12 w-12 sm:h-16 sm:w-16 text-accent animate-bounce" />
+                </div>
+              <CardTitle className="text-3xl sm:text-4xl font-bold">Daily Style Leaderboard</CardTitle>
+              {currentLeaderboardDate && (
+                <CardDescription className="text-base sm:text-lg text-muted-foreground flex items-center justify-center mt-1">
+                  <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                  Showing results for: {formatDate(currentLeaderboardDate)}
+                </CardDescription>
+              )}
+               <CardDescription className="text-xs mt-1">
+                  (Submissions: 6 AM - 6 PM daily. Results: 6:30 PM daily - 6 PM next day)
+              </CardDescription>
+              <Button onClick={handleManualRefresh} variant="outline" size="sm" className="mt-4 mx-auto shadow-sm hover:shadow-md transition-shadow" disabled={isManuallyRefreshing || isLoading}>
+                {isManuallyRefreshing || isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
+                Refresh Leaderboard
+              </Button>
+            </CardHeader>
         <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
           {isLoading && !isManuallyRefreshing ? (
             <div className="flex flex-col items-center justify-center py-10">
@@ -186,7 +266,7 @@ function LeaderboardPage() {
               <Clock className="h-5 w-5" />
               <AlertTitle className="font-semibold">Leaderboard Not Yet Released</AlertTitle>
               <AlertDescription>
-                Leaderboard for {formatDate(currentLeaderboardDate)} will be available at 8:30 PM.
+                Leaderboard for {formatDate(currentLeaderboardDate)} will be available at 6:30 PM.
                 Releases in: <span className="font-semibold">{formatTimeLeft(timeLeftToRelease)}</span>.
               </AlertDescription>
             </Alert>
@@ -340,6 +420,171 @@ function LeaderboardPage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="weekly">
+          <Card className="shadow-xl rounded-xl">
+            <CardHeader className="text-center px-4 py-6 sm:px-6 sm:py-8 bg-secondary/5 rounded-t-xl">
+                <div className="flex items-center justify-center mb-3 sm:mb-4">
+                    <Trophy className="h-12 w-12 sm:h-16 sm:w-16 text-accent animate-bounce" />
+                </div>
+              <CardTitle className="text-3xl sm:text-4xl font-bold">Weekly Style Leaderboard</CardTitle>
+              {currentWeekStart && (
+                <div className="flex items-center justify-center space-x-4 mt-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => navigateWeek('prev')}
+                    disabled={isWeeklyLoading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <CardDescription className="text-base sm:text-lg text-muted-foreground flex items-center">
+                    <CalendarDays className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                    {(() => {
+                      const range = getWeekDateRange(currentWeekStart);
+                      return `${range.start} - ${range.end}`;
+                    })()}
+                  </CardDescription>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => navigateWeek('next')}
+                    disabled={isWeeklyLoading}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+               <CardDescription className="text-xs mt-1">
+                  Weekly aggregated performance (Monday - Sunday)
+              </CardDescription>
+              <Button onClick={() => fetchWeeklyLeaderboard()} variant="outline" size="sm" className="mt-4 mx-auto shadow-sm hover:shadow-md transition-shadow" disabled={isWeeklyLoading}>
+                {isWeeklyLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2"/> : <RefreshCw className="h-4 w-4 mr-2"/>}
+                Refresh Weekly
+              </Button>
+            </CardHeader>
+            <CardContent className="px-2 py-4 sm:px-6 sm:py-6">
+              {isWeeklyLoading ? (
+                <div className="flex flex-col items-center justify-center py-10">
+                  <Loader2 className="h-10 w-10 sm:h-12 sm:w-12 animate-spin text-primary mb-4" />
+                  <p className="text-base sm:text-lg text-muted-foreground">Fetching weekly rankings...</p>
+                </div>
+              ) : weeklyStatusMessage && weeklyEntries.length === 0 && !weeklyStatusMessage.toLowerCase().includes("error") ? (
+                 <Alert variant="default" className="mb-6 bg-secondary/50 border-secondary mx-2 sm:mx-0 rounded-lg">
+                  <Info className="h-5 w-5" />
+                  <AlertTitle className="font-semibold">Weekly Leaderboard Status</AlertTitle>
+                  <AlertDescription>{weeklyStatusMessage}</AlertDescription>
+                </Alert>
+              ) : weeklyStatusMessage && weeklyStatusMessage.toLowerCase().includes("error") ? (
+                 <Alert variant="destructive" className="mb-6 mx-2 sm:mx-0 rounded-lg">
+                  <Info className="h-5 w-5" />
+                  <AlertTitle className="font-semibold">Error Loading Weekly Data</AlertTitle>
+                  <AlertDescription>{weeklyStatusMessage}</AlertDescription>
+                </Alert>
+              ) : weeklyEntries.length > 0 ? (
+                <>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader className="bg-muted/50">
+                        <TableRow>
+                          <TableHead className="w-[50px] sm:w-[70px] text-center px-2 sm:px-4 font-semibold">Rank</TableHead>
+                          <TableHead className="px-2 sm:px-4 font-semibold">User</TableHead>
+                          <TableHead className="w-[70px] text-center px-2 sm:px-4 font-semibold">Submissions</TableHead>
+                          <TableHead className="text-center px-2 sm:px-4 font-semibold">Avg Rating</TableHead>
+                          <TableHead className="text-center px-2 sm:px-4 font-semibold">Best Rating</TableHead>
+                          <TableHead className="text-right px-2 sm:px-4 font-semibold">Weekly Points</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {weeklyEntries.map((entry, index) => (
+                          <TableRow key={entry.userId} className={cn(
+                            "hover:bg-muted/30 transition-colors",
+                            index === 0 && "bg-amber-50/50 hover:bg-amber-50/70 border-amber-200/50",
+                            index === 1 && "bg-slate-50/50 hover:bg-slate-50/70 border-slate-200/50",
+                            index === 2 && "bg-orange-50/50 hover:bg-orange-50/70 border-orange-200/50"
+                          )}>
+                            <TableCell className="text-center px-2 sm:px-4 py-2 sm:py-3">
+                              <div className="flex items-center justify-center">
+                                {index === 0 && <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600 mr-1" />}
+                                {index === 1 && <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-slate-500 mr-1" />}
+                                {index === 2 && <Trophy className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 mr-1" />}
+                                <span className="font-semibold text-sm sm:text-base">#{index + 1}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-2 sm:px-4 py-2 sm:py-3">
+                              <div className="flex items-center space-x-2">
+                                <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border-2 border-primary/20">
+                                  <AvatarImage src={entry.photoURL || undefined} alt={entry.username} />
+                                  <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs sm:text-sm">
+                                    {entry.username.slice(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col">
+                                  <span className="font-medium text-sm sm:text-base truncate max-w-[100px] sm:max-w-none">
+                                    {entry.username}
+                                  </span>
+                                  <div className="flex items-center space-x-1">
+                                    <LukuBadge lukuPoints={entry.lukuPoints} className="text-xs" />
+                                    {entry.currentStreak > 0 && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger>
+                                            <div className="flex items-center text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded-full">
+                                              <Flame className="h-3 w-3 mr-1" />
+                                              <span className="text-xs font-semibold">{entry.currentStreak}</span>
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Current streak: {entry.currentStreak} days</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center px-2 sm:px-4 py-2 sm:py-3">
+                              <span className="text-sm sm:text-base font-semibold">{entry.submissions}</span>
+                            </TableCell>
+                            <TableCell className="text-center px-2 sm:px-4 py-2 sm:py-3">
+                              <div className="flex items-center justify-center">
+                                <Star className="h-3 w-3 sm:h-4 sm:w-4 text-amber-500 mr-1" />
+                                <span className="text-sm sm:text-base font-semibold">{entry.avgRating.toFixed(1)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center px-2 sm:px-4 py-2 sm:py-3">
+                              <div className="flex items-center justify-center">
+                                <Star className="h-3 w-3 sm:h-4 sm:w-4 text-amber-500 mr-1" />
+                                <span className="text-sm sm:text-base font-semibold">{entry.bestRating.toFixed(1)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right px-2 sm:px-4 py-2 sm:py-3">
+                              <div className="flex items-center justify-end">
+                                <Sparkles className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500 mr-1" />
+                                <span className="text-sm sm:text-base font-bold text-blue-600">{entry.totalPoints}</span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Users className="h-16 w-16 text-muted-foreground/30 mb-4" />
+                  <h3 className="text-lg font-semibold text-muted-foreground mb-2">No Weekly Data Available</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Weekly leaderboards show aggregated performance over the week. Check back after some daily submissions!
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <Alert variant="default" className="mt-8 sm:mt-10 bg-gradient-to-r from-primary/5 via-secondary/5 to-accent/5 border-primary/20 shadow-lg rounded-xl">
         <Sparkles className="h-5 w-5 text-accent" />

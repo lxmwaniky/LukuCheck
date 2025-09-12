@@ -14,6 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Mail, User as UserIconProp, Lock, Loader2, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, ArrowLeft, Shirt } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useDebounce } from '@/hooks/use-debounce';
+import { GoogleAuthButton } from '@/components/ui/google-auth-button';
 
 function SignupForm() {
   const { user, loading, refreshUserProfile } = useAuth();
@@ -96,6 +97,15 @@ function SignupForm() {
     if (usernameStatus === 'error' && username.length >=3) {
         toast({ title: "Username Issue", description: usernameError || "Please choose a different username.", variant: "destructive" });
         return;
+    }
+
+    if (!auth) {
+      toast({
+        title: "Authentication Error",
+        description: "Firebase authentication is not available.",
+        variant: "destructive",
+      });
+      return;
     }
 
     setIsSubmitting(true);
@@ -294,6 +304,25 @@ function SignupForm() {
             {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <UserIconProp className="mr-2 h-5 w-5" />}
             Sign Up
           </Button>
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+          
+          <GoogleAuthButton 
+            mode="signup" 
+            disabled={isSubmitting}
+            referrerUid={referrerUid}
+            onSuccess={() => {
+              // The AuthContext will handle the redirect
+              // Profile creation will be handled by the GoogleAuthButton
+            }}
+          />
           <div className="text-sm text-center w-full flex justify-between">
             <span>Already have an account? </span>
             <Link href="/login" legacyBehavior passHref>

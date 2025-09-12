@@ -1,12 +1,12 @@
-
 'use client';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { auth, db, isFirebaseConfigValid }  from '@/config/firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp, getDoc, Unsubscribe, Timestamp, updateDoc } from 'firebase/firestore';
 import type { ReactNode} from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { processReferral } from '@/actions/userActions';
+import { processReferral, createUserProfileInFirestore } from '@/actions/userActions';
 import { AlertTriangle } from 'lucide-react';
+import { initializeUserAnalytics, clearUserAnalytics } from '@/lib/analytics';
 
 export type UserRole = 'user' | 'manager' | 'admin';
 
@@ -32,6 +32,11 @@ export interface UserProfile {
   lastTop3BonusDate?: string | null;
   role?: UserRole;
   aiUsageLimit?: number | null; // Added for custom AI limits
+  // Point spending tracking
+  lastPointSpend?: Timestamp | null;
+  streak_shield_lastUsed?: Timestamp | null;
+  ai_powerup_lastUsed?: Timestamp | null;
+  profile_boost_lastUsed?: Timestamp | null;
 }
 
 export interface AuthContextType {
@@ -117,6 +122,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
         setUserProfile(loadedProfile);
 
+        // Initialize analytics for returning user
+        initializeUserAnalytics(loadedProfile);
+
         if (
           firebaseUser.emailVerified &&
           loadedProfile.referredBy &&
@@ -132,23 +140,71 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
       } else {
-        setUserProfile({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          username: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-          emailVerified: firebaseUser.emailVerified,
-          lukuPoints: 0,
-          referralPointsAwarded: false,
-          tiktokPointsAwarded: false,
-          instagramPointsAwarded: false,
-          badges: [],
-          currentStreak: 0,
-          lastSubmissionDate: null,
-          lastTop3BonusDate: null,
-          role: 'user',
-          aiUsageLimit: null,
-        });
+        // No Firestore document exists - create a proper profile
+        console.log('No Firestore profile found for user, creating new profile...');
+        
+        // Create a proper user profile with all the right fields
+        const profileResult = await createUserProfileInFirestore(
+          firebaseUser.uid,
+          firebaseUser.email || '',
+          firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+          null // No referral handling here - would have been handled during signup
+        );
+
+        if (profileResult.success) {
+          // Fetch the newly created profile
+          const newUserSnap = await getDoc(userRef);
+          if (newUserSnap.exists()) {
+            const newProfileData = newUserSnap.data();
+            const newProfile: UserProfile = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              username: newProfileData.username || firebaseUser.displayName,
+              photoURL: newProfileData.customPhotoURL || newProfileData.photoURL || firebaseUser.photoURL,
+              customPhotoURL: newProfileData.customPhotoURL,
+              emailVerified: firebaseUser.emailVerified,
+              createdAt: newProfileData.createdAt,
+              lastLogin: newProfileData.lastLogin || serverTimestamp(),
+              tiktokUrl: newProfileData.tiktokUrl || null,
+              instagramUrl: newProfileData.instagramUrl || null,
+              lukuPoints: newProfileData.lukuPoints || 0,
+              referredBy: newProfileData.referredBy || null,
+              referralPointsAwarded: newProfileData.referralPointsAwarded || false,
+              tiktokPointsAwarded: newProfileData.tiktokPointsAwarded || false,
+              instagramPointsAwarded: newProfileData.instagramPointsAwarded || false,
+              badges: newProfileData.badges || [],
+              currentStreak: newProfileData.currentStreak || 0,
+              lastSubmissionDate: newProfileData.lastSubmissionDate || null,
+              lastTop3BonusDate: newProfileData.lastTop3BonusDate || null,
+              role: newProfileData.role || 'user',
+              aiUsageLimit: newProfileData.aiUsageLimit === undefined ? null : newProfileData.aiUsageLimit,
+            };
+            setUserProfile(newProfile);
+            
+            // Initialize analytics for new user
+            initializeUserAnalytics(newProfile);
+          }
+        } else {
+          // Fallback to minimal profile if creation failed
+          console.error('Failed to create user profile:', profileResult.error);
+          setUserProfile({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            username: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+            emailVerified: firebaseUser.emailVerified,
+            lukuPoints: 0,
+            referralPointsAwarded: false,
+            tiktokPointsAwarded: false,
+            instagramPointsAwarded: false,
+            badges: [],
+            currentStreak: 0,
+            lastSubmissionDate: null,
+            lastTop3BonusDate: null,
+            role: 'user',
+            aiUsageLimit: null,
+          });
+        }
       }
     } catch (error) {
       setUserProfile(null);
@@ -175,7 +231,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
   }, [fetchAndSetUserProfile]);
 
-
   useEffect(() => {
     if (!auth) {
         setLoading(false);
@@ -195,8 +250,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       if (firebaseUser) {
         await firebaseUser.reload();
-        const currentFirebaseUser = auth.currentUser;
-        setUser(currentFirebaseUser);
+        const currentFirebaseUser = auth?.currentUser;
+        setUser(currentFirebaseUser || null);
         setReferralProcessingAttempted(false);
 
         if (currentFirebaseUser && db) {
@@ -231,14 +286,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               };
               setUserProfile(updatedProfile);
 
-               if (
+              // Initialize analytics for the user on profile updates
+              initializeUserAnalytics(updatedProfile);
+
+              if (
                 currentFirebaseUser.emailVerified &&
                 updatedProfile.referredBy &&
                 !updatedProfile.referralPointsAwarded &&
                 !referralProcessingAttempted
               ) {
                 setReferralProcessingAttempted(true);
-                 processReferral(currentFirebaseUser.uid).catch(e => {}); // Fire and forget
+                processReferral(currentFirebaseUser.uid).catch(e => {}); // Fire and forget
               }
 
             } else {
@@ -254,6 +312,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
            setLoading(false);
         }
       } else {
+        // User logged out - clear analytics
+        clearUserAnalytics();
         setUser(null);
         setUserProfile(null);
         setReferralProcessingAttempted(false);

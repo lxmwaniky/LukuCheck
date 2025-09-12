@@ -20,6 +20,7 @@ import { doc, getDoc, setDoc, updateDoc, Timestamp, collection, addDoc, query, w
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { format, set, isBefore, isAfter, addDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { TIMING_CONFIG, TIMING_MESSAGES } from '@/config/timing';
 
 // AI Usage Limits
 const DEFAULT_FREE_TIER_AI_LIMIT = 2;
@@ -203,8 +204,8 @@ export default function UploadPage() {
     const checkSubmissionStatusAndWindow = async () => {
       if (!user) return;
       const now = new Date();
-      const submissionOpenTime = set(now, { hours: 6, minutes: 0, seconds: 0, milliseconds: 0 });
-      const submissionCloseTime = set(now, { hours: 20, minutes: 0, seconds: 0, milliseconds: 0 }); // 8 PM
+      const submissionOpenTime = set(now, { hours: TIMING_CONFIG.SUBMISSION_OPEN_HOUR, minutes: 0, seconds: 0, milliseconds: 0 });
+      const submissionCloseTime = set(now, { hours: TIMING_CONFIG.SUBMISSION_CLOSE_HOUR, minutes: 0, seconds: 0, milliseconds: 0 });
       const currentSubmissionWindowOpen = isAfter(now, submissionOpenTime) && isBefore(now, submissionCloseTime);
       setIsSubmissionWindowOpen(currentSubmissionWindowOpen);
       const currentSubmissionNotYetOpen = isBefore(now, submissionOpenTime);
@@ -435,7 +436,7 @@ export default function UploadPage() {
                 <Clock className="h-4 w-4" />
                 <AlertTitle>Submissions Open Soon</AlertTitle>
                 <AlertDescription className="text-xs sm:text-sm">
-                  Today's submission window (6 AM - 8 PM) for the leaderboard opens in: <span className="font-semibold">{formatTimeLeft(timeLeftToSubmissionOpen)}</span>.
+                  {TIMING_MESSAGES.SUBMISSION_OPEN_SOON(formatTimeLeft(timeLeftToSubmissionOpen))}
                 </AlertDescription>
               </Alert>
             )}
@@ -445,7 +446,7 @@ export default function UploadPage() {
                 <Ban className="h-4 w-4" />
                 <AlertTitle>Submissions Closed for Today</AlertTitle>
                 <AlertDescription className="text-xs sm:text-sm">
-                  The 8 PM deadline for today's leaderboard submissions has passed. Try again tomorrow from 6 AM!
+                  {TIMING_MESSAGES.SUBMISSION_CLOSED_TODAY}
                 </AlertDescription>
               </Alert>
             )}

@@ -20,7 +20,9 @@ const PERFECT_SCORE_BADGE = "PERFECT_SCORE";
 const CENTURY_CLUB_BADGE = "CENTURY_CLUB";
 const LEGEND_STATUS_BADGE = "LEGEND_STATUS";
 const PREMIUM_STYLIST_BADGE = "PREMIUM_STYLIST";
-
+// NEW BADGES
+const STYLE_ROOKIE_BADGE = "STYLE_ROOKIE";
+const WEEKEND_WARRIOR_BADGE = "WEEKEND_WARRIOR";
 
 const POINTS_PROFILE_PRO = 5;
 const POINTS_FIRST_SUBMISSION = 3;
@@ -28,6 +30,10 @@ const POINTS_REFERRAL_ROCKSTAR = 10; // Bonus points for achieving the badge
 const POINTS_STREAK_STARTER_3 = 2;
 const POINTS_STREAK_KEEPER_7 = 5;
 const POINTS_DAILY_STREAK_SUBMISSION = 1;
+// NEW POINTS
+const POINTS_STYLE_ROOKIE = 1; // Bonus for reaching 15 points
+const POINTS_WEEKEND_SUBMISSION = 1; // Extra point for weekend submissions
+const POINTS_STREAK_SHIELD_COST = 10; // Cost to protect a streak
 const REFERRALS_FOR_ROCKSTAR_BADGE = 3;
 const POINTS_PER_REFERRAL = 2;
 const POINTS_TOP_3_RANK_1 = 5;
@@ -156,8 +162,8 @@ export async function updateUserProfileInFirestore({
     }
 
     const photoFieldForBadgeCheck = photoDataUrl || currentUserData.customPhotoURL;
-    const tiktokFieldForBadgeCheck = (updateDataFirestore.tiktokUrl !== undefined ? updateDataFirestore.tiktokUrl !== null : currentUserData.tiktokUrl !== null && currentUserData.tiktokUrl.trim() !== '');
-    const instagramFieldForBadgeCheck = (updateDataFirestore.instagramUrl !== undefined ? updateDataFirestore.instagramUrl !== null : currentUserData.instagramUrl !== null && currentUserData.instagramUrl.trim() !== '');
+    const tiktokFieldForBadgeCheck = (updateDataFirestore.tiktokUrl !== undefined ? updateDataFirestore.tiktokUrl !== null : currentUserData.tiktokUrl !== null && currentUserData.tiktokUrl !== undefined && currentUserData.tiktokUrl.trim() !== '');
+    const instagramFieldForBadgeCheck = (updateDataFirestore.instagramUrl !== undefined ? updateDataFirestore.instagramUrl !== null : currentUserData.instagramUrl !== null && currentUserData.instagramUrl !== undefined && currentUserData.instagramUrl.trim() !== '');
 
     if (photoFieldForBadgeCheck && tiktokFieldForBadgeCheck && instagramFieldForBadgeCheck && !currentBadges.includes(PROFILE_PRO_BADGE)) {
         newBadgesToAdd.push(PROFILE_PRO_BADGE);
@@ -207,6 +213,11 @@ export async function updateUserProfileInFirestore({
         newBadgesToAdd.push(LEGEND_STATUS_BADGE);
     } else if (currentLukuPoints >= 100 && !currentBadges.includes(CENTURY_CLUB_BADGE) && !newBadgesToAdd.includes(CENTURY_CLUB_BADGE)) {
         newBadgesToAdd.push(CENTURY_CLUB_BADGE);
+    } else if (currentLukuPoints >= 15 && !currentBadges.includes(STYLE_ROOKIE_BADGE) && !newBadgesToAdd.includes(STYLE_ROOKIE_BADGE)) {
+        newBadgesToAdd.push(STYLE_ROOKIE_BADGE);
+        // Award bonus point for reaching Style Rookie status
+        updateDataFirestore.lukuPoints = FieldValue.increment(POINTS_STYLE_ROOKIE);
+        currentLukuPoints += POINTS_STYLE_ROOKIE;
     }
 
     if (newBadgesToAdd.length > 0) {
@@ -293,16 +304,47 @@ export async function checkUsernameAvailability(username: string): Promise<{avai
   if (!adminInitialized || !adminDb) {
     return {available: false, message: "Server error: Cannot check username at this time."};
   }
+  
+  // Instagram-style validation
   if (username.length < 3) {
     return {available: false, message: "Username must be at least 3 characters."};
   }
+  if (username.length > 30) {
+    return {available: false, message: "Username must be 30 characters or less."};
+  }
+  
+  // Check for valid characters: letters, numbers, periods, and underscores only
+  const validUsernameRegex = /^[a-zA-Z0-9._]+$/;
+  if (!validUsernameRegex.test(username)) {
+    return {available: false, message: "Username can only contain letters, numbers, periods, and underscores."};
+  }
+  
+  // No spaces allowed
+  if (username.includes(' ')) {
+    return {available: false, message: "Username cannot contain spaces."};
+  }
+  
+  // Cannot start or end with period or underscore
+  if (username.startsWith('.') || username.startsWith('_') || username.endsWith('.') || username.endsWith('_')) {
+    return {available: false, message: "Username cannot start or end with a period or underscore."};
+  }
+  
+  // Cannot have consecutive periods or underscores
+  if (username.includes('..') || username.includes('__') || username.includes('._') || username.includes('_.')) {
+    return {available: false, message: "Username cannot have consecutive special characters."};
+  }
+  
+  // Convert to lowercase for uniqueness check (Instagram is case-insensitive)
+  const lowercaseUsername = username.toLowerCase();
+  
   const usersRef = adminDb.collection('users');
-  const querySnapshot = await usersRef.where('username', '==', username).limit(1).get();
+  // Check both original case and lowercase for uniqueness
+  const querySnapshot = await usersRef.where('username', 'in', [username, lowercaseUsername]).limit(1).get();
   if (!querySnapshot.empty) {
-    return {available: false, message: "This username is already in use. Please choose another."};
+    return {available: false, message: "This username is already taken. Please choose another."};
   }
 
-  return {available: true, message: "Username format is acceptable."};
+  return {available: true, message: "Username is available!"};
 }
 
 export interface UserProfileStats {
@@ -404,6 +446,9 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
       currentReferrerBadges = referrerData.badges || [];
       currentReferrerLukuPoints = referrerData.lukuPoints || 0;
 
+      if (!adminDb) {
+        throw new Error('Admin DB is not initialized');
+      }
 
       const referralsQuery = adminDb.collection('users')
                                    .where('referredBy', '==', referrerUid)
@@ -505,7 +550,23 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
                     if (diffDays === 1) {
                         currentStreak++;
                     } else if (diffDays > 1) {
-                        currentStreak = 1;
+                        // Check if user has streak shield active
+                        const hasActiveStreakShield = userData.streak_shield_lastUsed && 
+                            userData.streak_shield_lastUsed.toDate && 
+                            (new Date().getTime() - userData.streak_shield_lastUsed.toDate().getTime()) < (48 * 60 * 60 * 1000); // 48 hours
+                        
+                        if (hasActiveStreakShield && diffDays === 2) {
+                            // Streak shield protects against 1 missed day
+                            currentStreak++;
+                            // Deactivate shield after use
+                            updateData.streak_shield_lastUsed = null;
+                        } else if (diffDays === 2) {
+                            // Grace period: 2 submissions in next day can restore streak
+                            // For now, just reset streak - recovery logic would be in a separate function
+                            currentStreak = 1;
+                        } else {
+                            currentStreak = 1;
+                        }
                     } else if (diffDays < 0 ) { // Should not happen if clocks are synced, but handle defensively
                         currentStreak = 1;
                       }
@@ -514,6 +575,19 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
                 }
 
                 pointsToAward += POINTS_DAILY_STREAK_SUBMISSION;
+                
+                // Weekend Warrior Bonus - extra point for weekend submissions
+                const today = new Date(todayStr);
+                const dayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
+                if (dayOfWeek === 0 || dayOfWeek === 6) { // Weekend submission
+                    pointsToAward += POINTS_WEEKEND_SUBMISSION;
+                    
+                    // Award Weekend Warrior badge if not already earned
+                    if (!currentBadges.includes(WEEKEND_WARRIOR_BADGE) && !newBadges.includes(WEEKEND_WARRIOR_BADGE)) {
+                        newBadges.push(WEEKEND_WARRIOR_BADGE);
+                    }
+                }
+                
                 updateData.lastSubmissionDate = todayStr;
                 updateData.currentStreak = currentStreak;
 
@@ -563,6 +637,12 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
                 newBadges.push(LEGEND_STATUS_BADGE);
             } else if (currentLukuPoints >= 100 && !currentBadges.includes(CENTURY_CLUB_BADGE) && !newBadges.includes(CENTURY_CLUB_BADGE)) {
                 newBadges.push(CENTURY_CLUB_BADGE);
+            } else if (currentLukuPoints >= 15 && !currentBadges.includes(STYLE_ROOKIE_BADGE) && !newBadges.includes(STYLE_ROOKIE_BADGE)) {
+                newBadges.push(STYLE_ROOKIE_BADGE);
+                // Award bonus point for reaching Style Rookie status
+                pointsToAward += POINTS_STYLE_ROOKIE;
+                updateData.lukuPoints = FieldValue.increment(pointsToAward);
+                currentLukuPoints += POINTS_STYLE_ROOKIE;
             }
 
             if (newBadges.length > 0) {
@@ -584,5 +664,152 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
 
     } catch (error: any) {
         return { success: false, error: `Failed to process submission perks: ${error.message || "Unknown error"}` };
+    }
+}
+
+/**
+ * Point spending system for various features
+ */
+export async function spendPoints(userId: string, pointCost: number, purchaseType: 'streak_shield' | 'ai_powerup' | 'profile_boost'): Promise<{ success: boolean; message?: string; error?: string }> {
+    if (!adminInitialized || !adminDb) {
+        return { success: false, error: "Server error: Database not available" };
+    }
+
+    try {
+        const userRef = adminDb.collection('users').doc(userId);
+        
+        const result = await adminDb.runTransaction(async (transaction) => {
+            const userDoc = await transaction.get(userRef);
+            
+            if (!userDoc.exists) {
+                return { success: false, error: "User profile not found" };
+            }
+
+            const userData = userDoc.data()!;
+            const currentPoints = userData.lukuPoints || 0;
+            
+            if (currentPoints < pointCost) {
+                return { success: false, error: `Insufficient points. You have ${currentPoints}, need ${pointCost}` };
+            }
+
+            // Deduct points
+            transaction.update(userRef, {
+                lukuPoints: FieldValue.increment(-pointCost),
+                lastPointSpend: Timestamp.now(),
+                [`${purchaseType}_lastUsed`]: Timestamp.now()
+            });
+
+            let message = '';
+            switch (purchaseType) {
+                case 'streak_shield':
+                    message = 'Streak Shield activated! Your next missed day won\'t break your streak.';
+                    break;
+                case 'ai_powerup':
+                    message = 'AI Power-up activated! You can now submit one extra outfit today.';
+                    break;
+                case 'profile_boost':
+                    message = 'Profile boost activated! Your profile will be featured in searches.';
+                    break;
+            }
+
+            return { success: true, message };
+        });
+
+        revalidatePath('/profile');
+        return result;
+
+    } catch (error: any) {
+        return { success: false, error: `Failed to spend points: ${error.message || "Unknown error"}` };
+    }
+}
+
+/**
+ * Check if user can use a specific purchased feature
+ */
+export async function canUsePurchasedFeature(userId: string, featureType: 'streak_shield' | 'ai_powerup' | 'profile_boost'): Promise<{ canUse: boolean; reason?: string }> {
+    if (!adminInitialized || !adminDb) {
+        return { canUse: false, reason: "Server error" };
+    }
+
+    try {
+        const userRef = adminDb.collection('users').doc(userId);
+        const userDoc = await userRef.get();
+        
+        if (!userDoc.exists) {
+            return { canUse: false, reason: "User not found" };
+        }
+
+        const userData = userDoc.data()!;
+        const lastUsed = userData[`${featureType}_lastUsed`];
+        
+        if (!lastUsed) {
+            return { canUse: false, reason: "Feature not purchased" };
+        }
+
+        // Check if feature is still active (24 hours for most features)
+        const now = new Date();
+        const lastUsedDate = lastUsed.toDate();
+        const hoursSinceUsed = (now.getTime() - lastUsedDate.getTime()) / (1000 * 60 * 60);
+        
+        if (featureType === 'streak_shield' && hoursSinceUsed < 48) {
+            return { canUse: true };
+        } else if (featureType === 'ai_powerup' && hoursSinceUsed < 24) {
+            return { canUse: true };
+        } else if (featureType === 'profile_boost' && hoursSinceUsed < 168) { // 7 days
+            return { canUse: true };
+        }
+
+        return { canUse: false, reason: "Feature expired" };
+
+    } catch (error: any) {
+        return { canUse: false, reason: "Error checking feature" };
+    }
+}
+
+/**
+ * Allow users to purchase and activate a streak shield
+ */
+export async function purchaseStreakShield(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    return await spendPoints(userId, POINTS_STREAK_SHIELD_COST, 'streak_shield');
+}
+
+/**
+ * Check if user has an active streak shield
+ */
+export async function hasActiveStreakShield(userId: string): Promise<{ hasShield: boolean; hoursLeft?: number }> {
+    if (!adminInitialized || !adminDb) {
+        return { hasShield: false };
+    }
+
+    try {
+        const userRef = adminDb.collection('users').doc(userId);
+        const userDoc = await userRef.get();
+        
+        if (!userDoc.exists) {
+            return { hasShield: false };
+        }
+
+        const userData = userDoc.data()!;
+        const shieldUsedAt = userData.streak_shield_lastUsed;
+        
+        if (!shieldUsedAt) {
+            return { hasShield: false };
+        }
+
+        const now = new Date();
+        const shieldTime = shieldUsedAt.toDate();
+        const hoursActive = (now.getTime() - shieldTime.getTime()) / (1000 * 60 * 60);
+        
+        if (hoursActive < 48) {
+            return { 
+                hasShield: true, 
+                hoursLeft: Math.round(48 - hoursActive) 
+            };
+        }
+
+        return { hasShield: false };
+
+    } catch (error: any) {
+        return { hasShield: false };
     }
 }
