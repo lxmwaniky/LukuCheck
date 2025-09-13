@@ -42,7 +42,7 @@ export const lukuCheckStructuredData = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
   "name": "LukuCheck",
-  "description": "Rate your outfit and climb the leaderboard! Created by Alex Nyambura - Fashion AI technology meets community.",
+  "description": "Rate your outfit and climb the leaderboard! Fashion AI technology meets community.",
   "url": "https://lukucheck.lxmwaniky.me",
   "applicationCategory": "LifestyleApplication",
   "operatingSystem": "Any",
@@ -80,7 +80,7 @@ export const organizationStructuredData = {
   "name": "LukuCheck",
   "url": "https://lukucheck.lxmwaniky.me",
   "logo": "https://lukucheck.lxmwaniky.me/logo.png",
-  "description": "AI-powered fashion rating and community platform created by Alex Nyambura",
+  "description": "AI-powered fashion rating and community platform",
   "founder": {
     "@type": "Person",
     "name": "Alex Nyambura",

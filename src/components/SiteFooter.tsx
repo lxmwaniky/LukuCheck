@@ -2,7 +2,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Coffee, MessageSquareQuote } from 'lucide-react'; // Changed MessageSquareQuestion to MessageSquareQuote
+import { MessageSquareQuote } from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button'; 
 import { cn } from '@/lib/utils'; 
 
@@ -13,49 +13,40 @@ export function SiteFooter() {
     setCurrentYear(new Date().getFullYear());
   }, []);
 
-  // const contactEmail = 'lxmwaniky@gmail.com'; // Kept for direct contact if needed elsewhere
-  const paypalEmail = 'lekko254@gmail.com';
-  const paypalDonationUrl = `https://www.paypal.com/donate/?business=${encodeURIComponent(paypalEmail)}&no_recurring=0&item_name=Support+LukuCheck&currency_code=USD`;
-
   return (
-    <footer className="py-6 md:px-8 md:py-0 border-t">
-      <div className="container flex flex-col items-center justify-center gap-4 md:h-20 md:flex-row">
-        <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
-          {currentYear ? `© ${currentYear} ` : '© '}
-          <a
-            href="https://lxmwaniky.me"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-primary hover:underline underline-offset-4"
-          >
-            Alex Nyambura
-          </a>
-          . All Rights Reserved.
-        </p>
-        <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
-          <Link href="/terms-of-service" legacyBehavior passHref>
-            <a className="hover:text-primary hover:underline underline-offset-4">Terms of Service</a>
-          </Link>
-          <Link href="/privacy-policy" legacyBehavior passHref>
-            <a className="hover:text-primary hover:underline underline-offset-4">Privacy Policy</a>
-          </Link>
-          <Link href="/submit-ticket" legacyBehavior passHref>
-            <a className="flex items-center hover:text-primary hover:underline underline-offset-4">
-              <MessageSquareQuote className="mr-1 h-4 w-4" /> Support / Report Issue
-            </a>
-          </Link>
-          <a
-            href={paypalDonationUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className={cn(
-              buttonVariants({ variant: "outline", size: "sm" }),
-              "h-auto px-3 py-1.5" 
-            )}
-            aria-label="Donate to support LukuCheck"
-          >
-            <Coffee className="mr-1.5 h-4 w-4" /> Donate
-          </a>
+    <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 mt-auto">
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex flex-col items-center justify-between gap-6 md:flex-row">
+          {/* Copyright Section */}
+          <div className="text-center md:text-left">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              {currentYear ? `© ${currentYear} ` : '© '}
+              LukuCheck. All Rights Reserved.
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Fashion AI Rating Platform
+            </p>
+          </div>
+
+          {/* Links and Actions */}
+          <div className="flex flex-wrap justify-center items-center gap-4 text-sm">
+            <Link href="/terms-of-service" legacyBehavior passHref>
+              <a className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors">
+                Terms of Service
+              </a>
+            </Link>
+            <Link href="/privacy-policy" legacyBehavior passHref>
+              <a className="text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors">
+                Privacy Policy
+              </a>
+            </Link>
+            <Link href="/submit-ticket" legacyBehavior passHref>
+              <a className="flex items-center text-gray-600 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400 transition-colors">
+                <MessageSquareQuote className="mr-1.5 h-4 w-4" /> 
+                Support
+              </a>
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

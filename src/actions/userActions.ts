@@ -481,6 +481,20 @@ export async function processReferral(newlyRegisteredUserId: string): Promise<{ 
 
       transaction.update(referrerDocRef, referrerUpdatePayload);
       transaction.update(newUserDocRef, { referralPointsAwarded: true });
+      
+      // Create notification for referrer
+      const notificationRef = adminDb.collection('notifications').doc();
+      transaction.set(notificationRef, {
+        userId: referrerUid,
+        type: 'referral_success',
+        title: '🎉 New Referral!',
+        message: `Someone used your referral link and joined LukuCheck! You earned ${pointsToAwardReferrerThisTime} LukuPoints.`,
+        isRead: false,
+        createdAt: FieldValue.serverTimestamp(),
+        pointsAwarded: pointsToAwardReferrerThisTime,
+        badgesEarned: newBadgesForReferrer
+      });
+      
       referrerUpdateSuccessful = true;
     });
 
@@ -812,4 +826,55 @@ export async function hasActiveStreakShield(userId: string): Promise<{ hasShield
     } catch (error: any) {
         return { hasShield: false };
     }
+}
+
+export interface UserNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  createdAt: any;
+  pointsAwarded?: number;
+  badgesEarned?: string[];
+}
+
+export async function getUserNotifications(userId: string): Promise<{success: boolean; notifications?: UserNotification[]; error?: string}> {
+  if (!adminInitialized || !adminDb) {
+    return { success: false, error: "Server error: Admin SDK not configured." };
+  }
+
+  try {
+    const notificationsRef = adminDb.collection('notifications')
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .limit(50);
+    
+    const snapshot = await notificationsRef.get();
+    const notifications: UserNotification[] = [];
+    
+    snapshot.forEach(doc => {
+      notifications.push({
+        id: doc.id,
+        ...doc.data()
+      } as UserNotification);
+    });
+
+    return { success: true, notifications };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<{success: boolean; error?: string}> {
+  if (!adminInitialized || !adminDb) {
+    return { success: false, error: "Server error: Admin SDK not configured." };
+  }
+
+  try {
+    await adminDb.collection('notifications').doc(notificationId).update({ isRead: true });
+    return { success: true };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }

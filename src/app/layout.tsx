@@ -13,30 +13,19 @@ const geistSans = GeistSans;
 const geistMono = GeistMono;
 
 const APP_NAME = 'LukuCheck';
-const APP_DESCRIPTION = 'Rate your outfit and climb the leaderboard! Created by Alex Nyambura - Fashion AI technology meets community.';
+const APP_DESCRIPTION = 'Rate your outfit and climb the leaderboard! Fashion AI technology meets community.';
 const APP_URL = 'https://lukucheck.lxmwaniky.me'; 
 const APP_PREVIEW_IMAGE_URL = 'https://placehold.co/1200x630.png?text=LukuCheck';
-const CREATOR_NAME = 'Alex Nyambura';
-const CREATOR_DESCRIPTION = 'Tech innovator and creator of LukuCheck - combining AI with fashion community';
 
 
 export const metadata: Metadata = {
   title: {
-    default: `${APP_NAME} - By ${CREATOR_NAME}`,
+    default: APP_NAME,
     template: `%s | ${APP_NAME} - By ${CREATOR_NAME}`,
   },
   description: APP_DESCRIPTION,
   applicationName: APP_NAME,
-  authors: [
-    {
-      name: CREATOR_NAME,
-      url: APP_URL,
-    }
-  ],
-  creator: CREATOR_NAME,
-  publisher: CREATOR_NAME,
   keywords: [
-    'Alex Nyambura',
     'LukuCheck',
     'fashion AI',
     'outfit rating',

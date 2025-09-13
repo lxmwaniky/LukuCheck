@@ -249,6 +249,42 @@ export default function ProfilePage() {
     }
   };
 
+  const handleProfileUpdate = async () => {
+    if (!user) {
+      toast({ title: 'Error', description: 'You must be logged in to update your profile.', variant: 'destructive' });
+      return;
+    }
+    if (currentUsername.length < 3) {
+        toast({ title: 'Error', description: 'Username (display name) must be at least 3 characters.', variant: 'destructive' });
+        return;
+    }
+    setIsSubmitting(true);
+
+    try {
+      const result = await updateUserProfileInFirestore({
+        userId: user.uid,
+        username: currentUsername,
+        photoDataUrl: newPhotoDataUrlForUpload ? newPhotoDataUrlForUpload : undefined,
+        currentPhotoUrl: userProfile?.customPhotoURL || userProfile?.photoURL,
+        tiktokUrl: tiktokUrl,
+        instagramUrl: instagramUrl,
+      });
+
+      if (result.success) {
+        toast({ title: 'Welcome to LukuCheck!', description: 'Your profile has been set up successfully!' });
+        setNewPhotoDataUrlForUpload(null);
+        await refreshUserProfile();
+        // Profile will automatically refresh and show the main profile view
+      } else {
+        toast({ title: 'Error setting up profile', description: result.error || 'An unknown error occurred.', variant: 'destructive' });
+      }
+    } catch (error: any) {
+      toast({ title: 'Error setting up profile', description: error.message || "An unexpected error occurred.", variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDeleteAccountRequest = () => {
     if (!user || !user.email) {
        toast({ title: 'Error', description: 'User session is invalid or email is missing. Please re-login.', variant: 'destructive' });
@@ -340,7 +376,8 @@ export default function ProfilePage() {
   }
 
   // Check if this is a new user who needs to complete profile setup
-  const needsProfileSetup = !userProfile.username || userProfile.username.trim() === '';
+  // Only show setup if user has never set a username AND doesn't have a display name
+  const needsProfileSetup = !userProfile.username && !user.displayName;
   
   if (needsProfileSetup) {
     return (
