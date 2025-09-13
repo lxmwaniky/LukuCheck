@@ -15,7 +15,7 @@ const geistMono = GeistMono;
 const APP_NAME = 'LukuCheck';
 const APP_DESCRIPTION = 'Rate your outfit and climb the leaderboard! Fashion AI technology meets community.';
 const APP_URL = 'https://lukucheck.lxmwaniky.me'; 
-const APP_PREVIEW_IMAGE_URL = 'https://placehold.co/1200x630.png?text=LukuCheck';
+const APP_PREVIEW_IMAGE_URL = 'https://i.postimg.cc/hjBwt7V5/lukucheck.png';
 
 
 export const metadata: Metadata = {

@@ -401,204 +401,489 @@ export default function UploadPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto py-6 sm:py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
-          <Card className="shadow-xl rounded-lg bg-white/80 backdrop-blur dark:bg-gray-800/80">
-          <CardHeader>
-            <CardTitle className="text-2xl sm:text-3xl flex items-center text-primary">
-              <UploadCloud className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:w-8" /> Submit Your Look
-            </CardTitle>
-            <CardDescription className="text-sm sm:text-base">Get feedback, then choose your best look for the leaderboard!</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 sm:space-y-6">
-            <div className="space-y-1 sm:space-y-2">
-              <Label htmlFor="outfitImage" className="text-base sm:text-lg font-medium">Outfit Photo</Label>
-              <Input id="outfitImage" type="file" accept="image/*" onChange={handleImageChange} className="file:text-primary file:font-semibold file:mr-2" disabled={imageInputDisabled} />
-              <p className="text-xs text-muted-foreground">Tip: Clear, well-lit photos get better AI feedback. Consider compressing images client-side before upload.</p>
+      <div className="container mx-auto py-6 sm:py-8 px-4">
+        {/* Header Section */}
+        <div className="text-center mb-8 sm:mb-12">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <div className="p-3 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full">
+              <UploadCloud className="h-8 w-8 text-white" />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+              Style Analysis Studio
+            </h1>
+          </div>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Upload your outfit, get AI-powered style feedback, and compete on the leaderboard
+          </p>
+        </div>
+
+        <div className="max-w-7xl mx-auto">
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 sm:gap-8">
+            {/* Upload Section - Left Column */}
+            <div className="xl:col-span-2 space-y-6">
+              {/* Upload Card */}
+              <Card className="overflow-hidden shadow-2xl bg-white/90 backdrop-blur-md dark:bg-gray-800/90 border-0">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/50 dark:to-cyan-950/50 border-b">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                      <Sparkles className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl sm:text-2xl">Upload Your Look</CardTitle>
+                      <CardDescription className="text-base">Get instant AI feedback on your style</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="p-6 sm:p-8">
+                  {/* Image Upload Area */}
+                  <div className="space-y-6">
+                    <div className="space-y-3">
+                      <Label htmlFor="outfitImage" className="text-lg font-medium flex items-center gap-2">
+                        <UploadCloud className="h-5 w-5" />
+                        Choose Your Outfit Photo
+                      </Label>
+                      
+                      {/* Enhanced Upload Zone */}
+                      <div className="relative">
+                        <Input 
+                          id="outfitImage" 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleImageChange} 
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                          disabled={imageInputDisabled} 
+                        />
+                        <div className={cn(
+                          "border-2 border-dashed rounded-xl p-8 sm:p-12 text-center transition-all duration-300",
+                          imageBase64Preview 
+                            ? "border-blue-300 bg-blue-50/50 dark:border-blue-700 dark:bg-blue-950/20" 
+                            : "border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50 hover:border-blue-400 hover:bg-blue-50/30 dark:hover:border-blue-600"
+                        )}>
+                          {imageBase64Preview ? (
+                            <div className="space-y-4">
+                              <div className="relative mx-auto w-fit">
+                                <Image 
+                                  src={imageBase64Preview} 
+                                  alt="Outfit preview" 
+                                  width={300} 
+                                  height={300} 
+                                  className="rounded-lg shadow-lg max-w-full h-auto max-h-[300px] object-contain border-2 border-white dark:border-gray-700" 
+                                />
+                                <div className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full p-1">
+                                  <Sparkles className="h-4 w-4" />
+                                </div>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                <p className="font-medium text-green-600 dark:text-green-400">✓ Image loaded successfully</p>
+                                <p>Click to change or drag a new image</p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="mx-auto w-fit p-4 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                                <UploadCloud className="h-12 w-12 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <div>
+                                <p className="text-lg font-medium text-foreground">Drop your outfit photo here</p>
+                                <p className="text-sm text-muted-foreground">or click to browse files</p>
+                              </div>
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <p>• Supported formats: JPG, PNG, WebP</p>
+                                <p>• Best results with good lighting</p>
+                                <p>• Clear, full-body or outfit-focused shots work best</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* AI Usage Status */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-1.5 bg-blue-500 rounded-full">
+                          <Sparkles className="h-4 w-4 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-blue-900 dark:text-blue-100">AI Analysis Status</h3>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-blue-700 dark:text-blue-300">Daily Usage</span>
+                          <span className="font-mono font-bold text-blue-900 dark:text-blue-100">
+                            {aiUsage.count}/{currentAiLimit}
+                          </span>
+                        </div>
+                        <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.min((aiUsage.count / Math.max(currentAiLimit, 1)) * 100, 100)}%` }}
+                          ></div>
+                        </div>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                          {aiUsage.limitReached 
+                            ? "Daily limit reached • Resets at 6 AM" 
+                            : `${currentAiLimit - aiUsage.count} analyses remaining today`
+                          }
+                        </p>
+                        {userProfile?.aiUsageLimit !== null && userProfile?.aiUsageLimit !== undefined && (
+                          <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                            ✓ Custom limit set by admin
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Submission Window Alerts */}
+                    {!hasSubmittedToday && isSubmissionNotYetOpen && timeLeftToSubmissionOpen > 0 && (
+                      <Alert className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-200 dark:border-amber-800">
+                        <Clock className="h-4 w-4 text-amber-600" />
+                        <AlertTitle className="text-amber-900 dark:text-amber-100">Leaderboard Opens Soon</AlertTitle>
+                        <AlertDescription className="text-amber-700 dark:text-amber-300">
+                          {TIMING_MESSAGES.SUBMISSION_OPEN_SOON(formatTimeLeft(timeLeftToSubmissionOpen))}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {!hasSubmittedToday && !isSubmissionWindowOpen && !isSubmissionNotYetOpen && (
+                      <Alert variant="destructive" className="bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-950/30 dark:to-rose-950/30">
+                        <Ban className="h-4 w-4" />
+                        <AlertTitle>Submissions Closed</AlertTitle>
+                        <AlertDescription>
+                          {TIMING_MESSAGES.SUBMISSION_CLOSED_TODAY}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {hasSubmittedToday && (
+                      <Alert className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-emerald-200 dark:border-emerald-800">
+                        <ShieldAlert className="h-4 w-4 text-emerald-600" />
+                        <AlertTitle className="text-emerald-900 dark:text-emerald-100">Today's Submission Complete</AlertTitle>
+                        <AlertDescription className="text-emerald-700 dark:text-emerald-300">
+                          You've already submitted an outfit for today's leaderboard. Check back tomorrow!
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                </CardContent>
+
+                <CardFooter className="p-6 sm:p-8 pt-0">
+                  <Button 
+                    onClick={handleGetRating} 
+                    disabled={getRatingDisabled} 
+                    size="lg"
+                    className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                  >
+                    {isProcessingAIRating ? (
+                      <>
+                        <Loader2 className="mr-3 h-6 w-6 animate-spin" />
+                        Analyzing Your Style...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-3 h-6 w-6" />
+                        Get AI Style Analysis
+                      </>
+                    )}
+                  </Button>
+                </CardFooter>
+              </Card>
             </div>
 
-            {imageBase64Preview && (
-              <div className="mt-3 sm:mt-4 border-2 border-dashed border-primary/30 rounded-lg overflow-hidden shadow-inner p-2 bg-muted/20">
-                <Image src={imageBase64Preview} alt="Outfit preview" width={500} height={500} className="object-contain w-full h-auto max-h-[300px] sm:max-h-[400px] rounded-md" data-ai-hint="fashion clothing detail" />
-              </div>
-            )}
-
-            <Alert variant="default" className="bg-secondary/30 border-secondary">
-              <Info className="h-4 w-4 text-secondary-foreground" />
-              <AlertTitle className="font-semibold">AI Usage: {aiUsage.count}/{currentAiLimit} Analyses Used Today</AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm">
-                {aiUsage.limitReached ? `You've reached your daily AI analysis limit. Resets 6 AM local time.` : `Get up to ${currentAiLimit} AI ratings per day (resets 6 AM).`}
-                 {userProfile?.aiUsageLimit !== null && userProfile?.aiUsageLimit !== undefined && <span className="block mt-1 text-blue-600 dark:text-blue-400">You have a custom daily limit set by an admin.</span>}
-              </AlertDescription>
-            </Alert>
-
-            {!hasSubmittedToday && isSubmissionNotYetOpen && timeLeftToSubmissionOpen > 0 && (
-              <Alert variant="default" className="bg-blue-500/10 border-blue-500/30 text-blue-700 dark:text-blue-300">
-                <Clock className="h-4 w-4" />
-                <AlertTitle>Submissions Open Soon</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                  {TIMING_MESSAGES.SUBMISSION_OPEN_SOON(formatTimeLeft(timeLeftToSubmissionOpen))}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {!hasSubmittedToday && !isSubmissionWindowOpen && !isSubmissionNotYetOpen && (
-              <Alert variant="destructive">
-                <Ban className="h-4 w-4" />
-                <AlertTitle>Submissions Closed for Today</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                  {TIMING_MESSAGES.SUBMISSION_CLOSED_TODAY}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {hasSubmittedToday && (
-              <Alert variant="default" className="bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400">
-                <ShieldAlert className="h-4 w-4" />
-                <AlertTitle>Submission Complete for Today</AlertTitle>
-                <AlertDescription className="text-xs sm:text-sm">
-                  You've already submitted an outfit for today's leaderboard. Check back tomorrow!
-                </AlertDescription>
-              </Alert>
-            )}
-          </CardContent>
-          <CardFooter>
-            <Button onClick={handleGetRating} disabled={getRatingDisabled} className="w-full text-base sm:text-lg py-3">
-              {isProcessingAIRating ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Sparkles className="mr-2 h-5 w-5" />}
-              Get AI Rating & Suggestions
-            </Button>
-          </CardFooter>
-        </Card>
-
-        <div className="md:col-span-1 space-y-6 sm:space-y-8">
-          {isProcessingAIRating && !selectedOutfitForDetails && todaysRatedOutfits.length === 0 && (
-            <Card className="shadow-xl rounded-lg animate-pulse bg-white/80 backdrop-blur dark:bg-gray-800/80">
-              <CardHeader className="items-center">
-                <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin text-primary" />
-                <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mt-3">Our AI is analyzing your style...</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <Progress value={50} className="w-3/4 mx-auto" />
-                <p className="text-xs sm:text-sm text-muted-foreground mt-2">This might take a few moments.</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {todaysRatedOutfits.length > 0 && !selectedOutfitForDetails && (
-            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500 bg-white/80 backdrop-blur dark:bg-gray-800/80">
-              <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl">Today's Rated Looks</CardTitle>
-                <CardDescription className="text-sm sm:text-base">Review your outfits and choose one to submit.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 sm:space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                {todaysRatedOutfits.map((outfit) => (
-                  <Card key={outfit.localId} className={cn("p-3 sm:p-4 flex flex-col sm:flex-row items-center gap-3 sm:gap-4 transition-all hover:shadow-md", outfit.submittedToLeaderboard ? "bg-green-500/10 border-green-500/30" : "bg-card hover:bg-muted/50", !outfit.isActualUserOutfit && "border-destructive/50")}>
-                    <Image src={outfit.outfitImageURLForDisplay} alt="Rated outfit" width={72} height={72} className="rounded-md aspect-square object-cover border-2 border-primary/20 shadow-sm" data-ai-hint="fashion clothing item"/>
-                    <div className="flex-grow text-center sm:text-left">
-                      <p className="text-2xl sm:text-3xl font-bold text-primary">{outfit.rating.toFixed(1)}<span className="text-lg text-muted-foreground">/10</span></p>
-                      {!outfit.isActualUserOutfit && <p className="text-xs text-destructive mt-0.5">{outfit.validityCritique || "AI flagged this image."}</p>}
+            {/* Results Section - Right Column */}
+            <div className="space-y-6">
+              {/* AI Processing State */}
+              {isProcessingAIRating && !selectedOutfitForDetails && todaysRatedOutfits.length === 0 && (
+                <Card className="shadow-xl bg-white/90 backdrop-blur-md dark:bg-gray-800/90 border-0 overflow-hidden">
+                  <CardContent className="p-8">
+                    <div className="text-center space-y-6">
+                      <div className="relative mx-auto w-20 h-20">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full animate-pulse"></div>
+                        <div className="absolute inset-2 bg-white dark:bg-gray-800 rounded-full flex items-center justify-center">
+                          <Sparkles className="h-8 w-8 text-blue-600 animate-bounce" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold">AI Style Analysis</h3>
+                        <p className="text-muted-foreground">Our fashion AI is analyzing your outfit...</p>
+                      </div>
+                      <Progress value={50} className="h-3" />
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p>• Analyzing colors and patterns</p>
+                        <p>• Evaluating fit and styling</p>
+                        <p>• Generating personalized suggestions</p>
+                      </div>
                     </div>
-                    <Button
-                      onClick={() => handleSelectOutfitForDetails(outfit)}
-                      disabled={!outfit.isActualUserOutfit || outfit.submittedToLeaderboard}
-                      variant={outfit.submittedToLeaderboard ? "ghost" : "default"}
-                      size="sm"
-                      className="w-full sm:w-auto mt-2 sm:mt-0"
-                    >
-                      {outfit.submittedToLeaderboard ? <><Star className="mr-2 h-4 w-4 text-green-600 fill-green-600"/>Submitted!</> : <><Eye className="mr-2 h-4 w-4"/>Review & Prepare</>}
-                    </Button>
-                  </Card>
-                ))}
-              </CardContent>
-               {hasSubmittedToday && (
-                  <CardFooter>
-                    <Alert variant="default" className="mt-4 bg-green-500/10 border-green-500/30 text-green-700 dark:text-green-400 w-full">
-                        <ShieldAlert className="h-5 w-5" />
-                        <AlertTitle>Leaderboard Submission Sent!</AlertTitle>
-                        <AlertDescription>
-                            You've successfully submitted an outfit for today. Check the leaderboard later!
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Today's Rated Outfits */}
+              {todaysRatedOutfits.length > 0 && !selectedOutfitForDetails && (
+                <Card className="shadow-xl bg-white/90 backdrop-blur-md dark:bg-gray-800/90 border-0 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/30 dark:to-green-950/30 border-b">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+                        <Star className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">Today's Analysis</CardTitle>
+                        <CardDescription>Your rated outfits • Choose one for the leaderboard</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent className="p-0">
+                    <div className="max-h-[500px] overflow-y-auto">
+                      {todaysRatedOutfits.map((outfit, index) => (
+                        <div key={outfit.localId} className={cn(
+                          "p-6 border-b last:border-b-0 transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800/50",
+                          outfit.submittedToLeaderboard && "bg-emerald-50/50 dark:bg-emerald-950/20"
+                        )}>
+                          <div className="flex items-start gap-4">
+                            {/* Image */}
+                            <div className="relative flex-shrink-0">
+                              <Image 
+                                src={outfit.outfitImageURLForDisplay} 
+                                alt={`Outfit ${index + 1}`}
+                                width={80} 
+                                height={80} 
+                                className="rounded-xl object-cover border-2 border-gray-200 dark:border-gray-700 shadow-sm" 
+                              />
+                              {outfit.submittedToLeaderboard && (
+                                <div className="absolute -top-2 -right-2 bg-emerald-500 text-white rounded-full p-1">
+                                  <Star className="h-3 w-3 fill-current" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-grow min-w-0">
+                              <div className="flex items-start justify-between gap-3">
+                                {/* Rating */}
+                                <div className="space-y-1">
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                      {outfit.rating.toFixed(1)}
+                                    </span>
+                                    <span className="text-sm text-muted-foreground">/10</span>
+                                  </div>
+                                  <div className="flex">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star key={i} className={cn(
+                                        "h-3 w-3",
+                                        i < Math.round(outfit.rating / 2) 
+                                          ? 'text-amber-400 fill-amber-400' 
+                                          : 'text-gray-300 dark:text-gray-600'
+                                      )} />
+                                    ))}
+                                  </div>
+                                </div>
+                                
+                                {/* Action Button */}
+                                <Button
+                                  onClick={() => handleSelectOutfitForDetails(outfit)}
+                                  disabled={!outfit.isActualUserOutfit}
+                                  variant={outfit.submittedToLeaderboard ? "secondary" : "default"}
+                                  size="sm"
+                                  className={outfit.submittedToLeaderboard ? "" : "bg-blue-600 hover:bg-blue-700"}
+                                >
+                                  {outfit.submittedToLeaderboard ? (
+                                    <>
+                                      <Star className="mr-2 h-4 w-4 text-emerald-600 fill-emerald-600"/>
+                                      Submitted
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Eye className="mr-2 h-4 w-4"/>
+                                      Review
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                              
+                              {/* Validity Warning */}
+                              {!outfit.isActualUserOutfit && (
+                                <Alert variant="destructive" className="mt-3 py-2">
+                                  <ImageOff className="h-4 w-4" />
+                                  <AlertDescription className="text-xs">
+                                    {outfit.validityCritique || "AI flagged this image"}
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                  
+                  {hasSubmittedToday && (
+                    <CardFooter className="bg-emerald-50/50 dark:bg-emerald-950/20 border-t">
+                      <Alert className="border-emerald-200 dark:border-emerald-800 bg-transparent w-full">
+                        <ShieldAlert className="h-4 w-4 text-emerald-600" />
+                        <AlertTitle className="text-emerald-800 dark:text-emerald-200 text-sm">Leaderboard Submission Complete!</AlertTitle>
+                        <AlertDescription className="text-emerald-700 dark:text-emerald-300 text-xs">
+                          Check the leaderboard later to see how you rank against other stylists today.
                         </AlertDescription>
-                    </Alert>
-                  </CardFooter>
-                )}
-            </Card>
-          )}
+                      </Alert>
+                    </CardFooter>
+                  )}
+                </Card>
+              )}
 
-          {selectedOutfitForDetails && (
-            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500 bg-white/80 backdrop-blur dark:bg-gray-800/80">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <CardTitle className="text-xl sm:text-2xl flex items-center text-accent">
-                            <Sparkles className="mr-2 sm:mr-3 h-6 w-6 sm:h-7 sm:w-7" /> AI Feedback
-                        </CardTitle>
-                        <CardDescription className="text-sm sm:text-base">Here's what our fashion AI thinks.</CardDescription>
+              {/* AI Feedback Detail View */}
+              {selectedOutfitForDetails && (
+                <Card className="shadow-xl bg-white/90 backdrop-blur-md dark:bg-gray-800/90 border-0 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 border-b">
+                    <div className="flex justify-between items-start">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                          <Sparkles className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl">AI Style Analysis</CardTitle>
+                          <CardDescription>Detailed feedback from our fashion AI</CardDescription>
+                        </div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        onClick={() => setSelectedOutfitForDetails(null)}
+                        className="hover:bg-purple-100 dark:hover:bg-purple-900/30"
+                      >
+                        <XCircle className="h-5 w-5" />
+                      </Button>
                     </div>
-                     <Button variant="ghost" size="icon" onClick={() => setSelectedOutfitForDetails(null)} className="ml-auto -mt-2 -mr-2 sm:mt-0 sm:mr-0">
-                        <XCircle className="h-5 w-5 text-muted-foreground hover:text-destructive" />
-                        <span className="sr-only">Close details</span>
+                  </CardHeader>
+                  
+                  <CardContent className="p-6 space-y-6">
+                    {/* Validity Warning */}
+                    {!selectedOutfitForDetails.isActualUserOutfit && (
+                      <Alert variant="destructive" className="border-red-200 dark:border-red-800">
+                        <ImageOff className="h-5 w-5" />
+                        <AlertTitle>Image Quality Issue</AlertTitle>
+                        <AlertDescription>
+                          {selectedOutfitForDetails.validityCritique}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Rating Section */}
+                    <div className="text-center py-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 rounded-xl border">
+                      <div className="space-y-3">
+                        <div className="flex items-baseline justify-center gap-2">
+                          <span className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                            {selectedOutfitForDetails.rating.toFixed(1)}
+                          </span>
+                          <span className="text-xl text-muted-foreground">/10</span>
+                        </div>
+                        <div className="flex justify-center gap-1">
+                          {[...Array(10)].map((_, i) => (
+                            <Star key={i} className={cn(
+                              "h-5 w-5 transition-colors",
+                              i < Math.round(selectedOutfitForDetails.rating) 
+                                ? 'text-amber-400 fill-amber-400' 
+                                : 'text-gray-300 dark:text-gray-600'
+                            )} />
+                          ))}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {selectedOutfitForDetails.rating >= 8 ? "Outstanding style!" :
+                           selectedOutfitForDetails.rating >= 6 ? "Great look!" :
+                           selectedOutfitForDetails.rating >= 4 ? "Good effort!" :
+                           "Room for improvement"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Feedback Sections */}
+                    <div className="space-y-4">
+                      {/* Verdict */}
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                        <h3 className="font-semibold mb-2 flex items-center gap-2 text-foreground">
+                          <MessageSquareQuote className="h-4 w-4 text-blue-600" />
+                          Stylist's Verdict
+                        </h3>
+                        <p className="text-sm leading-relaxed text-foreground/80 italic border-l-4 border-blue-500 pl-4">
+                          "{selectedOutfitForDetails.complimentOrCritique || "No specific verdict provided."}"
+                        </p>
+                      </div>
+
+                      {/* Color Suggestions */}
+                      <div className="bg-gradient-to-r from-emerald-50 to-green-50 dark:from-emerald-950/20 dark:to-green-950/20 rounded-lg p-4 border border-emerald-200 dark:border-emerald-800">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2 text-emerald-800 dark:text-emerald-200">
+                          <Palette className="h-4 w-4" />
+                          Color Palette Suggestions
+                        </h3>
+                        {selectedOutfitForDetails.colorSuggestions && selectedOutfitForDetails.colorSuggestions.length > 0 ? (
+                          <div className="space-y-2">
+                            {selectedOutfitForDetails.colorSuggestions.map((color, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <div className="w-3 h-3 bg-emerald-500 rounded-full flex-shrink-0"></div>
+                                <span className="text-sm text-emerald-700 dark:text-emerald-300">{color}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-emerald-600 dark:text-emerald-400 italic">No specific color suggestions provided.</p>
+                        )}
+                      </div>
+
+                      {/* Look Suggestions */}
+                      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-lg p-4 border border-amber-200 dark:border-amber-800">
+                        <h3 className="font-semibold mb-3 flex items-center gap-2 text-amber-800 dark:text-amber-200">
+                          <Shirt className="h-4 w-4" />
+                          Style Enhancement Tips
+                        </h3>
+                        <p className="text-sm leading-relaxed text-amber-700 dark:text-amber-300">
+                          {selectedOutfitForDetails.lookSuggestions || "No specific look suggestions provided."}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Image Display */}
+                    {selectedOutfitForDetails.outfitImageURLForDisplay && (
+                      <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-xl p-4 border-2 border-dashed border-gray-300 dark:border-gray-600">
+                        <div className="text-center">
+                          <Image 
+                            src={selectedOutfitForDetails.outfitImageURLForDisplay} 
+                            alt="Analyzed outfit" 
+                            width={400} 
+                            height={400} 
+                            className="rounded-lg shadow-lg max-w-full h-auto max-h-[300px] object-contain mx-auto border-4 border-white dark:border-gray-700" 
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+
+                  <CardFooter className="p-6 bg-gray-50 dark:bg-gray-800/50 border-t">
+                    <Button
+                      onClick={handleSubmitToLeaderboard}
+                      disabled={submitToLeaderboardButtonDisabled}
+                      size="lg"
+                      className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      {isSubmittingToLeaderboard ? (
+                        <>
+                          <Loader2 className="mr-3 h-6 w-6 animate-spin" />
+                          Submitting to Leaderboard...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-3 h-6 w-6" />
+                          {submitToLeaderboardButtonText}
+                        </>
+                      )}
                     </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3 sm:space-y-4">
-                {!selectedOutfitForDetails.isActualUserOutfit && (
-                  <Alert variant="destructive">
-                    <ImageOff className="h-5 w-5" />
-                    <AlertTitle>Image Validity Issue</AlertTitle>
-                    <AlertDescription>{selectedOutfitForDetails.validityCritique}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="text-center py-2">
-                  <p className="text-4xl sm:text-5xl font-bold text-primary">{selectedOutfitForDetails.rating.toFixed(1)}<span className="text-xl sm:text-2xl text-muted-foreground">/10</span></p>
-                  <div className="flex justify-center mt-1">
-                    {[...Array(10)].map((_, i) => (
-                      <Star key={i} className={`h-5 w-5 sm:h-6 sm:w-6 ${i < Math.round(selectedOutfitForDetails.rating) ? 'text-accent fill-accent' : 'text-muted-foreground/30'}`} />
-                    ))}
-                  </div>
-                </div>
-
-                <Separator className="my-3 sm:my-4" />
-
-                <div>
-                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><MessageSquareQuote className="mr-2 h-5 w-5 text-primary"/>Stylist's Verdict:</h3>
-                  <p className="text-sm sm:text-base text-foreground/90 italic bg-muted/30 p-2 rounded-md border">{selectedOutfitForDetails.complimentOrCritique || "No specific verdict provided."}</p>
-                </div>
-
-                <div>
-                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><Palette className="mr-2 h-5 w-5 text-primary"/>Color Suggestions:</h3>
-                  {selectedOutfitForDetails.colorSuggestions && selectedOutfitForDetails.colorSuggestions.length > 0 ? (
-                    <ul className="list-disc list-inside space-y-0.5 text-sm sm:text-base text-foreground/90 pl-3">
-                      {selectedOutfitForDetails.colorSuggestions.map((color, index) => <li key={index}>{color}</li>)}
-                    </ul>
-                  ) : (<p className="text-sm sm:text-base text-muted-foreground italic">No specific color suggestions provided.</p>)}
-                </div>
-
-                <div>
-                  <h3 className="text-md sm:text-lg font-semibold mb-1 flex items-center"><Shirt className="mr-2 h-5 w-5 text-primary"/>Look Suggestions:</h3>
-                  <p className="text-sm sm:text-base text-foreground/90">{selectedOutfitForDetails.lookSuggestions || "No specific look suggestions provided."}</p>
-                </div>
-
-                {selectedOutfitForDetails.outfitImageURLForDisplay && (
-                  <div className="mt-3 border-2 border-dashed border-primary/30 rounded-lg overflow-hidden shadow-inner p-1 bg-muted/20">
-                    <Image src={selectedOutfitForDetails.outfitImageURLForDisplay} alt="Processed outfit" width={300} height={300} className="object-contain w-full h-auto max-h-[200px] sm:max-h-[250px] rounded" data-ai-hint="model clothing detail"/>
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter>
-                <Button
-                  onClick={handleSubmitToLeaderboard}
-                  disabled={submitToLeaderboardButtonDisabled}
-                  className="w-full text-base sm:text-lg py-3 bg-accent hover:bg-accent/90 text-accent-foreground"
-                >
-                  {isSubmittingToLeaderboard ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                  {submitToLeaderboardButtonText}
-                </Button>
-              </CardFooter>
-            </Card>
-          )}
+                  </CardFooter>
+                </Card>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );
