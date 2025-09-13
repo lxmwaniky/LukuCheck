@@ -21,7 +21,7 @@ const APP_PREVIEW_IMAGE_URL = 'https://placehold.co/1200x630.png?text=LukuCheck'
 export const metadata: Metadata = {
   title: {
     default: APP_NAME,
-    template: `%s | ${APP_NAME} - By ${CREATOR_NAME}`,
+    template: `%s | ${APP_NAME}`,
   },
   description: APP_DESCRIPTION,
   applicationName: APP_NAME,
@@ -59,10 +59,10 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: 'website',
-    siteName: `${APP_NAME} - By ${CREATOR_NAME}`,
+    siteName: APP_NAME,
     title: {
-        default: `${APP_NAME} - By ${CREATOR_NAME}`,
-        template: `%s | ${APP_NAME} - By ${CREATOR_NAME}`,
+        default: APP_NAME,
+        template: `%s | ${APP_NAME}`,
     },
     description: APP_DESCRIPTION,
     url: APP_URL,
@@ -72,18 +72,17 @@ export const metadata: Metadata = {
         url: APP_PREVIEW_IMAGE_URL,
         width: 1200,
         height: 630,
-        alt: `${APP_NAME} - Fashion AI App by ${CREATOR_NAME}`,
+        alt: `${APP_NAME} - Fashion AI App`,
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     title: {
-        default: `${APP_NAME} - By ${CREATOR_NAME}`,
-        template: `%s | ${APP_NAME} - By ${CREATOR_NAME}`,
+        default: APP_NAME,
+        template: `%s | ${APP_NAME}`,
     },
     description: APP_DESCRIPTION,
-    creator: `@${CREATOR_NAME.replace(' ', '')}`,
     images: [APP_PREVIEW_IMAGE_URL],
   },
   verification: {
@@ -110,12 +109,6 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationStructuredData) }}
         />
-        <meta name="author" content={CREATOR_NAME} />
-        <meta name="creator" content={CREATOR_NAME} />
-        <meta name="owner" content={CREATOR_NAME} />
-        <meta name="designer" content={CREATOR_NAME} />
-        <meta name="developer" content={CREATOR_NAME} />
-        <meta property="article:author" content={CREATOR_NAME} />
         <link rel="canonical" href={APP_URL} />
       </head>
       <body

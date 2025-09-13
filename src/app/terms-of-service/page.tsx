@@ -14,10 +14,10 @@ export default function TermsOfServicePage() {
   const lastUpdatedDate = 'May 31, 2025'; 
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <SiteHeader />
       <main className="flex-1 container py-8 sm:py-12 md:py-10">
-        <Card className="max-w-3xl mx-auto shadow-lg">
+        <Card className="max-w-3xl mx-auto shadow-lg bg-white/80 backdrop-blur dark:bg-gray-800/80">
           <CardHeader>
             <CardTitle className="text-2xl sm:text-3xl">Terms of Service for {appName}</CardTitle>
           </CardHeader>

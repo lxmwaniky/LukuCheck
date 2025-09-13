@@ -4,33 +4,33 @@
 
 @layer base {
   :root {
-    --background: 240 67% 94%; /* Light Lavender */
-    --foreground: 276 100% 15%; /* Darker Deep Indigo */
+    --background: 210 40% 98%; /* Light Blue-Gray */
+    --foreground: 220 60% 15%; /* Dark Blue-Gray */
 
-    --card: 240 60% 98%;
-    --card-foreground: 276 100% 15%;
+    --card: 210 30% 98%;
+    --card-foreground: 220 60% 15%;
 
-    --popover: 240 60% 98%;
-    --popover-foreground: 276 100% 15%;
+    --popover: 210 30% 98%;
+    --popover-foreground: 220 60% 15%;
 
-    --primary: 276 100% 25%; /* Deep Indigo */
+    --primary: 220 90% 45%; /* Deep Blue */
     --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 276 50% 85%; /* Lighter Indigo */
-    --secondary-foreground: 276 100% 25%; /* Deep Indigo */
+    --secondary: 220 30% 85%; /* Light Blue-Gray */
+    --secondary-foreground: 220 90% 25%; /* Dark Blue */
 
-    --muted: 240 50% 90%; /* Muted Lavender */
-    --muted-foreground: 276 50% 45%; /* Muted Indigo */
+    --muted: 210 25% 90%; /* Muted Blue-Gray */
+    --muted-foreground: 220 40% 45%; /* Medium Blue-Gray */
 
-    --accent: 300 100% 50%; /* Bright Fuchsia */
+    --accent: 200 100% 50%; /* Bright Cyan */
     --accent-foreground: 0 0% 100%; /* White */
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 276 30% 80%;
-    --input: 276 30% 85%;
-    --ring: 276 100% 25%; /* Deep Indigo for focus rings */
+    --border: 220 20% 80%;
+    --input: 220 20% 85%;
+    --ring: 220 90% 45%; /* Blue for focus rings */
     
     --radius: 0.5rem;
 
@@ -42,33 +42,33 @@
   }
 
   .dark {
-    --background: 276 30% 10%; /* Very Dark Indigo */
-    --foreground: 240 60% 90%; /* Light Lavender text */
+    --background: 220 30% 10%; /* Very Dark Blue */
+    --foreground: 210 40% 90%; /* Light Blue-Gray text */
 
-    --card: 276 30% 15%;
-    --card-foreground: 240 60% 90%;
+    --card: 220 30% 15%;
+    --card-foreground: 210 40% 90%;
 
-    --popover: 276 30% 15%;
-    --popover-foreground: 240 60% 90%;
+    --popover: 220 30% 15%;
+    --popover-foreground: 210 40% 90%;
 
-    --primary: 276 100% 45%; /* Lighter Deep Indigo */
+    --primary: 220 90% 55%; /* Lighter Blue */
     --primary-foreground: 0 0% 100%; /* White */
     
-    --secondary: 276 40% 25%;
-    --secondary-foreground: 240 60% 90%;
+    --secondary: 220 40% 25%;
+    --secondary-foreground: 210 40% 90%;
 
-    --muted: 276 30% 20%;
-    --muted-foreground: 240 40% 65%;
+    --muted: 220 30% 20%;
+    --muted-foreground: 210 30% 65%;
 
-    --accent: 300 100% 60%; /* Bright Fuchsia (adjusted for dark) */
-    --accent-foreground: 0 0% 0%; /* Black text on Fuchsia */
+    --accent: 200 100% 60%; /* Bright Cyan (adjusted for dark) */
+    --accent-foreground: 0 0% 0%; /* Black text on Cyan */
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 276 30% 30%;
-    --input: 276 30% 25%;
-    --ring: 300 100% 60%; /* Fuchsia for focus rings */
+    --border: 220 30% 30%;
+    --input: 220 30% 25%;
+    --ring: 200 100% 60%; /* Cyan for focus rings */
     
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;

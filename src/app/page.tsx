@@ -88,8 +88,8 @@ export default function HomePage() {
               </div>
 
               <div className="p-6">
-                <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Zap className="h-8 w-8 text-purple-600 dark:text-purple-400" />
+                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Zap className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   AI Analysis
@@ -131,7 +131,7 @@ export default function HomePage() {
               </div>
               
               <div className="flex items-start gap-3">
-                <Users className="h-6 w-6 text-purple-600 mt-1 flex-shrink-0" />
+                <Users className="h-6 w-6 text-blue-600 mt-1 flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">Global Community</h3>
                   <p className="text-gray-600 dark:text-gray-300">Connect with fashion enthusiasts worldwide</p>

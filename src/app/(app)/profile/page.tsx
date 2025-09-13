@@ -110,13 +110,13 @@ interface BadgeDetails {
 const BADGE_DEFINITIONS: Record<string, BadgeDetails> = {
   PROFILE_PRO: { id: "PROFILE_PRO", name: "Profile Pro", description: "Completed profile with custom photo and social links.", icon: UserIcon, colorClass: "text-blue-500" },
   FIRST_SUBMISSION: { id: "FIRST_SUBMISSION", name: "First Submission", description: "Submitted first outfit to the leaderboard.", icon: Award, colorClass: "text-green-500" },
-  REFERRAL_ROCKSTAR: { id: "REFERRAL_ROCKSTAR", name: "Referral Rockstar", description: "Successfully referred 3 new stylists!", icon: Gift, colorClass: "text-purple-500" },
+  REFERRAL_ROCKSTAR: { id: "REFERRAL_ROCKSTAR", name: "Referral Rockstar", description: "Successfully referred 3 new stylists!", icon: Gift, colorClass: "text-emerald-500" },
   STREAK_STARTER_3: { id: "STREAK_STARTER_3", name: "Streak Starter", description: "Submitted outfits for 3 consecutive days.", icon: Flame, colorClass: "text-orange-500" },
   STREAK_KEEPER_7: { id: "STREAK_KEEPER_7", name: "Streak Keeper (7 Days)", description: "Submitted outfits for 7 consecutive days.", icon: Flame, colorClass: "text-red-500" },
   TOP_3_FINISHER: { id: "TOP_3_FINISHER", name: "Top 3 Finisher", description: "Achieved a Top 3 rank on the daily leaderboard!", icon: Trophy, colorClass: "text-yellow-500" },
   PERFECT_SCORE: { id: "PERFECT_SCORE", name: "Perfect Score!", description: "Achieved a 10/10 AI rating on an outfit.", icon: StarIconProp, colorClass: "text-yellow-400" },
   CENTURY_CLUB: { id: "CENTURY_CLUB", name: "Century Club", description: "Earned 100 LukuPoints!", icon: Users, colorClass: "text-teal-500" },
-  LEGEND_STATUS: { id: "LEGEND_STATUS", name: "Legend Status", description: "Reached 250 LukuPoints - truly legendary!", icon: LegendIcon, colorClass: "text-indigo-500" },
+  LEGEND_STATUS: { id: "LEGEND_STATUS", name: "Legend Status", description: "Reached 250 LukuPoints - truly legendary!", icon: LegendIcon, colorClass: "text-blue-500" },
 };
 
 const POINTS_PER_REFERRAL = 2;
@@ -381,10 +381,11 @@ export default function ProfilePage() {
   
   if (needsProfileSetup) {
     return (
-      <div className="container max-w-2xl mx-auto p-4 py-8">
-        <Card className="shadow-lg border-primary/20">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="container max-w-2xl mx-auto p-4 py-8">
+          <Card className="shadow-lg border-primary/20 bg-white/80 backdrop-blur dark:bg-gray-800/80">
           <CardHeader className="text-center pb-8">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-purple-600">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-blue-700">
               <UserIcon className="h-8 w-8 text-white" />
             </div>
             <CardTitle className="text-3xl font-bold">Welcome to LukuCheck!</CardTitle>
@@ -429,6 +430,7 @@ export default function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+        </div>
       </div>
     );
   }
@@ -455,15 +457,16 @@ export default function ProfilePage() {
   const userBadges = userProfile?.badges?.map(badgeId => BADGE_DEFINITIONS[badgeId]).filter(Boolean) || [];
 
   return (
-    <div className="max-w-2xl mx-auto py-6 sm:py-8 px-2 sm:px-0">
-      <Card className="shadow-xl rounded-xl">
-        <CardHeader className="border-b pb-4">
-          <CardTitle className="text-2xl sm:text-3xl flex items-center text-primary">
-            <UserIcon className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:h-8" />
-            Edit Your Profile
-          </CardTitle>
-          <CardDescription>Keep your LukuCheck profile up-to-date and shine!</CardDescription>
-        </CardHeader>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-2xl mx-auto py-6 sm:py-8 px-2 sm:px-0">
+        <Card className="shadow-xl rounded-xl bg-white/80 backdrop-blur dark:bg-gray-800/80">
+          <CardHeader className="border-b pb-4">
+            <CardTitle className="text-2xl sm:text-3xl flex items-center text-primary">
+              <UserIcon className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:h-8" />
+              Edit Your Profile
+            </CardTitle>
+            <CardDescription>Keep your LukuCheck profile up-to-date and shine!</CardDescription>
+          </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-5 sm:space-y-6 pt-6">
             <div className="flex flex-col items-center space-y-3 sm:space-y-4">
@@ -783,6 +786,7 @@ export default function ProfilePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

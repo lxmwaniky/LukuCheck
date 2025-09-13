@@ -400,9 +400,10 @@ export default function UploadPage() {
   else if (isSubmissionNotYetOpen) submitToLeaderboardButtonText = `Submissions Open In: ${formatTimeLeft(timeLeftToSubmissionOpen)}`;
 
   return (
-    <div className="container mx-auto py-6 sm:py-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
-        <Card className="shadow-xl rounded-lg">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto py-6 sm:py-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-start">
+          <Card className="shadow-xl rounded-lg bg-white/80 backdrop-blur dark:bg-gray-800/80">
           <CardHeader>
             <CardTitle className="text-2xl sm:text-3xl flex items-center text-primary">
               <UploadCloud className="mr-2 sm:mr-3 h-7 w-7 sm:h-8 sm:w-8" /> Submit Your Look
@@ -471,7 +472,7 @@ export default function UploadPage() {
 
         <div className="md:col-span-1 space-y-6 sm:space-y-8">
           {isProcessingAIRating && !selectedOutfitForDetails && todaysRatedOutfits.length === 0 && (
-            <Card className="shadow-xl rounded-lg animate-pulse">
+            <Card className="shadow-xl rounded-lg animate-pulse bg-white/80 backdrop-blur dark:bg-gray-800/80">
               <CardHeader className="items-center">
                 <Loader2 className="h-12 w-12 sm:h-16 sm:w-16 animate-spin text-primary" />
                 <CardTitle className="text-lg sm:text-xl font-semibold text-foreground mt-3">Our AI is analyzing your style...</CardTitle>
@@ -484,7 +485,7 @@ export default function UploadPage() {
           )}
 
           {todaysRatedOutfits.length > 0 && !selectedOutfitForDetails && (
-            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500">
+            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500 bg-white/80 backdrop-blur dark:bg-gray-800/80">
               <CardHeader>
                 <CardTitle className="text-xl sm:text-2xl">Today's Rated Looks</CardTitle>
                 <CardDescription className="text-sm sm:text-base">Review your outfits and choose one to submit.</CardDescription>
@@ -524,7 +525,7 @@ export default function UploadPage() {
           )}
 
           {selectedOutfitForDetails && (
-            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500">
+            <Card className="shadow-xl rounded-lg animate-in fade-in duration-500 bg-white/80 backdrop-blur dark:bg-gray-800/80">
               <CardHeader>
                 <div className="flex justify-between items-start">
                     <div>
@@ -597,6 +598,7 @@ export default function UploadPage() {
             </Card>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

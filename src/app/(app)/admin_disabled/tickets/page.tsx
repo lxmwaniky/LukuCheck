@@ -118,16 +118,20 @@ export default function AdminTicketsPage() {
 
   if (authLoading || (isLoading && allTickets.length === 0)) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg text-muted-foreground">Loading tickets...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] p-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-lg text-muted-foreground">Loading tickets...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Card className="shadow-xl m-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto py-8 px-4">
+          <Card className="shadow-xl m-4 bg-white/80 backdrop-blur dark:bg-gray-800/80">
         <CardHeader>
             <CardTitle>Error Loading Tickets</CardTitle>
         </CardHeader>
@@ -144,11 +148,15 @@ export default function AdminTicketsPage() {
             </Alert>
         </CardContent>
       </Card>
+      </div>
+      </div>
     );
   }
   
   return (
-    <Card className="shadow-xl">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto py-8 px-4">
+        <Card className="shadow-xl bg-white/80 backdrop-blur dark:bg-gray-800/80">
       <CardHeader>
         <CardTitle className="text-2xl sm:text-3xl flex items-center gap-2">
           <Inbox className="h-7 w-7 text-primary" /> Ticket System
@@ -284,5 +292,7 @@ export default function AdminTicketsPage() {
         )}
       </CardContent>
     </Card>
+    </div>
+    </div>
   );
 }

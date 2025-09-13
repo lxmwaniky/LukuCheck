@@ -105,16 +105,20 @@ export default function AdminTicketDetailPage({ params: { ticketId } }: AdminTic
 
   if (authLoading || isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] p-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg text-muted-foreground">Loading ticket details...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-12rem)] p-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-lg text-muted-foreground">Loading ticket details...</p>
+        </div>
       </div>
     );
   }
 
   if (error || !ticket) {
     return (
-      <Card className="shadow-xl m-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto py-8 px-4">
+          <Card className="shadow-xl m-4 bg-white/80 backdrop-blur dark:bg-gray-800/80">
         <CardHeader>
             <CardTitle>Error Loading Ticket</CardTitle>
         </CardHeader>
@@ -131,18 +135,22 @@ export default function AdminTicketDetailPage({ params: { ticketId } }: AdminTic
             </Alert>
         </CardContent>
       </Card>
+      </div>
+      </div>
     );
   }
 
   const canChangeStatus = userProfile?.role === 'admin' || userProfile?.role === 'manager';
 
   return (
-    <div className="space-y-6">
-      <Button onClick={() => router.push('/admin/tickets')} variant="outline" size="sm">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Tickets
-      </Button>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto py-8 px-4">
+        <div className="space-y-6">
+          <Button onClick={() => router.push('/admin/tickets')} variant="outline" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Tickets
+          </Button>
 
-      <Card className="shadow-xl">
+          <Card className="shadow-xl bg-white/80 backdrop-blur dark:bg-gray-800/80">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <CardTitle className="text-xl sm:text-2xl line-clamp-2">Ticket: {ticket.title}</CardTitle>
@@ -218,7 +226,7 @@ export default function AdminTicketDetailPage({ params: { ticketId } }: AdminTic
         </CardContent>
       </Card>
 
-      <Card className="shadow-xl">
+      <Card className="shadow-xl bg-white/80 backdrop-blur dark:bg-gray-800/80">
         <CardHeader>
           <CardTitle className="text-xl sm:text-2xl flex items-center"><MessageSquare className="mr-2 h-6 w-6 text-primary"/>Comments</CardTitle>
         </CardHeader>
@@ -259,6 +267,8 @@ export default function AdminTicketDetailPage({ params: { ticketId } }: AdminTic
           </Button>
         </CardFooter>
       </Card>
+        </div>
+      </div>
     </div>
   );
 }

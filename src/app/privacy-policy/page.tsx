@@ -14,10 +14,10 @@ export default function PrivacyPolicyPage() {
   const lastUpdatedDate = 'May 31, 2025'; 
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <SiteHeader />
       <main className="flex-1 container py-8 sm:py-12 md:py-10">
-        <Card className="max-w-3xl mx-auto shadow-lg">
+        <Card className="max-w-3xl mx-auto shadow-lg bg-white/80 backdrop-blur dark:bg-gray-800/80">
           <CardHeader>
             <CardTitle className="text-2xl sm:text-3xl">Privacy Policy for {appName}</CardTitle>
           </CardHeader>
@@ -145,14 +145,14 @@ export default function PrivacyPolicyPage() {
                   <p>
                     We retain your personal information for as long as your account is active or as needed to provide you with the Service and achieve the purposes described in this policy.
                   </p>
-                  <p>
-                    If you delete your account:
-                     <ul className="list-disc list-inside pl-4 space-y-1 mt-1">
-                        <li>We will take steps to delete your primary account information (profile data, AI usage logs directly tied to your UID) from our active databases within a reasonable timeframe (e.g., 30-90 days), subject to any legal obligations or operational backup requirements.</li>
-                        <li>Outfit images you submitted to public leaderboards and their associated AI feedback (linked to your username at the time of submission) may remain visible as part of the historical record of the Service. This is because leaderboards are a core part of the app's public, historical nature. However, if your account is deleted, these entries would no longer be actively linked to a deletable account in our system.</li>
-                        <li>Firebase may retain backup copies of data for a longer period as per their data retention policies.</li>
-                     </ul>
-                  </p>
+                  <div>
+                    <p>If you delete your account:</p>
+                    <ul className="list-disc list-inside pl-4 space-y-1 mt-1">
+                      <li>We will take steps to delete your primary account information (profile data, AI usage logs directly tied to your UID) from our active databases within a reasonable timeframe (e.g., 30-90 days), subject to any legal obligations or operational backup requirements.</li>
+                      <li>Outfit images you submitted to public leaderboards and their associated AI feedback (linked to your username at the time of submission) may remain visible as part of the historical record of the Service. This is because leaderboards are a core part of the app's public, historical nature. However, if your account is deleted, these entries would no longer be actively linked to a deletable account in our system.</li>
+                      <li>Firebase may retain backup copies of data for a longer period as per their data retention policies.</li>
+                    </ul>
+                  </div>
                   <p>We may also retain anonymized or aggregated data that does not personally identify you for analytical or service improvement purposes indefinitely.</p>
                 </section>
 

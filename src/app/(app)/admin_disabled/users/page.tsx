@@ -204,27 +204,33 @@ export default function AdminUsersPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-10">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="ml-2 text-muted-foreground">Loading users...</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="flex items-center justify-center py-10">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="ml-2 text-muted-foreground">Loading users...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-10 text-destructive">
-        <AlertTriangle className="mx-auto h-10 w-10 mb-2" />
-        <p>{error}</p>
-        <Button onClick={fetchUsers} variant="outline" className="mt-4">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center py-10 text-destructive">
+          <AlertTriangle className="mx-auto h-10 w-10 mb-2" />
+          <p>{error}</p>
+          <Button onClick={fetchUsers} variant="outline" className="mt-4">
             <RotateCcw className="mr-2 h-4 w-4" /> Retry
         </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="border bg-card text-card-foreground shadow-sm rounded-lg">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto py-8 px-4">
+        <div className="border bg-white/80 backdrop-blur dark:bg-gray-800/80 text-card-foreground shadow-sm rounded-lg">
       <div className="flex flex-col space-y-1.5 p-6">
         <h3 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2"><Users className="h-6 w-6"/> User Accounts</h3>
         <p className="text-sm text-muted-foreground">View and manage user accounts. Found: {sortedAndFilteredUsers.length} / {usersData.length}</p>
@@ -483,6 +489,8 @@ export default function AdminUsersPage() {
           </Dialog>
         )}
 
+      </div>
+      </div>
       </div>
     </div>
   );

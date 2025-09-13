@@ -221,8 +221,9 @@ function LeaderboardPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-6 sm:py-8">
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'daily' | 'weekly')} className="w-full">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-4xl mx-auto py-6 sm:py-8">
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'daily' | 'weekly')} className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-6 sm:mb-8">
           <TabsTrigger value="daily" className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4" />
@@ -235,7 +236,7 @@ function LeaderboardPage() {
         </TabsList>
 
         <TabsContent value="daily">
-          <Card className="shadow-xl rounded-xl">
+          <Card className="shadow-xl rounded-xl bg-white/80 backdrop-blur dark:bg-gray-800/80">
             <CardHeader className="text-center px-4 py-6 sm:px-6 sm:py-8 bg-primary/5 rounded-t-xl">
                 <div className="flex items-center justify-center mb-3 sm:mb-4">
                     <Users className="h-12 w-12 sm:h-16 sm:w-16 text-accent animate-bounce" />
@@ -423,7 +424,7 @@ function LeaderboardPage() {
         </TabsContent>
 
         <TabsContent value="weekly">
-          <Card className="shadow-xl rounded-xl">
+          <Card className="shadow-xl rounded-xl bg-white/80 backdrop-blur dark:bg-gray-800/80">
             <CardHeader className="text-center px-4 py-6 sm:px-6 sm:py-8 bg-secondary/5 rounded-t-xl">
                 <div className="flex items-center justify-center mb-3 sm:mb-4">
                     <Trophy className="h-12 w-12 sm:h-16 sm:w-16 text-accent animate-bounce" />
@@ -685,6 +686,7 @@ function LeaderboardPage() {
             </div>
         </DialogContent>
       )}
+    </div>
     </div>
   );
 }

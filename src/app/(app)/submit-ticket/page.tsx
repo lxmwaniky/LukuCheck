@@ -86,8 +86,9 @@ export default function SubmitTicketPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-8">
-      <Card className="shadow-xl">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="max-w-2xl mx-auto py-8">
+        <Card className="shadow-xl bg-white/80 backdrop-blur dark:bg-gray-800/80">
         <CardHeader>
           <CardTitle className="text-2xl sm:text-3xl flex items-center gap-2">
             <TicketIcon className="h-7 w-7 text-primary" /> Submit a Support Ticket
@@ -177,6 +178,7 @@ export default function SubmitTicketPage() {
           </CardFooter>
         </form>
       </Card>
+      </div>
     </div>
   );
 }
