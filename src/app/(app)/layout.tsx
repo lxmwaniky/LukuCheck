@@ -17,7 +17,10 @@ export default function AppLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace('/auth');
+      const currentPath = window.location.pathname;
+      const returnToParam = currentPath !== '/' ? `?returnTo=${encodeURIComponent(currentPath)}` : '';
+      router.replace(`/auth${returnToParam}`);
+      return;
     }
   }, [user, loading, router]);
 

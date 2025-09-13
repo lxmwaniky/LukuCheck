@@ -12,7 +12,6 @@ import { getLeaderboardData } from '@/actions/outfitActions'; // To check previo
 // Badge and Point Constants
 const PROFILE_PRO_BADGE = "PROFILE_PRO";
 const FIRST_SUBMISSION_BADGE = "FIRST_SUBMISSION";
-const REFERRAL_ROCKSTAR_BADGE = "REFERRAL_ROCKSTAR";
 const STREAK_STARTER_3_BADGE = "STREAK_STARTER_3";
 const STREAK_KEEPER_7_BADGE = "STREAK_KEEPER_7";
 const TOP_3_FINISHER_BADGE = "TOP_3_FINISHER";
@@ -26,7 +25,6 @@ const WEEKEND_WARRIOR_BADGE = "WEEKEND_WARRIOR";
 
 const POINTS_PROFILE_PRO = 5;
 const POINTS_FIRST_SUBMISSION = 3;
-const POINTS_REFERRAL_ROCKSTAR = 10; // Bonus points for achieving the badge
 const POINTS_STREAK_STARTER_3 = 2;
 const POINTS_STREAK_KEEPER_7 = 5;
 const POINTS_DAILY_STREAK_SUBMISSION = 1;
@@ -34,8 +32,6 @@ const POINTS_DAILY_STREAK_SUBMISSION = 1;
 const POINTS_STYLE_ROOKIE = 1; // Bonus for reaching 15 points
 const POINTS_WEEKEND_SUBMISSION = 1; // Extra point for weekend submissions
 const POINTS_STREAK_SHIELD_COST = 10; // Cost to protect a streak
-const REFERRALS_FOR_ROCKSTAR_BADGE = 3;
-const POINTS_PER_REFERRAL = 2;
 const POINTS_TOP_3_RANK_1 = 5;
 const POINTS_TOP_3_RANK_2 = 3;
 const POINTS_TOP_3_RANK_3 = 2;
@@ -54,12 +50,12 @@ interface UpdateProfileArgs {
 export async function createUserProfileInFirestore(
   userId: string,
   email: string,
-  username: string,
-  referrerUid?: string | null
+  username: string
 ): Promise<{ success: boolean; error?: string }> {
   if (!adminInitialized || !adminDb) {
     return { success: false, error: "Server error: Admin SDK not configured. Profile creation failed." };
   }
+
   const userRef = adminDb.collection('users').doc(userId);
   try {
     const initialLukuPoints = 5;
@@ -71,6 +67,12 @@ export async function createUserProfileInFirestore(
         initialBadges.push(CENTURY_CLUB_BADGE);
     }
 
+    console.log('Creating user profile:', { 
+      userId, 
+      email, 
+      username,
+      initialLukuPoints 
+    });
 
     await userRef.set({
       uid: userId,
@@ -84,8 +86,6 @@ export async function createUserProfileInFirestore(
       tiktokUrl: null,
       instagramUrl: null,
       lukuPoints: initialLukuPoints,
-      referredBy: referrerUid || null,
-      referralPointsAwarded: false,
       tiktokPointsAwarded: false,
       instagramPointsAwarded: false,
       badges: initialBadges,
@@ -121,6 +121,36 @@ export async function updateUserProfileInFirestore({
   if (!adminInitialized || !adminDb) {
     return { success: false, error: "Server error: Admin SDK not configured. Profile update failed." };
   }
+
+  // Validate username on server side
+  if (typeof username === 'string') {
+    const trimmedUsername = username.trim();
+    
+    if (trimmedUsername.length < 3) {
+      return { success: false, error: 'Username must be at least 3 characters long.' };
+    }
+    
+    if (trimmedUsername.length > 20) {
+      return { success: false, error: 'Username cannot exceed 20 characters.' };
+    }
+    
+    // Check for valid characters (letters, numbers, underscores, hyphens, spaces)
+    const validCharacterRegex = /^[a-zA-Z0-9_\- ]+$/;
+    if (!validCharacterRegex.test(trimmedUsername)) {
+      return { success: false, error: 'Username can only contain letters, numbers, spaces, underscores, and hyphens.' };
+    }
+    
+    // Check for excessive whitespace
+    if (trimmedUsername.includes('  ')) {
+      return { success: false, error: 'Username cannot contain consecutive spaces.' };
+    }
+    
+    // Check if starts or ends with special characters
+    if (/^[-_\s]/.test(trimmedUsername) || /[-_\s]$/.test(trimmedUsername)) {
+      return { success: false, error: 'Username cannot start or end with spaces, underscores, or hyphens.' };
+    }
+  }
+
   const adminAuth = getAdminAuth();
   const userRefAdmin = adminDb.collection('users').doc(userId);
   const updateDataFirestore: { [key: string]: any } = {};
@@ -138,9 +168,10 @@ export async function updateUserProfileInFirestore({
     const currentBadges = currentUserData.badges || [];
     let currentLukuPoints = currentUserData.lukuPoints || 0;
 
-    if (typeof username === 'string' && username !== currentUserData.username) {
-      updateDataFirestore.username = username;
-      authUpdatePayload.displayName = username;
+    if (typeof username === 'string' && username.trim() !== currentUserData.username) {
+      const trimmedUsername = username.trim();
+      updateDataFirestore.username = trimmedUsername;
+      authUpdatePayload.displayName = trimmedUsername;
     }
 
     if (typeof tiktokUrl === 'string') {
@@ -165,7 +196,11 @@ export async function updateUserProfileInFirestore({
     const tiktokFieldForBadgeCheck = (updateDataFirestore.tiktokUrl !== undefined ? updateDataFirestore.tiktokUrl !== null : currentUserData.tiktokUrl !== null && currentUserData.tiktokUrl !== undefined && currentUserData.tiktokUrl.trim() !== '');
     const instagramFieldForBadgeCheck = (updateDataFirestore.instagramUrl !== undefined ? updateDataFirestore.instagramUrl !== null : currentUserData.instagramUrl !== null && currentUserData.instagramUrl !== undefined && currentUserData.instagramUrl.trim() !== '');
 
-    if (photoFieldForBadgeCheck && tiktokFieldForBadgeCheck && instagramFieldForBadgeCheck && !currentBadges.includes(PROFILE_PRO_BADGE)) {
+    // Award Profile Pro badge if user has custom photo OR at least one social link
+    const hasCustomPhoto = photoFieldForBadgeCheck;
+    const hasSocialLinks = tiktokFieldForBadgeCheck || instagramFieldForBadgeCheck;
+    
+    if ((hasCustomPhoto || hasSocialLinks) && !currentBadges.includes(PROFILE_PRO_BADGE)) {
         newBadgesToAdd.push(PROFILE_PRO_BADGE);
         pointsToAwardThisUpdate += POINTS_PROFILE_PRO;
     }
@@ -402,114 +437,59 @@ export async function getUserProfileStats(userId: string): Promise<{ success: bo
 }
 
 
-export async function processReferral(newlyRegisteredUserId: string): Promise<{ success: boolean; message?: string; error?: string }> {
+// REFERRAL FUNCTIONS REMOVED - These functions have been deleted as referral system is no longer used
+
+export async function manualProcessProfileBadges(userId: string): Promise<{ success: boolean; message?: string; error?: string }> {
   if (!adminInitialized || !adminDb) {
     return { success: false, error: "Server error: Admin SDK not configured." };
   }
 
   try {
-    const newUserDocRef = adminDb.collection('users').doc(newlyRegisteredUserId);
-    const newUserDocSnap = await newUserDocRef.get();
+    const userDocRef = adminDb.collection('users').doc(userId);
+    const userDocSnap = await userDocRef.get();
 
-    if (!newUserDocSnap.exists) {
-      return { success: false, error: "New user document not found." };
+    if (!userDocSnap.exists) {
+      return { success: false, error: "User document not found." };
     }
 
-    const newUserData = newUserDocSnap.data() as UserProfile;
-    const referrerUid = newUserData.referredBy;
-    const alreadyAwardedToReferrerForThisUser = newUserData.referralPointsAwarded;
+    const userData = userDocSnap.data() as UserProfile;
+    const currentBadges = userData.badges || [];
+    const newBadgesToAdd: string[] = [];
+    let pointsToAward = 0;
 
-    if (!referrerUid) {
-      return { success: true, message: "User was not referred." };
+    // Check Profile Pro badge eligibility
+    const hasCustomPhoto = userData.customPhotoURL && userData.customPhotoURL.trim() !== '';
+    const hasTikTok = userData.tiktokUrl && userData.tiktokUrl.trim() !== '';
+    const hasInstagram = userData.instagramUrl && userData.instagramUrl.trim() !== '';
+    const hasSocialLinks = hasTikTok || hasInstagram;
+
+    if ((hasCustomPhoto || hasSocialLinks) && !currentBadges.includes(PROFILE_PRO_BADGE)) {
+      newBadgesToAdd.push(PROFILE_PRO_BADGE);
+      pointsToAward += POINTS_PROFILE_PRO;
     }
 
-    if (alreadyAwardedToReferrerForThisUser) {
-      return { success: true, message: "Referral points already awarded for this user." };
+    if (newBadgesToAdd.length === 0) {
+      return { success: false, error: "No new badges to award. Profile Pro badge requires custom photo OR social links." };
     }
 
-
-    const referrerDocRef = adminDb.collection('users').doc(referrerUid);
-    let pointsToAwardReferrerThisTime = POINTS_PER_REFERRAL;
-    const newBadgesForReferrer: string[] = [];
-    let referrerUpdateSuccessful = false;
-    let currentReferrerLukuPoints = 0;
-    let currentReferrerBadges: string[] = [];
-
-    await adminDb.runTransaction(async (transaction) => {
-      const referrerDocSnap = await transaction.get(referrerDocRef);
-      if (!referrerDocSnap.exists) {
-        transaction.update(newUserDocRef, { referralPointsAwarded: true });
-        return;
-      }
-
-      const referrerData = referrerDocSnap.data() as UserProfile;
-      currentReferrerBadges = referrerData.badges || [];
-      currentReferrerLukuPoints = referrerData.lukuPoints || 0;
-
-      if (!adminDb) {
-        throw new Error('Admin DB is not initialized');
-      }
-
-      const referralsQuery = adminDb.collection('users')
-                                   .where('referredBy', '==', referrerUid)
-                                   .where('referralPointsAwarded', '==', true); // Count only successfully processed referrals
-      const existingReferralsSnapshot = await transaction.get(referralsQuery);
-      const countOfPreviousSuccessfulReferrals = existingReferralsSnapshot.size;
-
-      const newTotalSuccessfulReferrals = countOfPreviousSuccessfulReferrals + 1;
-
-      if (newTotalSuccessfulReferrals >= REFERRALS_FOR_ROCKSTAR_BADGE && !currentReferrerBadges.includes(REFERRAL_ROCKSTAR_BADGE)) {
-        newBadgesForReferrer.push(REFERRAL_ROCKSTAR_BADGE);
-        pointsToAwardReferrerThisTime += POINTS_REFERRAL_ROCKSTAR;
-      }
-
-      const updatedReferrerLukuPoints = currentReferrerLukuPoints + pointsToAwardReferrerThisTime;
-
-      if (updatedReferrerLukuPoints >= 250 && !currentReferrerBadges.includes(LEGEND_STATUS_BADGE) && !newBadgesForReferrer.includes(LEGEND_STATUS_BADGE)) {
-          newBadgesForReferrer.push(LEGEND_STATUS_BADGE);
-      } else if (updatedReferrerLukuPoints >= 100 && !currentReferrerBadges.includes(CENTURY_CLUB_BADGE) && !newBadgesForReferrer.includes(CENTURY_CLUB_BADGE)) {
-          newBadgesForReferrer.push(CENTURY_CLUB_BADGE);
-      }
-
-
-      const referrerUpdatePayload: {[key: string]: any} = {
-        lukuPoints: FieldValue.increment(pointsToAwardReferrerThisTime)
-      };
-      if (newBadgesForReferrer.length > 0) {
-        referrerUpdatePayload.badges = FieldValue.arrayUnion(...newBadgesForReferrer);
-      }
-
-      transaction.update(referrerDocRef, referrerUpdatePayload);
-      transaction.update(newUserDocRef, { referralPointsAwarded: true });
-      
-      // Create notification for referrer
-      const notificationRef = adminDb.collection('notifications').doc();
-      transaction.set(notificationRef, {
-        userId: referrerUid,
-        type: 'referral_success',
-        title: '🎉 New Referral!',
-        message: `Someone used your referral link and joined LukuCheck! You earned ${pointsToAwardReferrerThisTime} LukuPoints.`,
-        isRead: false,
-        createdAt: FieldValue.serverTimestamp(),
-        pointsAwarded: pointsToAwardReferrerThisTime,
-        badgesEarned: newBadgesForReferrer
-      });
-      
-      referrerUpdateSuccessful = true;
-    });
-
-    if(referrerUpdateSuccessful) {
-        revalidatePath(`/profile`);
-        revalidatePath(`/leaderboard`);
+    // Award the badges and points
+    const updates: any = {};
+    if (newBadgesToAdd.length > 0) {
+      updates.badges = FieldValue.arrayUnion(...newBadgesToAdd);
     }
-    return { success: true, message: "Referral points processing attempted." };
+    if (pointsToAward > 0) {
+      updates.lukuPoints = FieldValue.increment(pointsToAward);
+    }
+
+    await userDocRef.update(updates);
+
+    return { 
+      success: true, 
+      message: `Awarded ${newBadgesToAdd.length} badge(s) and ${pointsToAward} points: ${newBadgesToAdd.join(', ')}` 
+    };
 
   } catch (error: any) {
-    try {
-        await adminDb.collection('users').doc(newlyRegisteredUserId).update({ referralPointsAwarded: true });
-    } catch (updateError) {
-    }
-    return { success: false, error: `Failed to process referral: ${error.message || "Unknown error"}` };
+    return { success: false, error: `Failed to process profile badges: ${error.message || "Unknown error"}` };
   }
 }
 

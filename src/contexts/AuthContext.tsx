@@ -4,7 +4,7 @@ import { auth, db, isFirebaseConfigValid }  from '@/config/firebase';
 import { doc, onSnapshot, setDoc, serverTimestamp, getDoc, Unsubscribe, Timestamp, updateDoc } from 'firebase/firestore';
 import type { ReactNode} from 'react';
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { processReferral, createUserProfileInFirestore } from '@/actions/userActions';
+import { createUserProfileInFirestore } from '@/actions/userActions';
 import { AlertTriangle } from 'lucide-react';
 import { initializeUserAnalytics, clearUserAnalytics } from '@/lib/analytics';
 
@@ -22,8 +22,6 @@ export interface UserProfile {
   tiktokUrl?: string | null;
   instagramUrl?: string | null;
   lukuPoints?: number;
-  referredBy?: string | null;
-  referralPointsAwarded?: boolean;
   tiktokPointsAwarded?: boolean;
   instagramPointsAwarded?: boolean;
   badges?: string[];
@@ -100,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const loadedProfile: UserProfile = {
           uid: firebaseUser.uid,
           email: firebaseUser.email,
-          username: profileData.username || '', // Keep empty to force profile completion
+          username: profileData.username || firebaseUser.displayName || '', // Use display name as fallback
           photoURL: profileData.customPhotoURL || profileData.photoURL || firebaseUser.photoURL,
           customPhotoURL: profileData.customPhotoURL,
           emailVerified: firebaseUser.emailVerified,
@@ -109,8 +107,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           tiktokUrl: profileData.tiktokUrl || null,
           instagramUrl: profileData.instagramUrl || null,
           lukuPoints: profileData.lukuPoints || 0,
-          referredBy: profileData.referredBy || null,
-          referralPointsAwarded: profileData.referralPointsAwarded || false,
           tiktokPointsAwarded: profileData.tiktokPointsAwarded || false,
           instagramPointsAwarded: profileData.instagramPointsAwarded || false,
           badges: profileData.badges || [],
@@ -125,30 +121,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Initialize analytics for returning user
         initializeUserAnalytics(loadedProfile);
 
-        if (
-          firebaseUser.emailVerified &&
-          loadedProfile.referredBy &&
-          !loadedProfile.referralPointsAwarded &&
-          !referralProcessingAttempted
-        ) {
-          setReferralProcessingAttempted(true);
-          try {
-            await processReferral(firebaseUser.uid);
-          } catch (e) {
-            // Error logged server-side if it occurs
-          }
-        }
+        // Only process referrals for accounts that:
+        // Referral processing has been removed - skip this section
+        setReferralProcessingAttempted(true);
 
       } else {
         // No Firestore document exists - create a proper profile
         console.log('No Firestore profile found for user, creating new profile...');
+        console.log('Current URL params for referral check:', window.location.search);
         
-        // Create a proper user profile without username to force profile completion
+        // Check if there's a referral parameter in the current URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const referralParam = urlParams.get('ref');
+        
+        console.log('Referral parameter from URL:', referralParam);
+        
+        // Create a proper user profile using display name as default username
         const profileResult = await createUserProfileInFirestore(
           firebaseUser.uid,
           firebaseUser.email || '',
-          '', // Empty username to force profile completion flow
-          null // No referral handling here - would have been handled during signup
+          firebaseUser.displayName || '' // Use display name from Google as default username
         );
 
         if (profileResult.success) {
@@ -159,7 +151,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const newProfile: UserProfile = {
               uid: firebaseUser.uid,
               email: firebaseUser.email,
-              username: newProfileData.username || '', // Keep empty to force profile completion
+              username: newProfileData.username || firebaseUser.displayName || '', // Use display name as fallback
               photoURL: newProfileData.customPhotoURL || newProfileData.photoURL || firebaseUser.photoURL,
               customPhotoURL: newProfileData.customPhotoURL,
               emailVerified: firebaseUser.emailVerified,
@@ -168,8 +160,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               tiktokUrl: newProfileData.tiktokUrl || null,
               instagramUrl: newProfileData.instagramUrl || null,
               lukuPoints: newProfileData.lukuPoints || 0,
-              referredBy: newProfileData.referredBy || null,
-              referralPointsAwarded: newProfileData.referralPointsAwarded || false,
               tiktokPointsAwarded: newProfileData.tiktokPointsAwarded || false,
               instagramPointsAwarded: newProfileData.instagramPointsAwarded || false,
               badges: newProfileData.badges || [],
@@ -194,7 +184,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             photoURL: firebaseUser.photoURL,
             emailVerified: firebaseUser.emailVerified,
             lukuPoints: 0,
-            referralPointsAwarded: false,
             tiktokPointsAwarded: false,
             instagramPointsAwarded: false,
             badges: [],
@@ -273,8 +262,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 tiktokUrl: profileData.tiktokUrl || null,
                 instagramUrl: profileData.instagramUrl || null,
                 lukuPoints: profileData.lukuPoints || 0,
-                referredBy: profileData.referredBy || null,
-                referralPointsAwarded: profileData.referralPointsAwarded || false,
                 tiktokPointsAwarded: profileData.tiktokPointsAwarded || false,
                 instagramPointsAwarded: profileData.instagramPointsAwarded || false,
                 badges: profileData.badges || [],
@@ -289,15 +276,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               // Initialize analytics for the user on profile updates
               initializeUserAnalytics(updatedProfile);
 
-              if (
-                currentFirebaseUser.emailVerified &&
-                updatedProfile.referredBy &&
-                !updatedProfile.referralPointsAwarded &&
-                !referralProcessingAttempted
-              ) {
-                setReferralProcessingAttempted(true);
-                processReferral(currentFirebaseUser.uid).catch(e => {}); // Fire and forget
-              }
+              // Referral processing has been removed
+              setReferralProcessingAttempted(true);
 
             } else {
                setUserProfile(null);

@@ -17,27 +17,21 @@ function AuthForm() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-  const referrerUid = searchParams.get('ref');
+  const returnTo = searchParams.get('returnTo');
 
   useEffect(() => {
     if (!loading && user) {
-      // Check if user has completed their profile (has a username)
-      if (userProfile && userProfile.username && userProfile.username.trim() !== '') {
-        // Profile is complete, go to main app
-        router.replace('/upload');
-      } else if (userProfile) {
-        // Profile exists but incomplete, go to profile completion
-        router.replace('/profile?setup=true');
-      }
-      // If userProfile is null, it's still loading, so wait
+      // User is authenticated, redirect to intended page or upload as default
+      const redirectPath = returnTo || '/upload';
+      router.replace(redirectPath);
     }
-  }, [user, loading, userProfile, router]);
+  }, [user, loading, router, returnTo]);
 
   const handleGoogleSignupSuccess = () => {
     // The GoogleAuthButton will handle the success, and useEffect will redirect
     toast({ 
       title: 'Welcome to LukuCheck!', 
-      description: 'Complete your profile to get started.' 
+      description: "Let's check out some outfits!" 
     });
   };
 
@@ -84,18 +78,10 @@ function AuthForm() {
             <GoogleAuthButton 
               mode="signup" 
               onSuccess={handleGoogleSignupSuccess}
-              referrerUid={referrerUid}
+              returnTo={returnTo}
               className="w-full py-4 lg:py-5 text-lg lg:text-xl font-medium"
             />
           </div>
-          
-          {referrerUid && (
-            <div className="mt-8 lg:mt-10">
-              <p className="text-base lg:text-lg text-green-600 dark:text-green-400">
-                🎉 You were invited by a friend! You'll both get bonus points.
-              </p>
-            </div>
-          )}
           
           <div className="mt-16 lg:mt-20">
             <p className="text-sm lg:text-base text-gray-500 dark:text-gray-400 leading-relaxed">

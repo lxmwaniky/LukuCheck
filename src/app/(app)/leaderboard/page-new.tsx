@@ -13,19 +13,6 @@ import { format, addDays } from 'date-fns';
 
 const LEADERBOARD_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-// Type for weekly leaderboard entries
-type WeeklyEntry = {
-  userId: string;
-  username: string | null;
-  userPhotoURL: string | null;
-  totalSubmissions: number;
-  avgRating: number;
-  bestRating: number;
-  totalPoints: number;
-  lukuPoints: number;
-  currentStreak: number;
-};
-
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
   const totalSeconds = Math.floor(ms / 1000);
@@ -39,11 +26,11 @@ function LeaderboardPage() {
   const [allEntries, setAllEntries] = useState<LeaderboardEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | undefined>('Initializing...');
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | WeeklyEntry | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
   
   // Weekly leaderboard state
-  const [weeklyEntries, setWeeklyEntries] = useState<WeeklyEntry[]>([]);
+  const [weeklyEntries, setWeeklyEntries] = useState<LeaderboardEntry[]>([]);
   const [isWeeklyLoading, setIsWeeklyLoading] = useState(false);
   const [currentWeekStart, setCurrentWeekStart] = useState<string>('');
   const [weeklyStatusMessage, setWeeklyStatusMessage] = useState<string | undefined>();
@@ -75,7 +62,7 @@ function LeaderboardPage() {
   const fetchWeeklyLeaderboard = useCallback(async (weekStart?: string) => {
     setIsWeeklyLoading(true);
     try {
-      const targetWeekStart = weekStart || await getCurrentWeekStart();
+      const targetWeekStart = weekStart || getCurrentWeekStart();
       setCurrentWeekStart(targetWeekStart);
       
       const result = await getWeeklyLeaderboardData({ weekStart: targetWeekStart });
@@ -100,15 +87,10 @@ function LeaderboardPage() {
   useEffect(() => {
     fetchDailyLeaderboard();
     
-    // Set up auto-refresh for both daily and weekly (if weekly tab is active)
-    const intervalId = setInterval(() => {
-      fetchDailyLeaderboard();
-      if (activeTab === 'weekly') {
-        fetchWeeklyLeaderboard();
-      }
-    }, LEADERBOARD_REFRESH_INTERVAL);
+    // Set up auto-refresh
+    const intervalId = setInterval(fetchDailyLeaderboard, LEADERBOARD_REFRESH_INTERVAL);
     return () => clearInterval(intervalId);
-  }, [fetchDailyLeaderboard, fetchWeeklyLeaderboard, activeTab]);
+  }, [fetchDailyLeaderboard]);
 
   // Load weekly data when tab is activated
   useEffect(() => {
@@ -196,91 +178,91 @@ function LeaderboardPage() {
               </div>
             ) : (
               <>
-              {/* Top 3 Olympic Podium */}
-              {allEntries.length >= 3 && (
-                <div className="flex justify-center items-end gap-6 mb-12">
-                  {/* Second Place - Left */}
-                  {allEntries[1] && (
-                    <div className="text-center">
-                      <div className="relative mb-4">
-                        <div className="w-20 h-20 rounded-full border-4 border-gray-500 overflow-hidden cursor-pointer hover:border-gray-400 transition-colors"
-                             onClick={() => setSelectedEntry(allEntries[1])}>
-                          <Avatar className="w-full h-full">
-                            <AvatarImage src={allEntries[1].userPhotoURL || '/default-avatar.png'} />
-                            <AvatarFallback className="bg-gray-700 text-white text-xl font-bold">
-                              {allEntries[1].username?.[0]?.toUpperCase() || '?'}
-                            </AvatarFallback>
-                          </Avatar>
+                {/* Top 3 Podium */}
+                {allEntries.length >= 3 && (
+                  <div className="flex justify-center items-end gap-4 mb-8">
+                    {/* Second Place */}
+                    {allEntries[1] && (
+                      <div className="text-center">
+                        <div className="relative mb-3">
+                          <div className="w-16 h-16 rounded-full border-4 border-gray-600 overflow-hidden cursor-pointer hover:border-gray-500 transition-colors"
+                               onClick={() => setSelectedEntry(allEntries[1])}>
+                            <Avatar className="w-full h-full">
+                              <AvatarImage src={allEntries[1].userPhotoURL || '/default-avatar.png'} />
+                              <AvatarFallback className="bg-gray-700 text-white text-lg font-bold">
+                                {allEntries[1].username?.[0]?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center border-2 border-gray-900">
+                            <span className="text-white font-bold text-sm">2</span>
+                          </div>
                         </div>
-                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center border-2 border-gray-900">
-                          <span className="text-white font-bold text-sm">2</span>
-                        </div>
+                        <h3 className="font-medium text-white text-sm mb-1 truncate max-w-20">
+                          {allEntries[1].username}
+                        </h3>
+                        <p className="text-gray-400 text-sm">{Math.round(allEntries[1].rating * 100)} EXP</p>
                       </div>
-                      <h3 className="font-medium text-white text-lg mb-2 truncate max-w-24">
-                        {allEntries[1].username}
-                      </h3>
-                      <p className="text-gray-300 text-lg font-medium">{(allEntries[1].rating * 10).toFixed(0)}</p>
-                    </div>
-                  )}
+                    )}
 
-                  {/* First Place - Center (Highest) */}
-                  {allEntries[0] && (
-                    <div className="text-center -mt-6">
-                      <div className="relative mb-4">
-                        <div className="w-24 h-24 rounded-full border-4 border-yellow-500 overflow-hidden cursor-pointer hover:border-yellow-400 transition-colors relative"
-                             onClick={() => setSelectedEntry(allEntries[0])}>
-                          <Avatar className="w-full h-full">
-                            <AvatarImage src={allEntries[0].userPhotoURL || '/default-avatar.png'} />
-                            <AvatarFallback className="bg-gray-700 text-white text-2xl font-bold">
-                              {allEntries[0].username?.[0]?.toUpperCase() || '?'}
-                            </AvatarFallback>
-                          </Avatar>
+                    {/* First Place */}
+                    {allEntries[0] && (
+                      <div className="text-center">
+                        <div className="relative mb-3">
+                          <div className="w-20 h-20 rounded-full border-4 border-yellow-500 overflow-hidden cursor-pointer hover:border-yellow-400 transition-colors"
+                               onClick={() => setSelectedEntry(allEntries[0])}>
+                            <Avatar className="w-full h-full">
+                              <AvatarImage src={allEntries[0].userPhotoURL || '/default-avatar.png'} />
+                              <AvatarFallback className="bg-gray-700 text-white text-xl font-bold">
+                                {allEntries[0].username?.[0]?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="absolute -top-2 -right-1">
+                            <div className="w-6 h-8 text-yellow-500">
+                              <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                              </svg>
+                            </div>
+                          </div>
+                          <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center border-2 border-gray-900">
+                            <span className="text-gray-900 font-bold text-sm">1</span>
+                          </div>
                         </div>
-                        {/* Crown */}
-                        <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                          <svg width="32" height="24" viewBox="0 0 24 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M5 13L7 3L10 8L12 2L14 8L17 3L19 13H5Z" fill="#F59E0B" stroke="#D97706" strokeWidth="1"/>
-                            <circle cx="7" cy="3" r="2" fill="#F59E0B" stroke="#D97706" strokeWidth="1"/>
-                            <circle cx="12" cy="2" r="2" fill="#F59E0B" stroke="#D97706" strokeWidth="1"/>
-                            <circle cx="17" cy="3" r="2" fill="#F59E0B" stroke="#D97706" strokeWidth="1"/>
-                          </svg>
-                        </div>
-                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center border-2 border-gray-900">
-                          <span className="text-gray-900 font-bold text-sm">1</span>
-                        </div>
+                        <h3 className="font-medium text-white mb-1 truncate max-w-24">
+                          {allEntries[0].username}
+                        </h3>
+                        <p className="text-yellow-400 text-sm font-medium">{Math.round(allEntries[0].rating * 100)} EXP</p>
                       </div>
-                      <h3 className="font-semibold text-white text-xl mb-2 truncate max-w-28">
-                        {allEntries[0].username}
-                      </h3>
-                      <p className="text-yellow-400 text-xl font-bold">{(allEntries[0].rating * 10).toFixed(0)}</p>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Third Place - Right */}
-                  {allEntries[2] && (
-                    <div className="text-center">
-                      <div className="relative mb-4">
-                        <div className="w-20 h-20 rounded-full border-4 border-amber-600 overflow-hidden cursor-pointer hover:border-amber-500 transition-colors"
-                             onClick={() => setSelectedEntry(allEntries[2])}>
-                          <Avatar className="w-full h-full">
-                            <AvatarImage src={allEntries[2].userPhotoURL || '/default-avatar.png'} />
-                            <AvatarFallback className="bg-gray-700 text-white text-lg font-bold">
-                              {allEntries[2].username?.[0]?.toUpperCase() || '?'}
-                            </AvatarFallback>
-                          </Avatar>
+                    {/* Third Place */}
+                    {allEntries[2] && (
+                      <div className="text-center">
+                        <div className="relative mb-3">
+                          <div className="w-16 h-16 rounded-full border-4 border-gray-600 overflow-hidden cursor-pointer hover:border-gray-500 transition-colors"
+                               onClick={() => setSelectedEntry(allEntries[2])}>
+                            <Avatar className="w-full h-full">
+                              <AvatarImage src={allEntries[2].userPhotoURL || '/default-avatar.png'} />
+                              <AvatarFallback className="bg-gray-700 text-white text-lg font-bold">
+                                {allEntries[2].username?.[0]?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                          </div>
+                          <div className="absolute -bottom-1 -right-1 w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center border-2 border-gray-900">
+                            <span className="text-white font-bold text-sm">3</span>
+                          </div>
                         </div>
-                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-amber-600 rounded-full flex items-center justify-center border-2 border-gray-900">
-                          <span className="text-white font-bold text-sm">3</span>
-                        </div>
+                        <h3 className="font-medium text-white text-sm mb-1 truncate max-w-20">
+                          {allEntries[2].username}
+                        </h3>
+                        <p className="text-gray-400 text-sm">{Math.round(allEntries[2].rating * 100)} EXP</p>
                       </div>
-                      <h3 className="font-medium text-white text-lg mb-2 truncate max-w-20">
-                        {allEntries[2].username}
-                      </h3>
-                      <p className="text-amber-300 text-lg font-medium">{(allEntries[2].rating * 10).toFixed(0)}</p>
-                    </div>
-                  )}
-                </div>
-              )}                {/* Rest of Rankings */}
+                    )}
+                  </div>
+                )}
+
+                {/* Rest of Rankings */}
                 <div className="space-y-2">
                   {allEntries.slice(3).map((entry, index) => (
                     <div 
@@ -365,7 +347,7 @@ function LeaderboardPage() {
               <div className="space-y-2">
                 {weeklyEntries.map((entry, index) => (
                   <div 
-                    key={entry.userId} 
+                    key={entry.id} 
                     className="bg-gray-800 rounded-xl p-4 border border-gray-700 hover:bg-gray-750 transition-colors cursor-pointer"
                     onClick={() => setSelectedEntry(entry)}
                   >
@@ -393,8 +375,8 @@ function LeaderboardPage() {
                       
                       {/* Weekly Stats */}
                       <div className="text-right">
-                        <div className="text-white font-medium">{Math.round(entry.totalPoints)}</div>
-                        <div className="text-gray-400 text-sm">{entry.totalSubmissions} submissions</div>
+                        <div className="text-white font-medium">{Math.round((entry.rating || 0) * 100)} EXP</div>
+                        <div className="text-gray-400 text-sm">1 submission</div>
                       </div>
                     </div>
                   </div>
@@ -419,11 +401,7 @@ function LeaderboardPage() {
                     </Avatar>
                     <div>
                       <div className="text-white font-bold text-lg">{selectedEntry.username}</div>
-                      {'rating' in selectedEntry ? (
-                        <div className="text-yellow-400 text-sm">Rating: {(selectedEntry.rating * 10).toFixed(1)}/10</div>
-                      ) : (
-                        <div className="text-yellow-400 text-sm">Weekly Points: {selectedEntry.totalPoints}</div>
-                      )}
+                      <div className="text-yellow-400 text-sm">Rating: {(selectedEntry.rating * 10).toFixed(1)}/10</div>
                     </div>
                   </>
                 )}
@@ -434,81 +412,46 @@ function LeaderboardPage() {
               <div className="space-y-4">
                 {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-4">
-                  {'rating' in selectedEntry ? (
-                    // Daily entry stats
-                    <>
-                      <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">
-                          {(selectedEntry.rating * 10).toFixed(1)}
-                        </div>
-                        <div className="text-gray-400 text-sm">Style Score</div>
-                      </div>
-                      <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">
-                          {selectedEntry.lukuPoints}
-                        </div>
-                        <div className="text-gray-400 text-sm">LukuPoints</div>
-                      </div>
-                      <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">
-                          {selectedEntry.currentStreak}
-                        </div>
-                        <div className="text-gray-400 text-sm">Current Streak</div>
-                      </div>
-                      <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">1</div>
-                        <div className="text-gray-400 text-sm">Submissions</div>
-                      </div>
-                    </>
-                  ) : (
-                    // Weekly entry stats
-                    <>
-                      <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">
-                          {selectedEntry.totalSubmissions}
-                        </div>
-                        <div className="text-gray-400 text-sm">Submissions</div>
-                      </div>
-                      <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">
-                          {selectedEntry.avgRating.toFixed(1)}
-                        </div>
-                        <div className="text-gray-400 text-sm">Avg Rating</div>
-                      </div>
-                      <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">
-                          {selectedEntry.bestRating.toFixed(1)}
-                        </div>
-                        <div className="text-gray-400 text-sm">Best Score</div>
-                      </div>
-                      <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">
-                          {selectedEntry.lukuPoints}
-                        </div>
-                        <div className="text-gray-400 text-sm">LukuPoints</div>
-                      </div>
-                    </>
-                  )}
+                  <div className="bg-gray-700 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-white">
+                      {(selectedEntry.rating * 10).toFixed(1)}
+                    </div>
+                    <div className="text-gray-400 text-sm">Style Score</div>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-white">
+                      {selectedEntry.lukuPoints}
+                    </div>
+                    <div className="text-gray-400 text-sm">LukuPoints</div>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-white">
+                      {selectedEntry.currentStreak}
+                    </div>
+                    <div className="text-gray-400 text-sm">Current Streak</div>
+                  </div>
+                  <div className="bg-gray-700 rounded-lg p-3">
+                    <div className="text-2xl font-bold text-white">1</div>
+                    <div className="text-gray-400 text-sm">Submissions</div>
+                  </div>
                 </div>
 
-                {/* Outfit Preview - only for daily entries */}
-                {'outfitImageURL' in selectedEntry && selectedEntry.outfitImageURL && (
-                  <div className="bg-gray-700 rounded-lg p-4">
-                    <h4 className="text-white font-medium mb-3">Featured Outfit</h4>
-                    <div className="aspect-square rounded-lg overflow-hidden bg-gray-600">
-                      <Image
-                        src={selectedEntry.outfitImageURL}
-                        alt="User's outfit"
-                        width={200}
-                        height={200}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                {/* Outfit Preview */}
+                <div className="bg-gray-700 rounded-lg p-4">
+                  <h4 className="text-white font-medium mb-3">Featured Outfit</h4>
+                  <div className="aspect-square rounded-lg overflow-hidden bg-gray-600">
+                    <Image
+                      src={selectedEntry.outfitImageURL}
+                      alt="User's outfit"
+                      width={200}
+                      height={200}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
-                )}
+                </div>
 
-                {/* Social Links - only for daily entries */}
-                {'instagramUrl' in selectedEntry && selectedEntry.instagramUrl && (
+                {/* Social Links */}
+                {selectedEntry.instagramUrl && (
                   <div className="bg-gray-700 rounded-lg p-3">
                     <a 
                       href={selectedEntry.instagramUrl} 

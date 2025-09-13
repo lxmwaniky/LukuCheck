@@ -12,7 +12,7 @@ interface GoogleAuthButtonProps {
   onError?: (error: any) => void;
   disabled?: boolean;
   className?: string;
-  referrerUid?: string | null;
+  returnTo?: string | null;
 }
 
 export function GoogleAuthButton({ 
@@ -21,7 +21,7 @@ export function GoogleAuthButton({
   onError, 
   disabled = false,
   className = '',
-  referrerUid = null
+  returnTo = null
 }: GoogleAuthButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -46,17 +46,24 @@ export function GoogleAuthButton({
       const isNewUser = user.metadata.creationTime === user.metadata.lastSignInTime;
       
       if (isNewUser) {
-        // For new users, create profile WITHOUT username to force profile completion
-        // This ensures they go through the profile setup flow
+        console.log('New user detected, creating profile');
+        
+        // For new users, create profile with display name as default username
         const profileResult = await createUserProfileInFirestore(
           user.uid,
           user.email || '',
-          '', // Empty username to force profile completion
-          referrerUid
+          user.displayName || '' // Use display name as default username
         );
 
         if (!profileResult.success) {
           console.error('Failed to create initial profile:', profileResult.error);
+          toast({
+            title: "Profile Creation Failed",
+            description: profileResult.error || "Could not set up your profile.",
+            variant: "destructive",
+          });
+        } else {
+          console.log('Profile created successfully');
         }
       }
       // For existing users, let AuthContext handle everything normally
