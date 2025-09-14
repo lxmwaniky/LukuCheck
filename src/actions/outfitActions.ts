@@ -3,6 +3,7 @@
 import { db, storage } from '@/config/firebase'; // Client SDK
 import { collection, query, where, getDocs, orderBy, Timestamp, doc, getDoc as getFirestoreDoc, addDoc } from 'firebase/firestore';
 import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { TIMING_CONFIG } from '@/config/timing';
 
 export interface ProcessedOutfit extends StyleSuggestionsOutput {
  outfitImageURL: string;
@@ -11,24 +12,35 @@ export interface ProcessedOutfit extends StyleSuggestionsOutput {
 
 import { getStyleSuggestions, type StyleSuggestionsOutput } from '@/ai/flows/style-suggestions';
 
-// Timeline configuration - Leaderboard releases at 6 PM local time
-const LEADERBOARD_RELEASE_HOUR = 18; // 6 PM
+/**
+ * Utility function to format a date as YYYY-MM-DD in local timezone
+ * This prevents timezone conversion issues between dev/prod environments
+ */
+function formatDateLocal(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
 
 /**
  * Check if today's leaderboard should be visible based on the release schedule
+ * Uses consistent timezone handling to avoid dev/prod differences
  */
 function shouldShowTodaysLeaderboard(): { shouldShow: boolean; timeUntilRelease: number } {
   const now = new Date();
-  const currentHour = now.getHours();
   
-  // If it's after 6 PM, show today's leaderboard
-  if (currentHour >= LEADERBOARD_RELEASE_HOUR) {
+  // Get current time in the local timezone (consistent across client/server)
+  const currentHour = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTotalMinutes = currentHour * 60 + currentMinutes;
+  const releaseTotalMinutes = TIMING_CONFIG.LEADERBOARD_RELEASE_HOUR * 60 + TIMING_CONFIG.LEADERBOARD_RELEASE_MINUTE;
+  
+  // If it's after the release time, show today's leaderboard
+  if (currentTotalMinutes >= releaseTotalMinutes) {
     return { shouldShow: true, timeUntilRelease: 0 };
   }
   
-  // If it's before 6 PM, calculate time until release
+  // If it's before the release time, calculate time until release
   const releaseTime = new Date();
-  releaseTime.setHours(LEADERBOARD_RELEASE_HOUR, 0, 0, 0);
+  releaseTime.setHours(TIMING_CONFIG.LEADERBOARD_RELEASE_HOUR, TIMING_CONFIG.LEADERBOARD_RELEASE_MINUTE, 0, 0);
   
   const timeUntilRelease = releaseTime.getTime() - now.getTime();
   
@@ -86,22 +98,25 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
 
   try {
     if (!leaderboardDate || !/^\d{4}-\d{2}-\d{2}$/.test(leaderboardDate)) {
-        return { date: new Date().toISOString().split('T')[0], entries: [], error: "Invalid or missing date for leaderboard." };
+        // Get today's date in local timezone consistently
+        const now = new Date();
+        const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        return { date: todayLocal, entries: [], error: "Invalid or missing date for leaderboard." };
     }
 
     const now = new Date();
-    const requestedDate = new Date(leaderboardDate + 'T00:00:00Z');
-    const today = new Date().toISOString().split('T')[0];
+    // Get today's date in local timezone consistently
+    const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     // Check if we're requesting today's leaderboard
-    if (leaderboardDate === today) {
+    if (leaderboardDate === todayLocal) {
       const releaseTime = shouldShowTodaysLeaderboard();
       
       if (!releaseTime.shouldShow) {
         // Show previous day's leaderboard instead
         const previousDate = new Date(now);
         previousDate.setDate(previousDate.getDate() - 1);
-        const previousDateStr = previousDate.toISOString().split('T')[0];
+        const previousDateStr = `${previousDate.getFullYear()}-${String(previousDate.getMonth() + 1).padStart(2, '0')}-${String(previousDate.getDate()).padStart(2, '0')}`;
         
         console.log(`Today's leaderboard not released yet. Showing ${previousDateStr} instead.`);
         
@@ -134,7 +149,10 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
     } else if (error.message) {
         errorMessage = error.message;
     }
-    return { date: leaderboardDate || new Date().toISOString().split('T')[0], entries: [], error: errorMessage };
+    // Use local timezone for fallback date
+    const now = new Date();
+    const fallbackDate = leaderboardDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return { date: fallbackDate, entries: [], error: errorMessage };
   }
 }
 
@@ -266,11 +284,11 @@ export async function getWeeklyLeaderboardData({ weekStart }: { weekStart: strin
     const weekStartDate = new Date(weekStart + 'T00:00:00Z');
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setDate(weekEndDate.getDate() + 6);
-    const weekEnd = weekEndDate.toISOString().split('T')[0];
+    const weekEnd = formatDateLocal(weekEndDate);
 
     // Only include days that should be visible in leaderboard
     // For weekly leaderboard, we only count days where leaderboard has been released
-    const today = new Date().toISOString().split('T')[0];
+    const today = formatDateLocal(new Date());
     const shouldShowToday = shouldShowTodaysLeaderboard().shouldShow;
     
     // Determine the effective end date for the query
@@ -280,7 +298,7 @@ export async function getWeeklyLeaderboardData({ weekStart }: { weekStart: strin
       // only query up to yesterday
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      queryEndDate = yesterday.toISOString().split('T')[0];
+      queryEndDate = formatDateLocal(yesterday);
     }
 
     // Get all submissions for the week (only for released days)
@@ -379,7 +397,7 @@ export async function getWeeklyLeaderboardData({ weekStart }: { weekStart: strin
     const message = entries.length === 0 
       ? `No submissions found for week ${weekStart} to ${weekEnd}.`
       : queryEndDate < weekEnd 
-        ? `Weekly standings through ${queryEndDate} with ${entries.length} participants. Updates daily at ${LEADERBOARD_RELEASE_HOUR}:00.`
+        ? `Weekly standings through ${queryEndDate} with ${entries.length} participants. Updates daily at ${TIMING_CONFIG.LEADERBOARD_RELEASE_HOUR}:00.`
         : `Weekly leaderboard for ${weekStart} to ${weekEnd} with ${entries.length} participants.`;
 
     return {
@@ -396,7 +414,7 @@ export async function getWeeklyLeaderboardData({ weekStart }: { weekStart: strin
     const weekStartDate = new Date(weekStart + 'T00:00:00Z');
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setDate(weekEndDate.getDate() + 6);
-    const weekEnd = weekEndDate.toISOString().split('T')[0];
+    const weekEnd = formatDateLocal(weekEndDate);
     
     return {
       weekStart,
@@ -418,5 +436,5 @@ export async function getCurrentWeekStart(): Promise<string> {
   const monday = new Date(today);
   monday.setDate(today.getDate() + mondayOffset);
 
-  return monday.toISOString().split('T')[0];
+  return formatDateLocal(monday);
 }

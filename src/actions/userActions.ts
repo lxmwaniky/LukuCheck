@@ -531,8 +531,9 @@ export async function handleLeaderboardSubmissionPerks(userId: string, submitted
             }
 
 
-            // Streak Logic
-            const todayStr = new Date().toISOString().split('T')[0]; // Server's UTC date
+            // Streak Logic - Use local timezone for consistency
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             let currentStreak = userData.currentStreak || 0;
 
             if (userData.lastSubmissionDate !== todayStr) {
