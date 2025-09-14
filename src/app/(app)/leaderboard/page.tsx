@@ -6,12 +6,10 @@ import type { LeaderboardEntry } from '@/actions/outfitActions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { CalendarDays, Trophy, Loader2, Info, Instagram, Flame } from "lucide-react";
-import { format, addDays } from 'date-fns';
+import { Trophy, Loader2, Info, Instagram, Flame, Coins, Heart } from "lucide-react";
 
-const LEADERBOARD_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
-const COUNTDOWN_REFRESH_INTERVAL = 30 * 1000; // 30 seconds when waiting for release
+const LEADERBOARD_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes (reduced from 5 minutes)
+const COUNTDOWN_REFRESH_INTERVAL = 60 * 1000; // 1 minute when waiting for release (reduced from 30 seconds)
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
@@ -27,16 +25,9 @@ function LeaderboardPage() {
   const [allEntries, setAllEntries] = useState<LeaderboardEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | undefined>('Initializing...');
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | WeeklyEntry | null>(null);
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
+  const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
   const [isWaitingForRelease, setIsWaitingForRelease] = useState(false);
   const [timeUntilRelease, setTimeUntilRelease] = useState<number>(0);
-  
-  // Weekly leaderboard state
-  const [weeklyEntries, setWeeklyEntries] = useState<WeeklyEntry[]>([]);
-  const [isWeeklyLoading, setIsWeeklyLoading] = useState(false);
-  const [currentWeekStart, setCurrentWeekStart] = useState<string>('');
-  const [weeklyStatusMessage, setWeeklyStatusMessage] = useState<string | undefined>();
 
   // Fetch daily leaderboard
   const fetchDailyLeaderboard = useCallback(async () => {
@@ -66,31 +57,6 @@ function LeaderboardPage() {
     }
   }, []);
 
-  // Fetch weekly leaderboard
-  const fetchWeeklyLeaderboard = useCallback(async (weekStart?: string) => {
-    setIsWeeklyLoading(true);
-    try {
-      const targetWeekStart = weekStart || await getCurrentWeekStart();
-      setCurrentWeekStart(targetWeekStart);
-      
-      const result = await getWeeklyLeaderboardData({ weekStart: targetWeekStart });
-      
-      if (result.error) {
-        setWeeklyStatusMessage(result.error);
-        setWeeklyEntries([]);
-      } else {
-        setWeeklyEntries(result.entries || []);
-        setWeeklyStatusMessage(result.message);
-      }
-    } catch (error) {
-      console.error('Error fetching weekly leaderboard:', error);
-      setWeeklyStatusMessage('Failed to load weekly data');
-      setWeeklyEntries([]);
-    } finally {
-      setIsWeeklyLoading(false);
-    }
-  }, []);
-
   // Initial load
   useEffect(() => {
     fetchDailyLeaderboard();
@@ -104,13 +70,6 @@ function LeaderboardPage() {
     
     return () => clearInterval(intervalId);
   }, [fetchDailyLeaderboard, isWaitingForRelease]);
-
-  // Load weekly data when tab is activated
-  useEffect(() => {
-    if (activeTab === 'weekly' && weeklyEntries.length === 0) {
-      fetchWeeklyLeaderboard();
-    }
-  }, [activeTab, fetchWeeklyLeaderboard, weeklyEntries.length]);
 
   // Countdown timer for release waiting
   useEffect(() => {
@@ -130,110 +89,65 @@ function LeaderboardPage() {
     return () => clearInterval(countdownInterval);
   }, [isWaitingForRelease, timeUntilRelease, fetchDailyLeaderboard]);
 
-  const getWeekDateRange = (weekStart: string) => {
-    const startDate = new Date(weekStart + 'T00:00:00Z');
-    const endDate = new Date(startDate);
-    endDate.setDate(endDate.getDate() + 6);
-    return {
-      start: format(startDate, "MMM d"),
-      end: format(endDate, "MMM d, yyyy")
-    };
-  };
-
-  const navigateWeek = (direction: 'prev' | 'next') => {
-    const currentDate = new Date(currentWeekStart + 'T00:00:00Z');
-    const newDate = new Date(currentDate);
-    newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
-    const newWeekStart = newDate.toISOString().split('T')[0];
-    fetchWeeklyLeaderboard(newWeekStart);
-  };
-
-  // Check if future week
-  const isFutureWeek = () => {
-    const today = new Date();
-    const weekEndDate = new Date(currentWeekStart + 'T00:00:00Z');
-    weekEndDate.setDate(weekEndDate.getDate() + 6);
-    return weekEndDate > today;
-  };
-
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2">Leaderboard</h1>
-          <p className="text-gray-400">Compete with the style community</p>
+          <h1 className="text-4xl font-bold text-white mb-2">Daily Leaderboard</h1>
+          <p className="text-gray-400">Today's style champions</p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'daily' | 'weekly')} className="w-full">
-          {/* Tab Navigation */}
-          <div className="flex justify-center mb-8">
-            <TabsList className="grid grid-cols-2 bg-gray-800 border border-gray-700 rounded-xl p-1">
-              <TabsTrigger 
-                value="daily" 
-                className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400"
-              >
-                <CalendarDays className="h-4 w-4" />
-                Daily
-              </TabsTrigger>
-              <TabsTrigger 
-                value="weekly" 
-                className="flex items-center gap-2 px-6 py-3 rounded-lg transition-all data-[state=active]:bg-gray-700 data-[state=active]:text-white text-gray-400"
-              >
-                <Trophy className="h-4 w-4" />
-                Weekly
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="daily" className="space-y-6">
-            {/* Status Message */}
-            {statusMessage && (
-              <Alert className={`border-gray-700 text-white ${
-                isWaitingForRelease ? 'bg-blue-900 border-blue-700' : 'bg-gray-800'
-              }`}>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  {isWaitingForRelease && timeUntilRelease > 0 ? (
-                    <div className="flex items-center justify-between">
-                      <span>{statusMessage}</span>
-                      <div className="ml-4 font-mono text-sm">
-                        {formatTimeLeft(timeUntilRelease)}
-                      </div>
+        <div className="space-y-6">
+          {/* Status Message */}
+          {statusMessage && (
+            <Alert className={`border-gray-700 text-white ${
+              isWaitingForRelease ? 'bg-blue-900 border-blue-700' : 'bg-gray-800'
+            }`}>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                {isWaitingForRelease && timeUntilRelease > 0 ? (
+                  <div className="flex items-center justify-between">
+                    <span>{statusMessage}</span>
+                    <div className="ml-4 font-mono text-sm">
+                      {formatTimeLeft(timeUntilRelease)}
                     </div>
-                  ) : (
-                    statusMessage
-                  )}
-                </AlertDescription>
-              </Alert>
-            )}
+                  </div>
+                ) : (
+                  statusMessage
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
 
-            {/* Daily Leaderboard */}
+          {/* Daily Leaderboard */}
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                 <span className="ml-3 text-gray-400">Loading leaderboard...</span>
               </div>
-            ) : isWaitingForRelease ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Trophy className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="text-xl font-semibold text-white mb-2">Leaderboard Coming Soon!</h3>
-                <p className="text-gray-400 mb-4">The daily competition is in progress...</p>
-                <div className="bg-gray-800 rounded-lg p-4 max-w-md mx-auto">
-                  <p className="text-gray-300 text-sm">{statusMessage}</p>
-                </div>
-                <p className="text-gray-500 text-sm mt-4">
-                  Keep submitting your outfits! Results will be revealed at the scheduled time.
-                </p>
-              </div>
             ) : allEntries.length === 0 ? (
-              <div className="text-center py-12">
-                <Trophy className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-400 mb-2">No submissions yet</h3>
-                <p className="text-gray-500">Be the first to submit an outfit today!</p>
-              </div>
+              isWaitingForRelease ? (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Trophy className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">Leaderboard Coming Soon!</h3>
+                  <p className="text-gray-400 mb-4">The daily competition is in progress...</p>
+                  <div className="bg-gray-800 rounded-lg p-4 max-w-md mx-auto">
+                    <p className="text-gray-300 text-sm">{statusMessage}</p>
+                  </div>
+                  <p className="text-gray-500 text-sm mt-4">
+                    Keep submitting your outfits! Results will be revealed at the scheduled time.
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Trophy className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-400 mb-2">No submissions yet</h3>
+                  <p className="text-gray-500">Be the first to submit an outfit today!</p>
+                </div>
+              )
             ) : (
               <>
               {/* Top 3 Olympic Podium - Only show if we have 3 or more entries */}
@@ -259,13 +173,21 @@ function LeaderboardPage() {
                       <h3 className="font-medium text-white text-lg mb-2 truncate max-w-24">
                         {allEntries[1].username}
                       </h3>
-                      {allEntries[1].currentStreak > 0 && (
-                        <div className="flex items-center justify-center gap-1 mb-2">
-                          <Flame className="h-3 w-3 text-orange-500" />
-                          <span className="text-orange-500 text-sm font-medium">{allEntries[1].currentStreak}</span>
-                        </div>
-                      )}
-                      <p className="text-gray-300 text-lg font-medium">{(allEntries[1].rating * 10).toFixed(0)}</p>
+                      <div className="flex items-center justify-center gap-3 mb-2">
+                        {allEntries[1].currentStreak > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Flame className="h-3 w-3 text-orange-500" />
+                            <span className="text-orange-500 text-sm font-medium">{allEntries[1].currentStreak}</span>
+                          </div>
+                        )}
+                        {allEntries[1].lukuPoints > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Coins className="h-3 w-3 text-green-500" />
+                            <span className="text-green-500 text-sm font-medium">{allEntries[1].lukuPoints}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-gray-300 text-lg font-medium">{(allEntries[1].rating).toFixed(1)}/10</p>
                     </div>
                   )}
 
@@ -298,13 +220,21 @@ function LeaderboardPage() {
                       <h3 className="font-semibold text-white text-xl mb-2 truncate max-w-28">
                         {allEntries[0].username}
                       </h3>
-                      {allEntries[0].currentStreak > 0 && (
-                        <div className="flex items-center justify-center gap-1 mb-2">
-                          <Flame className="h-3 w-3 text-orange-500" />
-                          <span className="text-orange-500 text-sm font-medium">{allEntries[0].currentStreak}</span>
-                        </div>
-                      )}
-                      <p className="text-yellow-400 text-xl font-bold">{(allEntries[0].rating * 10).toFixed(0)}</p>
+                      <div className="flex items-center justify-center gap-3 mb-2">
+                        {allEntries[0].currentStreak > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Flame className="h-3 w-3 text-orange-500" />
+                            <span className="text-orange-500 text-sm font-medium">{allEntries[0].currentStreak}</span>
+                          </div>
+                        )}
+                        {allEntries[0].lukuPoints > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Coins className="h-3 w-3 text-green-500" />
+                            <span className="text-green-500 text-sm font-medium">{allEntries[0].lukuPoints}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-yellow-400 text-xl font-bold">{(allEntries[0].rating).toFixed(1)}/10</p>
                     </div>
                   )}
 
@@ -328,13 +258,21 @@ function LeaderboardPage() {
                       <h3 className="font-medium text-white text-lg mb-2 truncate max-w-20">
                         {allEntries[2].username}
                       </h3>
-                      {allEntries[2].currentStreak > 0 && (
-                        <div className="flex items-center justify-center gap-1 mb-2">
-                          <Flame className="h-3 w-3 text-orange-500" />
-                          <span className="text-orange-500 text-sm font-medium">{allEntries[2].currentStreak}</span>
-                        </div>
-                      )}
-                      <p className="text-amber-300 text-lg font-medium">{(allEntries[2].rating * 10).toFixed(0)}</p>
+                      <div className="flex items-center justify-center gap-3 mb-2">
+                        {allEntries[2].currentStreak > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Flame className="h-3 w-3 text-orange-500" />
+                            <span className="text-orange-500 text-sm font-medium">{allEntries[2].currentStreak}</span>
+                          </div>
+                        )}
+                        {allEntries[2].lukuPoints > 0 && (
+                          <div className="flex items-center gap-1">
+                            <Coins className="h-3 w-3 text-green-500" />
+                            <span className="text-green-500 text-sm font-medium">{allEntries[2].lukuPoints}</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-amber-300 text-lg font-medium">{(allEntries[2].rating).toFixed(1)}/10</p>
                     </div>
                   )}
                 </div>
@@ -348,7 +286,8 @@ function LeaderboardPage() {
                       key={entry.id} 
                       className={`bg-gray-800 rounded-xl p-4 border border-gray-700 hover:bg-gray-750 transition-colors cursor-pointer ${
                         index === 0 ? 'border-yellow-500 bg-yellow-900/20' : 
-                        index === 1 ? 'border-gray-400 bg-gray-700/20' : ''
+                        index === 1 ? 'border-gray-400 bg-gray-700/20' : 
+                        index === 2 ? 'border-amber-600 bg-amber-900/20' : ''
                       }`}
                       onClick={() => setSelectedEntry(entry)}
                     >
@@ -358,6 +297,7 @@ function LeaderboardPage() {
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
                             index === 0 ? 'bg-yellow-500 text-gray-900' : 
                             index === 1 ? 'bg-gray-500 text-white' :
+                            index === 2 ? 'bg-amber-600 text-white' :
                             'bg-gray-700 text-gray-300'
                           }`}>
                             {index + 1}
@@ -371,29 +311,36 @@ function LeaderboardPage() {
                             </Avatar>
                             <div>
                               <div className="flex items-center gap-2">
-                                <span className={`font-medium ${index === 0 ? 'text-yellow-400' : 'text-white'}`}>
+                                <span className={`font-medium ${
+                                  index === 0 ? 'text-yellow-400' : 
+                                  index === 1 ? 'text-gray-300' :
+                                  index === 2 ? 'text-amber-600' :
+                                  'text-white'
+                                }`}>
                                   {entry.username}
                                 </span>
-                                {entry.currentStreak > 0 && (
-                                  <div className="flex items-center gap-1">
-                                    <Flame className="h-3 w-3 text-orange-500" />
-                                    <span className="text-orange-500 text-xs font-medium">{entry.currentStreak}</span>
-                                  </div>
-                                )}
-                              </div>
-                              {index === 0 && (
-                                <div className="flex items-center gap-1 mt-1">
-                                  <Trophy className="h-4 w-4 text-yellow-400" />
-                                  <span className="text-sm text-yellow-400">Leader</span>
+                                <div className="flex items-center gap-2">
+                                  {entry.currentStreak > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <Flame className="h-3 w-3 text-orange-500" />
+                                      <span className="text-orange-500 text-xs font-medium">{entry.currentStreak}</span>
+                                    </div>
+                                  )}
+                                  {entry.lukuPoints > 0 && (
+                                    <div className="flex items-center gap-1">
+                                      <Coins className="h-3 w-3 text-green-500" />
+                                      <span className="text-green-500 text-xs font-medium">{entry.lukuPoints}</span>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                              </div>
                             </div>
                           </div>
                         </div>
                         
                         {/* Score */}
                         <div className={`font-bold text-lg ${index === 0 ? 'text-yellow-400' : 'text-gray-300'}`}>
-                          {(entry.rating * 10).toFixed(0)}
+                          {(entry.rating).toFixed(1)}/10
                         </div>
                       </div>
                     </div>
@@ -425,19 +372,27 @@ function LeaderboardPage() {
                             </Avatar>
                             <div className="flex items-center gap-2">
                               <span className="text-white font-medium">{entry.username}</span>
-                              {entry.currentStreak > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <Flame className="h-3 w-3 text-orange-500" />
-                                  <span className="text-orange-500 text-xs font-medium">{entry.currentStreak}</span>
-                                </div>
-                              )}
+                              <div className="flex items-center gap-2">
+                                {entry.currentStreak > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <Flame className="h-3 w-3 text-orange-500" />
+                                    <span className="text-orange-500 text-xs font-medium">{entry.currentStreak}</span>
+                                  </div>
+                                )}
+                                {entry.lukuPoints > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <Coins className="h-3 w-3 text-green-500" />
+                                    <span className="text-green-500 text-xs font-medium">{entry.lukuPoints}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
                         
                         {/* Score */}
                         <div className="text-gray-300 font-medium">
-                          {(entry.rating * 10).toFixed(0)}
+                          {(entry.rating).toFixed(1)}/10
                         </div>
                       </div>
                     </div>
@@ -446,106 +401,11 @@ function LeaderboardPage() {
               )}
               </>
             )}
-          </TabsContent>
-
-          <TabsContent value="weekly" className="space-y-6">
-            {/* Weekly Navigation */}
-            <div className="flex items-center justify-center gap-4 mb-6">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigateWeek('prev')}
-                disabled={isWeeklyLoading}
-                className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="text-center">
-                <div className="text-white font-medium">
-                  {currentWeekStart && (() => {
-                    const range = getWeekDateRange(currentWeekStart);
-                    return `${range.start} - ${range.end}`;
-                  })()}
-                </div>
-                <div className="text-gray-400 text-sm">Weekly Champions</div>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => navigateWeek('next')}
-                disabled={isWeeklyLoading || isFutureWeek()}
-                className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-50"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-
-            {/* Weekly Leaderboard */}
-            {isWeeklyLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-                <span className="ml-3 text-gray-400">Loading weekly data...</span>
-              </div>
-            ) : weeklyEntries.length === 0 ? (
-              <div className="text-center py-12">
-                <Trophy className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-400 mb-2">No data for this week</h3>
-                <p className="text-gray-500">No submissions were made during this period.</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {weeklyEntries.map((entry, index) => (
-                  <div 
-                    key={entry.userId} 
-                    className="bg-gray-800 rounded-xl p-4 border border-gray-700 hover:bg-gray-750 transition-colors cursor-pointer"
-                    onClick={() => setSelectedEntry(entry)}
-                  >
-                    <div className="flex items-center justify-between">
-                      {/* Rank and User Info */}
-                      <div className="flex items-center gap-4">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                          index === 0 ? 'bg-yellow-500 text-gray-900' : 
-                          index === 1 ? 'bg-gray-600 text-white' : 
-                          index === 2 ? 'bg-gray-600 text-white' : 
-                          'bg-gray-700 text-gray-300'
-                        }`}>
-                          {String(index + 1).padStart(2, '0')}
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="w-10 h-10">
-                            <AvatarImage src={entry.userPhotoURL || '/default-avatar.png'} />
-                            <AvatarFallback className="bg-gray-700 text-white font-bold">
-                              {entry.username?.[0]?.toUpperCase() || '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex items-center gap-2">
-                            <span className="text-white font-medium">{entry.username}</span>
-                            {entry.currentStreak > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Flame className="h-3 w-3 text-orange-500" />
-                                <span className="text-orange-500 text-xs font-medium">{entry.currentStreak}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Weekly Stats */}
-                      <div className="text-right">
-                        <div className="text-white font-medium">{Math.round(entry.totalPoints)}</div>
-                        <div className="text-gray-400 text-sm">{entry.totalSubmissions} submissions</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        </div>
 
         {/* User Profile Modal */}
         <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
-          <DialogContent className="max-w-md bg-gray-800 border-gray-700 text-white">
+          <DialogContent className="max-w-lg bg-gray-800 border-gray-700 text-white max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-3">
                 {selectedEntry && (
@@ -559,7 +419,7 @@ function LeaderboardPage() {
                     <div>
                       <div className="text-white font-bold text-lg">{selectedEntry.username}</div>
                       {'rating' in selectedEntry ? (
-                        <div className="text-yellow-400 text-sm">Rating: {(selectedEntry.rating * 10).toFixed(1)}/10</div>
+                        <div className="text-yellow-400 text-sm">Rating: {(selectedEntry.rating).toFixed(1)}/10</div>
                       ) : (
                         <div className="text-yellow-400 text-sm">Weekly Points: {selectedEntry.totalPoints}</div>
                       )}
@@ -577,22 +437,31 @@ function LeaderboardPage() {
                     // Daily entry stats
                     <>
                       <div className="bg-gray-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">
-                          {(selectedEntry.rating * 10).toFixed(1)}
+                        <div className="flex items-center gap-2 mb-1">
+                          <Trophy className="h-4 w-4 text-yellow-500" />
+                          <div className="text-gray-400 text-sm">Style Score</div>
                         </div>
-                        <div className="text-gray-400 text-sm">Style Score</div>
+                        <div className="text-2xl font-bold text-white">
+                          {(selectedEntry.rating).toFixed(1)}/10
+                        </div>
                       </div>
                       <div className="bg-gray-700 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Coins className="h-4 w-4 text-green-500" />
+                          <div className="text-gray-400 text-sm">LukuPoints</div>
+                        </div>
                         <div className="text-2xl font-bold text-white">
                           {selectedEntry.lukuPoints}
                         </div>
-                        <div className="text-gray-400 text-sm">LukuPoints</div>
                       </div>
                       <div className="bg-gray-700 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Flame className="h-4 w-4 text-orange-500" />
+                          <div className="text-gray-400 text-sm">Current Streak</div>
+                        </div>
                         <div className="text-2xl font-bold text-white">
                           {selectedEntry.currentStreak}
                         </div>
-                        <div className="text-gray-400 text-sm">Current Streak</div>
                       </div>
                       <div className="bg-gray-700 rounded-lg p-3">
                         <div className="text-2xl font-bold text-white">1</div>
@@ -633,31 +502,74 @@ function LeaderboardPage() {
                 {/* Outfit Preview - only for daily entries */}
                 {'outfitImageURL' in selectedEntry && selectedEntry.outfitImageURL && (
                   <div className="bg-gray-700 rounded-lg p-4">
-                    <h4 className="text-white font-medium mb-3">Featured Outfit</h4>
-                    <div className="aspect-square rounded-lg overflow-hidden bg-gray-600">
+                    <h4 className="text-white font-medium mb-3 flex items-center gap-2">
+                      <Trophy className="h-4 w-4 text-yellow-500" />
+                      Outfit of the Day
+                    </h4>
+                    <div className="aspect-square rounded-lg overflow-hidden bg-gray-600 mb-3">
                       <Image
                         src={selectedEntry.outfitImageURL}
                         alt="User's outfit"
-                        width={200}
-                        height={200}
+                        width={400}
+                        height={400}
                         className="w-full h-full object-cover"
                       />
                     </div>
                   </div>
                 )}
 
-                {/* Social Links - only for daily entries */}
-                {'instagramUrl' in selectedEntry && selectedEntry.instagramUrl && (
-                  <div className="bg-gray-700 rounded-lg p-3">
-                    <a 
-                      href={selectedEntry.instagramUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 hover:text-pink-400 transition-colors"
-                    >
-                      <Instagram className="h-4 w-4 text-pink-500" />
-                      <span className="text-white">View on Instagram</span>
-                    </a>
+                {/* AI Feedback - only for daily entries */}
+                {'complimentOrCritique' in selectedEntry && selectedEntry.complimentOrCritique && (
+                  <div className="bg-gray-700 rounded-lg p-4">
+                    <h4 className="text-white font-medium mb-2 flex items-center gap-2">
+                      <Heart className="h-4 w-4 text-pink-400" />
+                      AI Style Compliment
+                    </h4>
+                    <p className="text-gray-300 text-sm leading-relaxed">
+                      {selectedEntry.complimentOrCritique.length > 150 
+                        ? selectedEntry.complimentOrCritique.substring(0, 150) + "..." 
+                        : selectedEntry.complimentOrCritique
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {/* Social Links */}
+                {('instagramUrl' in selectedEntry || 'tiktokUrl' in selectedEntry) && (
+                  <div className="bg-gray-700 rounded-lg p-4">
+                    <h4 className="text-white font-medium mb-3">Connect with {selectedEntry.username}</h4>
+                    <div className="space-y-2">
+                      {'instagramUrl' in selectedEntry && selectedEntry.instagramUrl && (
+                        <a 
+                          href={selectedEntry.instagramUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-600 transition-colors group"
+                        >
+                          <Instagram className="h-5 w-5 text-pink-500" />
+                          <div>
+                            <div className="text-white group-hover:text-pink-400 transition-colors">Instagram</div>
+                            <div className="text-gray-400 text-xs">Follow their style journey</div>
+                          </div>
+                        </a>
+                      )}
+                      {'tiktokUrl' in selectedEntry && selectedEntry.tiktokUrl && (
+                        <a 
+                          href={selectedEntry.tiktokUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-600 transition-colors group"
+                        >
+                          <div className="h-5 w-5 bg-gradient-to-r from-red-500 to-black rounded flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">tt</span>
+                          </div>
+                          <div>
+                            <div className="text-white group-hover:text-red-400 transition-colors">TikTok</div>
+                            <div className="text-gray-400 text-xs">Check out their content</div>
+                          </div>
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
