@@ -1,31 +1,17 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import Image from 'next/image';
-import { getLeaderboardData, getWeeklyLeaderboardData, getCurrentWeekStart } from '@/actions/outfitActions';
+import { getLeaderboardData } from '@/actions/outfitActions';
 import type { LeaderboardEntry } from '@/actions/outfitActions';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Trophy, Loader2, ChevronLeft, ChevronRight, Info, Instagram } from "lucide-react";
+import { CalendarDays, Trophy, Loader2, Info, Instagram, Flame } from "lucide-react";
 import { format, addDays } from 'date-fns';
 
 const LEADERBOARD_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const COUNTDOWN_REFRESH_INTERVAL = 30 * 1000; // 30 seconds when waiting for release
-
-// Type for weekly leaderboard entries
-type WeeklyEntry = {
-  userId: string;
-  username: string | null;
-  userPhotoURL: string | null;
-  totalSubmissions: number;
-  avgRating: number;
-  bestRating: number;
-  totalPoints: number;
-  lukuPoints: number;
-  currentStreak: number;
-};
 
 const formatTimeLeft = (ms: number): string => {
   if (ms <= 0) return "00:00:00";
@@ -273,6 +259,12 @@ function LeaderboardPage() {
                       <h3 className="font-medium text-white text-lg mb-2 truncate max-w-24">
                         {allEntries[1].username}
                       </h3>
+                      {allEntries[1].currentStreak > 0 && (
+                        <div className="flex items-center justify-center gap-1 mb-2">
+                          <Flame className="h-3 w-3 text-orange-500" />
+                          <span className="text-orange-500 text-sm font-medium">{allEntries[1].currentStreak}</span>
+                        </div>
+                      )}
                       <p className="text-gray-300 text-lg font-medium">{(allEntries[1].rating * 10).toFixed(0)}</p>
                     </div>
                   )}
@@ -306,6 +298,12 @@ function LeaderboardPage() {
                       <h3 className="font-semibold text-white text-xl mb-2 truncate max-w-28">
                         {allEntries[0].username}
                       </h3>
+                      {allEntries[0].currentStreak > 0 && (
+                        <div className="flex items-center justify-center gap-1 mb-2">
+                          <Flame className="h-3 w-3 text-orange-500" />
+                          <span className="text-orange-500 text-sm font-medium">{allEntries[0].currentStreak}</span>
+                        </div>
+                      )}
                       <p className="text-yellow-400 text-xl font-bold">{(allEntries[0].rating * 10).toFixed(0)}</p>
                     </div>
                   )}
@@ -330,6 +328,12 @@ function LeaderboardPage() {
                       <h3 className="font-medium text-white text-lg mb-2 truncate max-w-20">
                         {allEntries[2].username}
                       </h3>
+                      {allEntries[2].currentStreak > 0 && (
+                        <div className="flex items-center justify-center gap-1 mb-2">
+                          <Flame className="h-3 w-3 text-orange-500" />
+                          <span className="text-orange-500 text-sm font-medium">{allEntries[2].currentStreak}</span>
+                        </div>
+                      )}
                       <p className="text-amber-300 text-lg font-medium">{(allEntries[2].rating * 10).toFixed(0)}</p>
                     </div>
                   )}
@@ -366,9 +370,17 @@ function LeaderboardPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div>
-                              <span className={`font-medium ${index === 0 ? 'text-yellow-400' : 'text-white'}`}>
-                                {entry.username}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={`font-medium ${index === 0 ? 'text-yellow-400' : 'text-white'}`}>
+                                  {entry.username}
+                                </span>
+                                {entry.currentStreak > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <Flame className="h-3 w-3 text-orange-500" />
+                                    <span className="text-orange-500 text-xs font-medium">{entry.currentStreak}</span>
+                                  </div>
+                                )}
+                              </div>
                               {index === 0 && (
                                 <div className="flex items-center gap-1 mt-1">
                                   <Trophy className="h-4 w-4 text-yellow-400" />
@@ -411,7 +423,15 @@ function LeaderboardPage() {
                                 {entry.username?.[0]?.toUpperCase() || '?'}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-white font-medium">{entry.username}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-medium">{entry.username}</span>
+                              {entry.currentStreak > 0 && (
+                                <div className="flex items-center gap-1">
+                                  <Flame className="h-3 w-3 text-orange-500" />
+                                  <span className="text-orange-500 text-xs font-medium">{entry.currentStreak}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                         
@@ -498,7 +518,15 @@ function LeaderboardPage() {
                               {entry.username?.[0]?.toUpperCase() || '?'}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-white font-medium">{entry.username}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-medium">{entry.username}</span>
+                            {entry.currentStreak > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Flame className="h-3 w-3 text-orange-500" />
+                                <span className="text-orange-500 text-xs font-medium">{entry.currentStreak}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       

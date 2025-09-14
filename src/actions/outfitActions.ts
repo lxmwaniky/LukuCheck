@@ -106,11 +106,19 @@ export async function getLeaderboardData({ leaderboardDate }: { leaderboardDate:
         console.log(`Today's leaderboard not released yet. Showing ${previousDateStr} instead.`);
         
         const previousResult = await getLeaderboardDataForDate(previousDateStr);
+        
+        // Enhance the message to be more descriptive about showing yesterday's data
+        const hoursUntilRelease = Math.ceil(releaseTime.timeUntilRelease / (1000 * 60 * 60));
+        const messagePrefix = previousResult.entries.length > 0 
+          ? `Showing yesterday's results (${previousDateStr}). `
+          : `No submissions found for yesterday (${previousDateStr}). `;
+        
         return {
           ...previousResult,
+          date: previousDateStr, // Ensure we return the correct date
           isWaitingForRelease: true,
           timeUntilRelease: releaseTime.timeUntilRelease,
-          message: `Showing yesterday's results. Today's leaderboard releases in ${Math.ceil(releaseTime.timeUntilRelease / (1000 * 60 * 60))} hours.`
+          message: `${messagePrefix}Today's leaderboard releases in ${hoursUntilRelease} hours.`
         };
       }
     }
@@ -136,6 +144,8 @@ async function getLeaderboardDataForDate(leaderboardDate: string): Promise<{ dat
     throw new Error('Database is not initialized');
   }
   
+  console.log(`getLeaderboardDataForDate called with date: ${leaderboardDate}`);
+  
   try {
     const outfitsCollectionRef = collection(db, 'outfits');
 
@@ -147,6 +157,8 @@ async function getLeaderboardDataForDate(leaderboardDate: string): Promise<{ dat
     );
 
     const querySnapshot = await getDocs(outfitsQuery);
+    
+    console.log(`Found ${querySnapshot.docs.length} documents for date ${leaderboardDate}`);
     
     const userProfilePromises = querySnapshot.docs.map(async (outfitDoc) => {
       const outfitData = outfitDoc.data();
