@@ -12,6 +12,7 @@ import { CalendarDays, Trophy, Loader2, ChevronLeft, ChevronRight, Info, Instagr
 import { format, addDays } from 'date-fns';
 
 const LEADERBOARD_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const COUNTDOWN_REFRESH_INTERVAL = 30 * 1000; // 30 seconds when waiting for release
 
 // Type for weekly leaderboard entries
 type WeeklyEntry = {
@@ -36,11 +37,14 @@ const formatTimeLeft = (ms: number): string => {
 };
 
 function LeaderboardPage() {
+  // State
   const [allEntries, setAllEntries] = useState<LeaderboardEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | undefined>('Initializing...');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | WeeklyEntry | null>(null);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
+  const [isWaitingForRelease, setIsWaitingForRelease] = useState(false);
+  const [timeUntilRelease, setTimeUntilRelease] = useState<number>(0);
   
   // Weekly leaderboard state
   const [weeklyEntries, setWeeklyEntries] = useState<WeeklyEntry[]>([]);
@@ -58,14 +62,19 @@ function LeaderboardPage() {
       if (result.error) {
         setStatusMessage(result.error);
         setAllEntries([]);
+        setIsWaitingForRelease(false);
+        setTimeUntilRelease(0);
       } else {
         setAllEntries(result.entries || []);
         setStatusMessage(result.message);
+        setIsWaitingForRelease(result.isWaitingForRelease || false);
+        setTimeUntilRelease(result.timeUntilRelease || 0);
       }
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
       setStatusMessage('Failed to load leaderboard data');
       setAllEntries([]);
+      setIsWaitingForRelease(false);
     } finally {
       setIsLoading(false);
     }
@@ -100,15 +109,15 @@ function LeaderboardPage() {
   useEffect(() => {
     fetchDailyLeaderboard();
     
-    // Set up auto-refresh for both daily and weekly (if weekly tab is active)
+    // Use different refresh intervals based on whether we're waiting for release
+    const refreshInterval = isWaitingForRelease ? COUNTDOWN_REFRESH_INTERVAL : LEADERBOARD_REFRESH_INTERVAL;
+    
     const intervalId = setInterval(() => {
       fetchDailyLeaderboard();
-      if (activeTab === 'weekly') {
-        fetchWeeklyLeaderboard();
-      }
-    }, LEADERBOARD_REFRESH_INTERVAL);
+    }, refreshInterval);
+    
     return () => clearInterval(intervalId);
-  }, [fetchDailyLeaderboard, fetchWeeklyLeaderboard, activeTab]);
+  }, [fetchDailyLeaderboard, isWaitingForRelease]);
 
   // Load weekly data when tab is activated
   useEffect(() => {
@@ -116,6 +125,24 @@ function LeaderboardPage() {
       fetchWeeklyLeaderboard();
     }
   }, [activeTab, fetchWeeklyLeaderboard, weeklyEntries.length]);
+
+  // Countdown timer for release waiting
+  useEffect(() => {
+    if (!isWaitingForRelease || timeUntilRelease <= 0) return;
+
+    const countdownInterval = setInterval(() => {
+      setTimeUntilRelease(prev => {
+        if (prev <= 1000) {
+          // Time's up, refresh the leaderboard
+          fetchDailyLeaderboard();
+          return 0;
+        }
+        return prev - 1000;
+      });
+    }, 1000);
+
+    return () => clearInterval(countdownInterval);
+  }, [isWaitingForRelease, timeUntilRelease, fetchDailyLeaderboard]);
 
   const getWeekDateRange = (weekStart: string) => {
     const startDate = new Date(weekStart + 'T00:00:00Z');
@@ -176,9 +203,22 @@ function LeaderboardPage() {
           <TabsContent value="daily" className="space-y-6">
             {/* Status Message */}
             {statusMessage && (
-              <Alert className="bg-gray-800 border-gray-700 text-white">
+              <Alert className={`border-gray-700 text-white ${
+                isWaitingForRelease ? 'bg-blue-900 border-blue-700' : 'bg-gray-800'
+              }`}>
                 <Info className="h-4 w-4" />
-                <AlertDescription>{statusMessage}</AlertDescription>
+                <AlertDescription>
+                  {isWaitingForRelease && timeUntilRelease > 0 ? (
+                    <div className="flex items-center justify-between">
+                      <span>{statusMessage}</span>
+                      <div className="ml-4 font-mono text-sm">
+                        {formatTimeLeft(timeUntilRelease)}
+                      </div>
+                    </div>
+                  ) : (
+                    statusMessage
+                  )}
+                </AlertDescription>
               </Alert>
             )}
 
@@ -188,6 +228,20 @@ function LeaderboardPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                 <span className="ml-3 text-gray-400">Loading leaderboard...</span>
               </div>
+            ) : isWaitingForRelease ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trophy className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">Leaderboard Coming Soon!</h3>
+                <p className="text-gray-400 mb-4">The daily competition is in progress...</p>
+                <div className="bg-gray-800 rounded-lg p-4 max-w-md mx-auto">
+                  <p className="text-gray-300 text-sm">{statusMessage}</p>
+                </div>
+                <p className="text-gray-500 text-sm mt-4">
+                  Keep submitting your outfits! Results will be revealed at the scheduled time.
+                </p>
+              </div>
             ) : allEntries.length === 0 ? (
               <div className="text-center py-12">
                 <Trophy className="h-16 w-16 text-gray-600 mx-auto mb-4" />
@@ -196,7 +250,7 @@ function LeaderboardPage() {
               </div>
             ) : (
               <>
-              {/* Top 3 Olympic Podium */}
+              {/* Top 3 Olympic Podium - Only show if we have 3 or more entries */}
               {allEntries.length >= 3 && (
                 <div className="flex justify-center items-end gap-6 mb-12">
                   {/* Second Place - Left */}
@@ -280,7 +334,63 @@ function LeaderboardPage() {
                     </div>
                   )}
                 </div>
-              )}                {/* Rest of Rankings */}
+              )}
+
+              {/* Simple List for entries 1-2 when we have fewer than 3 total */}
+              {allEntries.length < 3 && (
+                <div className="space-y-2">
+                  {allEntries.map((entry, index) => (
+                    <div 
+                      key={entry.id} 
+                      className={`bg-gray-800 rounded-xl p-4 border border-gray-700 hover:bg-gray-750 transition-colors cursor-pointer ${
+                        index === 0 ? 'border-yellow-500 bg-yellow-900/20' : 
+                        index === 1 ? 'border-gray-400 bg-gray-700/20' : ''
+                      }`}
+                      onClick={() => setSelectedEntry(entry)}
+                    >
+                      <div className="flex items-center justify-between">
+                        {/* Rank and User Info */}
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                            index === 0 ? 'bg-yellow-500 text-gray-900' : 
+                            index === 1 ? 'bg-gray-500 text-white' :
+                            'bg-gray-700 text-gray-300'
+                          }`}>
+                            {index + 1}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-12 h-12">
+                              <AvatarImage src={entry.userPhotoURL || '/default-avatar.png'} />
+                              <AvatarFallback className="bg-gray-700 text-white font-bold">
+                                {entry.username?.[0]?.toUpperCase() || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <span className={`font-medium ${index === 0 ? 'text-yellow-400' : 'text-white'}`}>
+                                {entry.username}
+                              </span>
+                              {index === 0 && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  <Trophy className="h-4 w-4 text-yellow-400" />
+                                  <span className="text-sm text-yellow-400">Leader</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* Score */}
+                        <div className={`font-bold text-lg ${index === 0 ? 'text-yellow-400' : 'text-gray-300'}`}>
+                          {(entry.rating * 10).toFixed(0)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Rest of Rankings (4th place and beyond) */}
+              {allEntries.length > 3 && (
                 <div className="space-y-2">
                   {allEntries.slice(3).map((entry, index) => (
                     <div 
@@ -307,12 +417,13 @@ function LeaderboardPage() {
                         
                         {/* Score */}
                         <div className="text-gray-300 font-medium">
-                          {Math.round(entry.rating * 100)} EXP
+                          {(entry.rating * 10).toFixed(0)}
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
+              )}
               </>
             )}
           </TabsContent>
@@ -343,7 +454,7 @@ function LeaderboardPage() {
                 size="sm"
                 onClick={() => navigateWeek('next')}
                 disabled={isWeeklyLoading || isFutureWeek()}
-                className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
+                className="bg-gray-800 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-50"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
