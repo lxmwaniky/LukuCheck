@@ -187,7 +187,7 @@ function LeaderboardPage() {
                           </div>
                         )}
                       </div>
-                      <p className="text-gray-300 text-lg font-medium">{(allEntries[1].rating).toFixed(1)}/10</p>
+                      <p className="text-gray-300 text-lg font-medium">{(allEntries[1].rating).toFixed(1)}</p>
                     </div>
                   )}
 

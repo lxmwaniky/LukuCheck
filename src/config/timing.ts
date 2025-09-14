@@ -10,8 +10,8 @@ export const TIMING_CONFIG = {
   SUBMISSION_CLOSE_HOUR: 18,  // 6 PM (changed from 20/8 PM)
   
   // Leaderboard timing
-  LEADERBOARD_RELEASE_HOUR: 18,      // 6:30 PM (30 minutes after submissions close)
-  LEADERBOARD_RELEASE_MINUTE: 30,
+  LEADERBOARD_RELEASE_HOUR: 18,      // 6:00 PM (same time submissions close)
+  LEADERBOARD_RELEASE_MINUTE: 0,
   
   // Leaderboard viewing cutoff (determines which day's leaderboard to show)
   LEADERBOARD_VIEWING_CUTOFF_HOUR: 18,   // 6:25 PM (changed from 20:25/8:25 PM)
@@ -29,7 +29,7 @@ export const TIMING_CONFIG = {
  */
 export const TIMING_DISPLAY = {
   SUBMISSION_WINDOW: '6:00 AM - 6:00 PM',
-  LEADERBOARD_RELEASE: '6:30 PM',
+  LEADERBOARD_RELEASE: '6:00 PM',
   AI_RESET: '6:00 AM',
 } as const;
 
@@ -48,6 +48,6 @@ export const TIMING_MESSAGES = {
   FAQ_SCHEDULE: `The daily style challenge runs on the following schedule:
 • AI Rating Credits Reset: 6:00 AM daily
 • Outfit Submission Window: 6:00 AM - 6:00 PM daily  
-• Leaderboard Results Release: 6:30 PM daily
+• Leaderboard Results Release: 6:00 PM daily
 • Leaderboard Viewable Until: 6:00 PM the following day`,
 } as const;
