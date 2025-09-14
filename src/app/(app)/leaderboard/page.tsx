@@ -234,7 +234,7 @@ function LeaderboardPage() {
                           </div>
                         )}
                       </div>
-                      <p className="text-yellow-400 text-xl font-bold">{(allEntries[0].rating).toFixed(1)}/10</p>
+                      <p className="text-yellow-400 text-xl font-bold">{(allEntries[0].rating).toFixed(1)}</p>
                     </div>
                   )}
 
@@ -272,7 +272,7 @@ function LeaderboardPage() {
                           </div>
                         )}
                       </div>
-                      <p className="text-amber-300 text-lg font-medium">{(allEntries[2].rating).toFixed(1)}/10</p>
+                      <p className="text-amber-300 text-lg font-medium">{(allEntries[2].rating).toFixed(1)}</p>
                     </div>
                   )}
                 </div>
@@ -291,10 +291,10 @@ function LeaderboardPage() {
                       }`}
                       onClick={() => setSelectedEntry(entry)}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         {/* Rank and User Info */}
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                        <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                          <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold ${
                             index === 0 ? 'bg-yellow-500 text-gray-900' : 
                             index === 1 ? 'bg-gray-500 text-white' :
                             index === 2 ? 'bg-amber-600 text-white' :
@@ -302,16 +302,16 @@ function LeaderboardPage() {
                           }`}>
                             {index + 1}
                           </div>
-                          <div className="flex items-center gap-3">
-                            <Avatar className="w-12 h-12">
+                          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <Avatar className="w-8 h-8 sm:w-12 sm:h-12 flex-shrink-0">
                               <AvatarImage src={entry.userPhotoURL || '/default-avatar.png'} />
-                              <AvatarFallback className="bg-gray-700 text-white font-bold">
+                              <AvatarFallback className="bg-gray-700 text-white font-bold text-xs sm:text-base">
                                 {entry.username?.[0]?.toUpperCase() || '?'}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className={`font-medium ${
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                                <span className={`font-medium text-sm sm:text-base truncate ${
                                   index === 0 ? 'text-yellow-400' : 
                                   index === 1 ? 'text-gray-300' :
                                   index === 2 ? 'text-amber-600' :
@@ -319,7 +319,7 @@ function LeaderboardPage() {
                                 }`}>
                                   {entry.username}
                                 </span>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 mt-1 sm:mt-0">
                                   {entry.currentStreak > 0 && (
                                     <div className="flex items-center gap-1">
                                       <Flame className="h-3 w-3 text-orange-500" />
@@ -339,8 +339,8 @@ function LeaderboardPage() {
                         </div>
                         
                         {/* Score */}
-                        <div className={`font-bold text-lg ${index === 0 ? 'text-yellow-400' : 'text-gray-300'}`}>
-                          {(entry.rating).toFixed(1)}/10
+                        <div className={`font-bold text-base sm:text-lg flex-shrink-0 ${index === 0 ? 'text-yellow-400' : 'text-gray-300'}`}>
+                          {(entry.rating).toFixed(1)}
                         </div>
                       </div>
                     </div>
@@ -392,7 +392,7 @@ function LeaderboardPage() {
                         
                         {/* Score */}
                         <div className="text-gray-300 font-medium">
-                          {(entry.rating).toFixed(1)}/10
+                          {(entry.rating).toFixed(1)}
                         </div>
                       </div>
                     </div>
@@ -419,7 +419,7 @@ function LeaderboardPage() {
                     <div>
                       <div className="text-white font-bold text-lg">{selectedEntry.username}</div>
                       {'rating' in selectedEntry ? (
-                        <div className="text-yellow-400 text-sm">Rating: {(selectedEntry.rating).toFixed(1)}/10</div>
+                        <div className="text-yellow-400 text-sm">Rating: {(selectedEntry.rating).toFixed(1)}</div>
                       ) : (
                         <div className="text-yellow-400 text-sm">Weekly Points: {selectedEntry.totalPoints}</div>
                       )}
@@ -442,7 +442,7 @@ function LeaderboardPage() {
                           <div className="text-gray-400 text-sm">Style Score</div>
                         </div>
                         <div className="text-2xl font-bold text-white">
-                          {(selectedEntry.rating).toFixed(1)}/10
+                          {(selectedEntry.rating).toFixed(1)}
                         </div>
                       </div>
                       <div className="bg-gray-700 rounded-lg p-3">
