@@ -1,7 +1,19 @@
 {
-  "name": "nextn",
+  "name": "lukucheck",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "description": "AI-powered outfit rating and fashion community app built with Next.js",
+  "keywords": ["fashion", "ai", "outfit", "rating", "community", "nextjs", "firebase", "react"],
+  "author": "LukuCheck Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lxmwaniky/LukuCheck.git"
+  },
+  "bugs": {
+    "url": "https://github.com/lxmwaniky/LukuCheck/issues"
+  },
+  "homepage": "https://github.com/lxmwaniky/LukuCheck#readme",
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
@@ -16,7 +28,10 @@
     "cap:build": "npm run build:mobile && cap sync",
     "cap:open:android": "cap open android",
     "cap:run:android": "cap run android",
-    "cap:build:android": "npm run cap:build && cap build android"
+    "cap:build:android": "npm run cap:build && cap build android",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:watch": "echo \"Error: no test specified\" && exit 1",
+    "test:coverage": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "@capacitor/android": "^7.4.1",

@@ -1,5 +1,9 @@
 # LukuCheck - Outfit Rating and Fashion Community App
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-2025-orange.svg)](https://hacktoberfest.com/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
 LukuCheck is a dynamic web application designed for fashion enthusiasts to share their outfits, receive AI-powered ratings, and compete on daily leaderboards. It fosters a community where users can build their style profiles, earn points and badges for their engagement, and discover new trends.
 
 ## Overview
@@ -111,6 +115,29 @@ Users can upload images of their outfits, which are then processed by an AI to p
     ```
     Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## 🤝 Contributing
+
+We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation, your help is appreciated.
+
+- 📖 Read our [Contributing Guidelines](CONTRIBUTING.md)
+- 🐛 Report bugs or request features in [Issues](https://github.com/lxmwaniky/LukuCheck/issues)
+- 🔀 Submit [Pull Requests](https://github.com/lxmwaniky/LukuCheck/pulls)
+- 💬 Join discussions in [GitHub Discussions](https://github.com/lxmwaniky/LukuCheck/discussions)
+
+### Hacktoberfest 2025
+
+We're participating in Hacktoberfest! Look for issues labeled `hacktoberfest` and `good first issue` to get started.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- Thanks to all our [contributors](https://github.com/lxmwaniky/LukuCheck/graphs/contributors)
+- Built with amazing open source technologies
+- Special thanks to the fashion and tech communities
+
 ---
 
-Thank you for checking out Luku! We welcome contributions and feedback.
+Thank you for checking out LukuCheck! We welcome contributions and feedback. Happy coding! 🚀✨
