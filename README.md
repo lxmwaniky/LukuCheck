@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Hacktoberfest](https://img.shields.io/badge/Hacktoberfest-2025-orange.svg)](https://hacktoberfest.com/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black)](https://vercel.com)
 
 LukuCheck is a dynamic web application designed for fashion enthusiasts to share their outfits, receive AI-powered ratings, and compete on daily leaderboards. It fosters a community where users can build their style profiles, earn points and badges for their engagement, and discover new trends.
 
@@ -113,7 +114,7 @@ Users can upload images of their outfits, which are then processed by an AI to p
     # OR
     yarn dev
     ```
-    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+    Open [http://localhost:9002](http://localhost:9002) with your browser to see the result.
 
 ## 🤝 Contributing
 
