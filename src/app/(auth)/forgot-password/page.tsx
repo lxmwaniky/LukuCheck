@@ -20,6 +20,9 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      if (!auth) {
+        throw new Error('Firebase auth not initialized');
+      }
       await sendPasswordResetEmail(auth, email);
       setEmailSent(true);
       toast({

@@ -30,6 +30,9 @@ export interface UserProfile {
   lastTop3BonusDate?: string | null;
   role?: UserRole;
   aiUsageLimit?: number | null; // Added for custom AI limits
+  // Referral system
+  referredBy?: string | null;
+  referralPointsAwarded?: boolean;
   // Point spending tracking
   lastPointSpend?: Timestamp | null;
   streak_shield_lastUsed?: Timestamp | null;

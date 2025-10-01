@@ -8,6 +8,19 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Trophy, Loader2, Info, Instagram, Flame, Coins, Heart } from "lucide-react";
 
+// Type for weekly leaderboard entries
+type WeeklyEntry = {
+  userId: string;
+  username: string;
+  photoURL?: string;
+  userPhotoURL?: string;
+  totalPoints: number;
+  totalSubmissions: number;
+  avgRating: number;
+  bestRating: number;
+  lukuPoints: number;
+};
+
 const LEADERBOARD_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes (reduced from 5 minutes)
 const COUNTDOWN_REFRESH_INTERVAL = 60 * 1000; // 1 minute when waiting for release (reduced from 30 seconds)
 
@@ -25,7 +38,7 @@ function LeaderboardPage() {
   const [allEntries, setAllEntries] = useState<LeaderboardEntry[]>([]);
   const [statusMessage, setStatusMessage] = useState<string | undefined>('Initializing...');
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<LeaderboardEntry | WeeklyEntry | null>(null);
   const [isWaitingForRelease, setIsWaitingForRelease] = useState(false);
   const [timeUntilRelease, setTimeUntilRelease] = useState<number>(0);
 
