@@ -1,6 +1,6 @@
-# Luku - Outfit Rating and Fashion Community App
+# LukuCheck - Outfit Rating and Fashion Community App
 
-Luku is a dynamic web application designed for fashion enthusiasts to share their outfits, receive AI-powered ratings, and compete on daily leaderboards. It fosters a community where users can build their style profiles, earn points and badges for their engagement, and discover new trends.
+LukuCheck is a dynamic web application designed for fashion enthusiasts to share their outfits, receive AI-powered ratings, and compete on daily leaderboards. It fosters a community where users can build their style profiles, earn points and badges for their engagement, and discover new trends.
 
 ## Overview
 
