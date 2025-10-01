@@ -133,9 +133,19 @@ We're participating in Hacktoberfest! Look for issues labeled `hacktoberfest` an
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## 👥 Contributors
+
+Thanks to all the amazing people who have contributed to LukuCheck! 
+
+<a href="https://github.com/lxmwaniky/LukuCheck/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=lxmwaniky/LukuCheck" />
+</a>
+
+Made with [contrib.rocks](https://contrib.rocks).
+
 ## 🙏 Acknowledgments
 
-- Thanks to all our [contributors](https://github.com/lxmwaniky/LukuCheck/graphs/contributors)
+- Thanks to all our contributors for making LukuCheck better
 - Built with amazing open source technologies
 - Special thanks to the fashion and tech communities
 
