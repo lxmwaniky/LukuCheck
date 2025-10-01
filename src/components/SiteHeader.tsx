@@ -1,7 +1,6 @@
-
 'use client';
 import Link from 'next/link';
-import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Flame, ShieldCheck, UserCog, ListChecks } from 'lucide-react';
+import { Shirt, Trophy, User as UserIcon, LogIn, LogOut, Sun, Moon, Menu, UploadCloud, Coins, Flame, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { auth } from '@/config/firebase';
@@ -10,10 +9,7 @@ import { useTheme } from 'next-themes';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useEffect, useState } from 'react';
-import { LukuBadge } from '@/components/LukuBadge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function SiteHeader() {
   const { user, userProfile, loading } = useAuth();
@@ -21,6 +17,7 @@ export function SiteHeader() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
+  
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -36,13 +33,24 @@ export function SiteHeader() {
     }
   };
 
-  const navLinkClass = "w-full justify-start text-base py-3 px-3 hover:bg-accent/80 focus:bg-accent/90";
   const userDisplayName = userProfile?.username || userProfile?.email?.split('@')[0] || "User";
   const userAvatarInitial = (userProfile?.username || "L").charAt(0).toUpperCase();
   const userAvatarSrc = userProfile?.customPhotoURL || userProfile?.photoURL || undefined;
-
   const isAdminOrManager = userProfile?.role && ['admin', 'manager'].includes(userProfile.role);
 
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  
+  const renderThemeIcon = () => {
+    if (!mounted) {
+      
+      return <Moon className="h-5 w-5" />;
+    }
+    return theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />;
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
@@ -59,20 +67,17 @@ export function SiteHeader() {
             <>
               <Link href="/upload">
                 <Button variant="ghost" className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                  <UploadCloud className="mr-2 h-4 w-4" /> 
+                  <UploadCloud className="mr-2 h-4 w-4" />
                   Submit
                 </Button>
               </Link>
-              
               <Link href="/leaderboard">
                 <Button variant="ghost" className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">
-                  <Trophy className="mr-2 h-4 w-4" /> 
+                  <Trophy className="mr-2 h-4 w-4" />
                   Leaderboard
                 </Button>
               </Link>
-              
               <div className="flex items-center gap-3 ml-2">
-                {/* Points & Streak */}
                 {typeof userProfile?.lukuPoints === 'number' && userProfile.lukuPoints > 0 && (
                   <div className="flex items-center gap-1 px-3 py-1 bg-yellow-50 dark:bg-yellow-900/20 rounded-full">
                     <Coins className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
@@ -81,7 +86,6 @@ export function SiteHeader() {
                     </span>
                   </div>
                 )}
-                
                 {typeof userProfile?.currentStreak === 'number' && userProfile.currentStreak > 0 && (
                   <div className="flex items-center gap-1 px-3 py-1 bg-orange-50 dark:bg-orange-900/20 rounded-full">
                     <Flame className="h-4 w-4 text-orange-600 dark:text-orange-400" />
@@ -90,8 +94,6 @@ export function SiteHeader() {
                     </span>
                   </div>
                 )}
-                
-                {/* Profile */}
                 <Link href="/profile">
                   <Button variant="ghost" className="flex items-center gap-2 px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                     <Avatar className="h-8 w-8 border border-gray-200 dark:border-gray-700">
@@ -108,38 +110,37 @@ export function SiteHeader() {
               </div>
             </>
           )}
-          
-          {/* Theme Toggle */}
+
+          {/* Theme Toggle Button (Desktop) */}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={toggleTheme}
             className="ml-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             aria-label="Toggle theme"
           >
-            {mounted && (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />)}
-            {!mounted && <Moon className="h-5 w-5" />}
+            {renderThemeIcon()}
           </Button>
-          
+
           {/* Auth Button */}
           {!loading && (
             user ? (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleLogout}
                 className="ml-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
-                <LogOut className="mr-2 h-4 w-4" /> 
+                <LogOut className="mr-2 h-4 w-4" />
                 Logout
               </Button>
             ) : (
               <Link href="/auth">
-                <Button 
+                <Button
                   size="sm"
                   className="ml-2 bg-blue-600 hover:bg-blue-700 text-white transition-colors"
                 >
-                  <LogIn className="mr-2 h-4 w-4" /> 
+                  <LogIn className="mr-2 h-4 w-4" />
                   Sign In
                 </Button>
               </Link>
@@ -147,18 +148,19 @@ export function SiteHeader() {
           )}
         </nav>
 
-        {/* Mobile Navigation */}
+        
         <div className="md:hidden flex items-center gap-2">
+         
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={toggleTheme}
             className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label="Toggle theme"
           >
-            {mounted ? (theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />) : <Moon className="h-5 w-5" />}
+            {renderThemeIcon()}
           </Button>
-          
+
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -172,11 +174,9 @@ export function SiteHeader() {
                   <SheetTitle className="text-xl font-bold text-gray-900 dark:text-white">LukuCheck</SheetTitle>
                 </Link>
               </SheetHeader>
-              
               <nav className="flex flex-col p-6 flex-grow space-y-4">
                 {user && (
                   <>
-                    {/* User Info */}
                     <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <Avatar className="h-12 w-12 border border-gray-200 dark:border-gray-700">
                         <AvatarImage src={userAvatarSrc} alt={userDisplayName} />
@@ -202,41 +202,36 @@ export function SiteHeader() {
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Navigation Links */}
                     <div className="space-y-2">
                       <SheetClose asChild>
                         <Link href="/upload">
                           <Button variant="ghost" className="w-full justify-start text-base py-3 px-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-300">
-                            <UploadCloud className="mr-3 h-5 w-5" /> 
+                            <UploadCloud className="mr-3 h-5 w-5" />
                             Submit Look
                           </Button>
                         </Link>
                       </SheetClose>
-                      
                       <SheetClose asChild>
                         <Link href="/leaderboard">
                           <Button variant="ghost" className="w-full justify-start text-base py-3 px-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-300">
-                            <Trophy className="mr-3 h-5 w-5" /> 
+                            <Trophy className="mr-3 h-5 w-5" />
                             Leaderboard
                           </Button>
                         </Link>
                       </SheetClose>
-                      
                       <SheetClose asChild>
                         <Link href="/profile">
                           <Button variant="ghost" className="w-full justify-start text-base py-3 px-4 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-300">
-                            <UserIcon className="mr-3 h-5 w-5" /> 
+                            <UserIcon className="mr-3 h-5 w-5" />
                             Profile
                           </Button>
                         </Link>
                       </SheetClose>
-                      
                       {isAdminOrManager && (
                         <SheetClose asChild>
                           <Link href="/admin">
                             <Button variant="ghost" className="w-full justify-start text-base py-3 px-4 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400">
-                              <UserCog className="mr-3 h-5 w-5" /> 
+                              <UserCog className="mr-3 h-5 w-5" />
                               Admin Panel
                             </Button>
                           </Link>
@@ -245,18 +240,16 @@ export function SiteHeader() {
                     </div>
                   </>
                 )}
-                
-                {/* Bottom Section */}
                 <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
                   {!loading && (
                     user ? (
                       <SheetClose asChild>
-                        <Button 
-                          variant="outline" 
-                          className="w-full justify-start text-base py-3 px-4 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800" 
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-base py-3 px-4 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
                           onClick={handleLogout}
                         >
-                          <LogOut className="mr-3 h-5 w-5" /> 
+                          <LogOut className="mr-3 h-5 w-5" />
                           Logout
                         </Button>
                       </SheetClose>
@@ -264,7 +257,7 @@ export function SiteHeader() {
                       <SheetClose asChild>
                         <Link href="/auth">
                           <Button className="w-full justify-start text-base py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white">
-                            <LogIn className="mr-3 h-5 w-5" /> 
+                            <LogIn className="mr-3 h-5 w-5" />
                             Sign In
                           </Button>
                         </Link>
@@ -280,4 +273,3 @@ export function SiteHeader() {
     </header>
   );
 }
-
