@@ -277,7 +277,7 @@ export async function updateTicketStatusAdmin( // Renamed for clarity, but logic
       // It's important to check if the field exists before trying to set it to null,
       // or to explicitly set it to null if the status implies it should not be closed.
       const ticketSnap = await ticketDocRef.get();
-      if (ticketSnap.exists() && ticketSnap.data()?.closedAt) {
+      if (ticketSnap.exists && ticketSnap.data()?.closedAt) {
          updatePayload.closedAt = null;
       }
     }

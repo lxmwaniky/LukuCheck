@@ -200,31 +200,21 @@ src/
 ├── contexts/        # React contexts
 ├── hooks/           # Custom React hooks
 └── lib/             # Utility functions
-```
-
 ## 🧪 Testing
 
-- Write unit tests for new functions
-- Test React components with React Testing Library
-- Ensure all tests pass before submitting PR
-- Aim for good test coverage on new code
+We use **Vitest** for unit testing with comprehensive coverage requirements.
 
-```bash
-# Run tests
-npm test
+### Testing Requirements
 
-# Run tests in watch mode
-npm run test:watch
+- ✅ Write unit tests for all new functions
+- ✅ Test React components with React Testing Library
+- ✅ Ensure all tests pass before submitting PR
+- ✅ Maintain minimum 78% code coverage
+- ✅ Follow Arrange-Act-Assert pattern
+- ✅ Add descriptive test names
 
-# Run tests with coverage
-npm run test:coverage
-```
+### Running Tests
 
-## 🎨 Design Guidelines
-
-- Follow the existing design language
-- Use the established color palette
-- Maintain consistent spacing and typography
 - Ensure accessibility (WCAG 2.1 AA compliance)
 - Test with screen readers when possible
 

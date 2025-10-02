@@ -36,7 +36,7 @@ export async function createStripeCheckoutSession(
 
   try {
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'mpesa'], // Add 'mpesa'
+      payment_method_types: ['card'], // mpesa not supported by Stripe
       mode: 'subscription',
       line_items: [
         {

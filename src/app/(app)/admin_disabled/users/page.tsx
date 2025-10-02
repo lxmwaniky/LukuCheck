@@ -95,7 +95,7 @@ export default function AdminUsersPage() {
         toast({ title: "Invalid Input", description: "Please enter a valid number for points.", variant: "destructive" });
         return;
     }
-     if ((pointsOperation === 'add' || pointsOperation === 'subtract') && pointsValue <= 0 && pointsOperation !== 'set') {
+     if ((pointsOperation === 'add' || pointsOperation === 'subtract') && pointsValue <= 0) {
         toast({ title: "Invalid Input", description: `For '${pointsOperation}', points must be a positive number. For 'set', any integer is valid.`, variant: "destructive" });
         return;
     }
